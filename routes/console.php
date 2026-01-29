@@ -28,3 +28,6 @@ Schedule::command('tasks:archive-overdue-after-shift')->hourly();
 
 // Cleanup orphaned temp proof files - runs hourly
 Schedule::command('proofs:cleanup-temp')->hourly();
+
+// Auto-close shifts after scheduled_end - runs every 5 minutes
+Schedule::job(new \App\Jobs\AutoCloseShiftsJob())->everyFiveMinutes();
