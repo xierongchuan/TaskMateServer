@@ -122,6 +122,22 @@ class TimeHelper
     }
 
     /**
+     * Границы текущего дня в UTC, рассчитанные по timezone автосалона.
+     *
+     * @param string $timezone Timezone автосалона (например, "Asia/Tashkent", "+05:00")
+     * @return array{start: Carbon, end: Carbon}
+     */
+    public static function dayBoundariesForTimezone(string $timezone): array
+    {
+        $now = Carbon::now($timezone);
+
+        return [
+            'start' => $now->copy()->startOfDay()->setTimezone(self::DB_TIMEZONE),
+            'end' => $now->copy()->endOfDay()->setTimezone(self::DB_TIMEZONE),
+        ];
+    }
+
+    /**
      * Начало недели в UTC (понедельник)
      */
     public static function startOfWeekUtc(): Carbon

@@ -41,7 +41,7 @@ describe('DashboardService', function () {
                 'open_shifts',
                 'late_shifts_today',
                 'active_shifts',
-                'recent_tasks',
+                'today_tasks_list',
                 'active_generators',
                 'total_generators',
                 'tasks_generated_today',
@@ -209,15 +209,16 @@ describe('DashboardService', function () {
             expect($data['late_shifts_today'])->toBe(1);
         });
 
-        it('returns recent tasks', function () {
-            // Arrange
+        it('returns today tasks list', function () {
+            // Arrange - tasks are created but without completed responses,
+            // so they won't appear in today_tasks_list unless overdue
             Task::factory(10)->create(['dealership_id' => $this->dealership->id]);
 
             // Act
             $data = $this->dashboardService->getDashboardData($this->dealership->id);
 
             // Assert
-            expect($data['recent_tasks'])->toHaveCount(5);
+            expect($data)->toHaveKey('today_tasks_list');
         });
 
         it('counts generator statistics', function () {

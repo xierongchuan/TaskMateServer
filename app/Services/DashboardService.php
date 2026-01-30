@@ -38,10 +38,20 @@ class DashboardService
      */
     public function getDashboardData(?int $dealershipId = null): array
     {
-        $this->todayBoundaries = [
-            'start' => TimeHelper::startOfDayUtc(),
-            'end' => TimeHelper::endOfDayUtc(),
-        ];
+        // Определяем границы дня по timezone автосалона
+        $timezone = null;
+        if ($dealershipId) {
+            $timezone = AutoDealership::where('id', $dealershipId)->value('timezone');
+        }
+
+        if ($timezone) {
+            $this->todayBoundaries = TimeHelper::dayBoundariesForTimezone($timezone);
+        } else {
+            $this->todayBoundaries = [
+                'start' => TimeHelper::startOfDayUtc(),
+                'end' => TimeHelper::endOfDayUtc(),
+            ];
+        }
 
         // Получаем статистику задач одним оптимизированным запросом
         $taskStats = $this->getTaskStatistics($dealershipId);
@@ -63,7 +73,7 @@ class DashboardService
             'late_shifts_today' => $this->getLateShiftsCount($dealershipId),
             'active_shifts' => $activeShifts,
             'dealership_shift_stats' => $this->getDealershipShiftStats($dealershipId),
-            'recent_tasks' => $this->getRecentTasks($dealershipId),
+            'today_tasks_list' => $this->getTodayTasksList($dealershipId),
             'active_generators' => $this->getGeneratorStats($dealershipId)['active'],
             'total_generators' => $this->getGeneratorStats($dealershipId)['total'],
             'tasks_generated_today' => $this->getGeneratorStats($dealershipId)['generated_today'],
@@ -252,6 +262,74 @@ class DashboardService
                     ] : null,
                 ];
             });
+    }
+
+    /**
+     * Получает список задач за сегодня: просроченные первыми, затем выполненные.
+     *
+     * "Сегодня" определяется по timezone автосалона (todayBoundaries).
+     *
+     * @param int|null $dealershipId
+     * @return Collection
+     */
+    protected function getTodayTasksList(?int $dealershipId): Collection
+    {
+        $todayStart = $this->todayBoundaries['start'];
+        $todayEnd = $this->todayBoundaries['end'];
+        $nowUtc = TimeHelper::nowUtc();
+
+        // Просроченные задачи (overdue)
+        $overdueTasks = Task::with(['creator:id,full_name', 'dealership:id,name', 'assignments.user:id,full_name', 'responses.user:id,full_name'])
+            ->where('is_active', true)
+            ->where('deadline', '<', $nowUtc)
+            ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'))
+            ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
+            ->orderBy('deadline')
+            ->limit(15)
+            ->get();
+
+        // Выполненные сегодня задачи
+        $remainingLimit = max(0, 15 - $overdueTasks->count());
+        $completedTasks = collect();
+
+        if ($remainingLimit > 0) {
+            $completedTasks = Task::with(['creator:id,full_name', 'dealership:id,name', 'assignments.user:id,full_name', 'responses.user:id,full_name'])
+                ->whereNull('archived_at')
+                ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
+                ->where(function ($q) use ($todayStart, $todayEnd) {
+                    $q->where(function ($individual) use ($todayStart, $todayEnd) {
+                        $individual->where('task_type', 'individual')
+                            ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
+                                ->whereBetween('responded_at', [$todayStart, $todayEnd]));
+                    })
+                    ->orWhere(function ($group) use ($todayStart, $todayEnd) {
+                        $group->where('task_type', 'group')
+                            ->whereHas('assignments')
+                            ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
+                                ->whereBetween('responded_at', [$todayStart, $todayEnd]))
+                            ->whereRaw('(
+                                SELECT COUNT(DISTINCT ta.user_id)
+                                FROM task_assignments ta
+                                WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
+                            ) > 0')
+                            ->whereRaw('(
+                                SELECT COUNT(DISTINCT ta.user_id)
+                                FROM task_assignments ta
+                                WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
+                            ) = (
+                                SELECT COUNT(DISTINCT tr.user_id)
+                                FROM task_responses tr
+                                WHERE tr.task_id = tasks.id AND tr.status = ?
+                            )', ['completed']);
+                    });
+                })
+                ->orderByDesc('updated_at')
+                ->limit($remainingLimit)
+                ->get();
+        }
+
+        return $overdueTasks->concat($completedTasks)
+            ->map(fn ($task) => $task->toApiArray());
     }
 
     /**
