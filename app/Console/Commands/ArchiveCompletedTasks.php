@@ -141,7 +141,11 @@ class ArchiveCompletedTasks extends Command
         $current = Carbon::createFromFormat('H:i', $currentTime, 'UTC');
         $configured = Carbon::createFromFormat('H:i', $configuredTime, 'UTC');
 
-        return abs($current->diffInMinutes($configured)) <= 5;
+        $diffMinutes = abs($current->diffInMinutes($configured));
+        // Учёт перехода через полночь: 1440 минут в сутках
+        $diffMinutes = min($diffMinutes, 1440 - $diffMinutes);
+
+        return $diffMinutes <= 5;
     }
 
     /**

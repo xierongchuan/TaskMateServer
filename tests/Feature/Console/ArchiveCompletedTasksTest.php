@@ -318,4 +318,48 @@ class ArchiveCompletedTasksTest extends TestCase
 
         $this->assertNotNull($task2->archived_at);
     }
+
+    public function test_archives_completed_tasks_around_midnight(): void
+    {
+        // Simulate current time at 00:02 UTC, with archive_completed_time = 23:58
+        // This tests midnight crossover in isTimeMatch (diff should be 4 min, not 1436)
+        Carbon::setTestNow(Carbon::create(2026, 1, 30, 0, 2, 0, 'UTC'));
+
+        $task = Task::factory()->create([
+            'dealership_id' => $this->dealership->id,
+            'creator_id' => $this->manager->id,
+            'is_active' => true,
+            'archived_at' => null,
+            'task_type' => 'individual',
+        ]);
+
+        TaskAssignment::create([
+            'task_id' => $task->id,
+            'user_id' => $this->employee->id,
+        ]);
+
+        TaskResponse::create([
+            'task_id' => $task->id,
+            'user_id' => $this->employee->id,
+            'status' => 'completed',
+            'created_at' => Carbon::now()->subDays(2),
+        ]);
+
+        Setting::create([
+            'dealership_id' => $this->dealership->id,
+            'key' => 'archive_completed_time',
+            'value' => '23:58',
+            'type' => 'time',
+        ]);
+
+        // Without --force, should still match because 23:58 → 00:02 = 4 min difference
+        $this->artisan('tasks:archive-completed', ['--type' => 'completed'])
+            ->assertSuccessful();
+
+        $task->refresh();
+        $this->assertNotNull($task->archived_at, 'Task should be archived when time crosses midnight');
+        $this->assertEquals('completed', $task->archive_reason);
+
+        Carbon::setTestNow();
+    }
 }

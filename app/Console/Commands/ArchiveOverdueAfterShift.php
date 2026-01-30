@@ -71,7 +71,7 @@ class ArchiveOverdueAfterShift extends Command
             $this->info("  Processing shift #{$shift->id} (closed: {$shiftEndTime->toIso8601ZuluString()})");
 
             // Find overdue tasks for this dealership that had deadline during/before this shift
-            $overdueTasks = Task::where('dealership_id', $shift->dealership_id)
+            Task::where('dealership_id', $shift->dealership_id)
                 ->where('is_active', true)
                 ->whereNull('archived_at')
                 ->whereNotNull('deadline')
@@ -81,21 +81,21 @@ class ArchiveOverdueAfterShift extends Command
                     // TaskResponse only has: pending, acknowledged, pending_review, completed, rejected
                     $q->where('status', 'completed');
                 })
-                ->get();
+                ->chunkById(500, function ($tasks) use (&$archivedCount, $dryRun) {
+                    foreach ($tasks as $task) {
+                        $this->line("    - Archiving task #{$task->id}: {$task->title}");
 
-            foreach ($overdueTasks as $task) {
-                $this->line("    - Archiving task #{$task->id}: {$task->title}");
+                        if (!$dryRun) {
+                            $task->update([
+                                'is_active' => false,
+                                'archived_at' => TimeHelper::nowUtc(),
+                                'archive_reason' => 'expired_after_shift',
+                            ]);
+                        }
 
-                if (!$dryRun) {
-                    $task->update([
-                        'is_active' => false,
-                        'archived_at' => TimeHelper::nowUtc(),
-                        'archive_reason' => 'expired_after_shift',
-                    ]);
-                }
-
-                $archivedCount++;
-            }
+                        $archivedCount++;
+                    }
+                });
 
             // Отметить смену как обработанную после проверки (независимо от наличия задач)
             // Это предотвращает повторную проверку смены при следующих запусках команды

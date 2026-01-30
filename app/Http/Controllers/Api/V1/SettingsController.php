@@ -187,7 +187,7 @@ class SettingsController extends Controller
      */
     public function getNotificationConfig(Request $request): JsonResponse
     {
-        $dealershipId = $request->query('dealership_id');
+        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
 
         $notificationConfig = [
             'notification_enabled' => (bool) $this->settingsService->getSettingWithFallback('notification_enabled', $dealershipId, true),
@@ -270,7 +270,7 @@ class SettingsController extends Controller
      */
     public function getArchiveConfig(Request $request): JsonResponse
     {
-        $dealershipId = $request->query('dealership_id');
+        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
 
         $archiveConfig = [
             'archive_completed_time' => $this->settingsService->getSettingWithFallback('archive_completed_time', $dealershipId, '03:00'),
