@@ -72,7 +72,8 @@ class ShiftSeeder extends Seeder
             return;
         }
 
-        $today = Carbon::today('Asia/Yekaterinburg');
+        $timezone = $dealership->timezone ?? '+05:00';
+        $today = Carbon::today($timezone)->setTimezone('UTC');
         $startDate = $today->copy()->subDays(self::$historyDays);
 
         $shiftsCreated = 0;
@@ -94,11 +95,7 @@ class ShiftSeeder extends Seeder
                     $shift = $this->createClosedShift($employee, $dealership, $currentDate);
                     $shiftsCreated++;
 
-                    // 10% смен с опозданием
-                    if (fake()->boolean(10)) {
-                        $shift->update([
-                            'late_minutes' => fake()->numberBetween(5, 45),
-                        ]);
+                    if ($shift->late_minutes > 0) {
                         $lateShifts++;
                     }
                 }
@@ -130,20 +127,25 @@ class ShiftSeeder extends Seeder
      */
     private function createClosedShift(User $employee, AutoDealership $dealership, Carbon $date): Shift
     {
-        // Утренняя или вечерняя смена
+        $timezone = $dealership->timezone ?? '+05:00';
+
+        // Утренняя или вечерняя смена (время в местном timezone → UTC)
         $isMorningShift = fake()->boolean(60);
 
         if ($isMorningShift) {
-            $scheduledStart = $date->copy()->setTime(9, 0);
-            $scheduledEnd = $date->copy()->setTime(14, 0);
+            $scheduledStart = $date->copy()->setTimezone($timezone)->setTime(9, 0)->setTimezone('UTC');
+            $scheduledEnd = $date->copy()->setTimezone($timezone)->setTime(14, 0)->setTimezone('UTC');
         } else {
-            $scheduledStart = $date->copy()->setTime(14, 0);
-            $scheduledEnd = $date->copy()->setTime(20, 0);
+            $scheduledStart = $date->copy()->setTimezone($timezone)->setTime(14, 0)->setTimezone('UTC');
+            $scheduledEnd = $date->copy()->setTimezone($timezone)->setTime(20, 0)->setTimezone('UTC');
         }
 
         // Реальное время начала (может быть небольшое отклонение)
         $actualStart = $scheduledStart->copy()->addMinutes(fake()->numberBetween(-5, 15));
         $actualEnd = $scheduledEnd->copy()->addMinutes(fake()->numberBetween(-10, 30));
+
+        // Опоздание = разница между фактическим и запланированным началом (если пришёл позже)
+        $lateMinutes = max(0, (int) $scheduledStart->diffInMinutes($actualStart, false));
 
         return Shift::create([
             'user_id' => $employee->id,
@@ -154,7 +156,7 @@ class ShiftSeeder extends Seeder
             'closing_photo_path' => 'shifts/demo/closing_' . $employee->id . '_' . $date->format('Ymd') . '.jpg',
             'status' => 'closed',
             'shift_type' => $isMorningShift ? 'shift_1' : 'shift_2',
-            'late_minutes' => 0,
+            'late_minutes' => $lateMinutes,
             'scheduled_start' => $scheduledStart,
             'scheduled_end' => $scheduledEnd,
         ]);
@@ -165,12 +167,16 @@ class ShiftSeeder extends Seeder
      */
     private function createOpenShift(User $employee, AutoDealership $dealership, Carbon $date): Shift
     {
-        $scheduledStart = $date->copy()->setTime(9, 0);
-        $scheduledEnd = $date->copy()->setTime(18, 0);
+        $timezone = $dealership->timezone ?? '+05:00';
 
-        // Смена началась несколько часов назад
-        $hoursAgo = fake()->numberBetween(1, 4);
-        $actualStart = Carbon::now('Asia/Yekaterinburg')->subHours($hoursAgo);
+        $scheduledStart = $date->copy()->setTimezone($timezone)->setTime(9, 0)->setTimezone('UTC');
+        $scheduledEnd = $date->copy()->setTimezone($timezone)->setTime(18, 0)->setTimezone('UTC');
+
+        // Реальное время начала (небольшое отклонение от расписания)
+        $actualStart = $scheduledStart->copy()->addMinutes(fake()->numberBetween(-5, 15));
+
+        // Опоздание = разница между фактическим и запланированным началом (если пришёл позже)
+        $lateMinutes = max(0, (int) $scheduledStart->diffInMinutes($actualStart, false));
 
         return Shift::create([
             'user_id' => $employee->id,
@@ -181,7 +187,7 @@ class ShiftSeeder extends Seeder
             'closing_photo_path' => null,
             'status' => 'open',
             'shift_type' => 'shift_1',
-            'late_minutes' => fake()->boolean(20) ? fake()->numberBetween(5, 30) : 0,
+            'late_minutes' => $lateMinutes,
             'scheduled_start' => $scheduledStart,
             'scheduled_end' => $scheduledEnd,
         ]);
