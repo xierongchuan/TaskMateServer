@@ -11,6 +11,7 @@ use App\Models\Shift;
 use App\Services\SettingsService;
 use App\Services\ShiftService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -24,12 +25,13 @@ use Illuminate\Support\Facades\Log;
  * находит открытые смены, у которых scheduled_end уже прошёл,
  * и закрывает их без фото.
  */
-class AutoCloseShiftsJob implements ShouldQueue
+class AutoCloseShiftsJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
     public int $backoff = 60;
+    public int $uniqueFor = 300;
 
     public function __construct()
     {

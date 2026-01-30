@@ -157,11 +157,23 @@ class ReportController extends Controller
                 })
                 ->count();
 
+            // Смены за период
+            $userShiftsQuery = Shift::where('user_id', $employee->id)
+                ->whereBetween('shift_start', [$from, $to]);
+
+            $userTotalShifts = (clone $userShiftsQuery)->count();
+
             // Опоздания на смены
-            $userLateShifts = Shift::where('user_id', $employee->id)
-                ->whereBetween('shift_start', [$from, $to])
-                ->where('late_minutes', '>', 0)
-                ->count();
+            $lateShiftsQuery = (clone $userShiftsQuery)->where('late_minutes', '>', 0);
+            $userLateShifts = (clone $lateShiftsQuery)->count();
+            $userAvgLateMinutes = $userLateShifts > 0
+                ? (int) round((float) $lateShiftsQuery->avg('late_minutes'), 0)
+                : 0;
+
+            // Процент выполнения
+            $completionRate = $userTasks > 0
+                ? round(($userCompleted / $userTasks) * 100, 1)
+                : 0;
 
             // Расчёт рейтинга
             $score = 100;
@@ -174,9 +186,13 @@ class ReportController extends Controller
             return [
                 'employee_id' => $employee->id,
                 'employee_name' => $employee->full_name,
+                'total_tasks' => $userTasks,
                 'completed_tasks' => $userCompleted,
+                'completion_rate' => $completionRate,
                 'overdue_tasks' => $userOverdue,
+                'total_shifts' => $userTotalShifts,
                 'late_shifts' => $userLateShifts,
+                'avg_late_minutes' => (int) $userAvgLateMinutes,
                 'performance_score' => $score,
             ];
         })->sortByDesc('performance_score')->values();
