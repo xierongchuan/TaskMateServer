@@ -24,52 +24,41 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
   && docker-php-ext-install pgsql
 
 # 3) Redis через PECL
-RUN set -eux; \
-  pecl install redis-6.2.0 || true; \
-  docker-php-ext-enable redis || true
+RUN pecl install redis-6.2.0 \
+  && docker-php-ext-enable redis
 
 # 4) Composer (официальный образ)
 COPY --from=docker.io/library/composer:latest /usr/bin/composer /usr/bin/composer
 
 # 5) Копирование composer-файлов и установка зависимостей
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction --no-scripts || true
+RUN composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction --no-scripts
 
 # 6) Копирование кодовой базы
 COPY . .
 
 # 7) Права на каталоги
 RUN chown -R www-data:www-data storage storage/framework bootstrap/cache \
-  && chmod -R 755 storage storage/framework bootstrap/cache || true
+  && chmod -R 755 storage storage/framework bootstrap/cache
 
 # ---------------- STAGE: runner ----------------
 FROM docker.io/dunglas/frankenphp:1-php8.4 AS runner
 
 WORKDIR /app
 
-# Устанавливаем минимальные runtime-зависимости
+# Устанавливаем минимальные runtime-зависимости (только библиотеки, без dev-пакетов)
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends \
-  libpng-dev libjpeg-dev libfreetype6-dev \
-  libzip-dev libonig-dev libxml2-dev libicu-dev \
-  sqlite3 libsqlite3-dev \
-  libpq-dev \
+  libpng16-16t64 libjpeg62-turbo libfreetype6 \
+  libzip5 libonig5 libxml2 libicu76 \
+  libpq5 \
   supervisor \
-  $PHPIZE_DEPS \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# Включаем необходимые расширения в runtime
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j$(nproc) \
-  mbstring exif pcntl bcmath zip intl sockets \
-  pdo pdo_pgsql gd \
-  && docker-php-ext-install pgsql
-
-# Устанавливаем redis-расширение в runtime
-RUN set -eux; \
-  pecl install redis-6.2.0 || true; \
-  docker-php-ext-enable redis || true
+# Копируем скомпилированные PHP-расширения из build (вместо пересборки)
+COPY --from=build /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
+COPY --from=build /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 
 # Копируем артефакты и код из build
 COPY --from=build /app /app
@@ -83,7 +72,7 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/99-taskmate.ini
 
 # Права
 RUN chown -R www-data:www-data storage storage/framework bootstrap/cache \
-  && chmod -R 755 storage storage/framework bootstrap/cache || true
+  && chmod -R 755 storage storage/framework bootstrap/cache
 
 # Создаем директорию для логов supervisor
 RUN mkdir -p /var/log/supervisor && chown -R www-data:www-data /var/log/supervisor
