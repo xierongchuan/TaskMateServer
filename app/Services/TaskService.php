@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\User;
+use App\Services\TaskEventPublisher;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +38,7 @@ class TaskService
             throw new \App\Exceptions\DuplicateTaskException('Такая задача уже существует (дубликат)');
         }
 
-        return DB::transaction(function () use ($data, $creator) {
+        $task = DB::transaction(function () use ($data, $creator) {
             $task = Task::create([
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,
@@ -60,6 +61,13 @@ class TaskService
 
             return $task;
         });
+
+        // Публикуем событие после коммита транзакции
+        if (!empty($data['assignments'])) {
+            TaskEventPublisher::publishTaskAssigned($task, $data['assignments']);
+        }
+
+        return $task;
     }
 
     /**

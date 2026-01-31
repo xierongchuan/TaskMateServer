@@ -17,6 +17,7 @@ use App\Models\TaskAssignment;
 use App\Services\SettingsService;
 use App\Services\TaskFilterService;
 use App\Services\TaskProofService;
+use App\Services\TaskEventPublisher;
 use App\Services\TaskService;
 use App\Services\TaskVerificationService;
 use App\Jobs\StoreTaskSharedProofsJob;
@@ -464,6 +465,12 @@ class TaskController extends Controller
             return response()->json([
                 'message' => 'Ошибка при обновлении статуса задачи: ' . $e->getMessage(),
             ], 500);
+        }
+
+        // Публикуем событие в RabbitMQ для Telegram Bot
+        if ($status === 'pending') {
+            $assignedUserIds = $task->assignments->pluck('user_id')->toArray();
+            TaskEventPublisher::publishTaskAssigned($task, $assignedUserIds);
         }
 
         // Асинхронные операции выполняются ПОСЛЕ успешного коммита транзакции

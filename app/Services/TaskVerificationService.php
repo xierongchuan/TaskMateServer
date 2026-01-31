@@ -9,6 +9,7 @@ use App\Models\Task;
 use App\Models\TaskResponse;
 use App\Models\TaskVerificationHistory;
 use App\Models\User;
+use App\Services\TaskEventPublisher;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -32,7 +33,7 @@ class TaskVerificationService
      */
     public function approve(TaskResponse $response, User $verifier): TaskResponse
     {
-        return DB::transaction(function () use ($response, $verifier) {
+        $result = DB::transaction(function () use ($response, $verifier) {
             $previousStatus = $response->status;
             $proofCount = $response->proofs()->count();
 
@@ -54,6 +55,10 @@ class TaskVerificationService
 
             return $response->fresh();
         });
+
+        TaskEventPublisher::publishTaskApproved($result);
+
+        return $result;
     }
 
     /**
@@ -69,7 +74,7 @@ class TaskVerificationService
      */
     public function reject(TaskResponse $response, User $verifier, string $reason): TaskResponse
     {
-        return DB::transaction(function () use ($response, $verifier, $reason) {
+        $result = DB::transaction(function () use ($response, $verifier, $reason) {
             $previousStatus = $response->status;
 
             // Удаляем только индивидуальные файлы (НЕ shared_proofs!)
@@ -106,6 +111,10 @@ class TaskVerificationService
 
             return $response->fresh();
         });
+
+        TaskEventPublisher::publishTaskRejected($result, $reason);
+
+        return $result;
     }
 
     /**
@@ -159,13 +168,16 @@ class TaskVerificationService
      */
     public function rejectAllForTask(Task $task, User $verifier, string $reason): void
     {
-        DB::transaction(function () use ($task, $verifier, $reason) {
+        $rejectedUserIds = [];
+
+        DB::transaction(function () use ($task, $verifier, $reason, &$rejectedUserIds) {
             $pendingResponses = $task->responses()
                 ->where('status', 'pending_review')
                 ->get();
 
             foreach ($pendingResponses as $response) {
                 $this->rejectSingleResponse($response, $verifier, $reason);
+                $rejectedUserIds[] = $response->user_id;
             }
 
             // Удаляем shared_proofs если есть
@@ -173,6 +185,10 @@ class TaskVerificationService
                 $this->taskProofService->deleteSharedProofs($task);
             }
         });
+
+        if (!empty($rejectedUserIds)) {
+            TaskEventPublisher::publishTaskRejectedBulk($task, $rejectedUserIds, $reason);
+        }
     }
 
     /**
