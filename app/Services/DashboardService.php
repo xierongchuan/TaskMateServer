@@ -217,8 +217,11 @@ class DashboardService
                     'dealership_name' => $dealership->name,
                     'total_employees' => $totalEmployees,
                     'on_shift_count' => $onShiftCount,
-                    'shift_1_start_time' => $settingsService->getShiftStartTime($dealership->id, 1),
-                    'shift_2_start_time' => $settingsService->getShiftStartTime($dealership->id, 2),
+                    'shift_schedules' => \App\Models\ShiftSchedule::where('dealership_id', $dealership->id)
+                        ->where('is_active', true)
+                        ->orderBy('sort_order')
+                        ->get(['id', 'name', 'start_time', 'end_time'])
+                        ->toArray(),
                     'is_today_holiday' => CalendarDay::isHoliday(TimeHelper::nowUtc(), $dealership->id),
                 ];
             });

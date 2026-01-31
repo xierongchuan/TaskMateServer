@@ -111,17 +111,32 @@ class SettingsController extends Controller
      * Get shift configuration
      *
      * GET /api/v1/settings/shift-config
+     *
+     * Возвращает late_tolerance_minutes и список расписаний смен из shift_schedules.
      */
     public function getShiftConfig(Request $request): JsonResponse
     {
         $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
 
+        $schedules = [];
+        if ($dealershipId) {
+            $schedules = \App\Models\ShiftSchedule::where('dealership_id', $dealershipId)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get()
+                ->map(fn ($s) => [
+                    'id' => $s->id,
+                    'name' => $s->name,
+                    'start_time' => $s->start_time,
+                    'end_time' => $s->end_time,
+                    'sort_order' => $s->sort_order,
+                ])
+                ->values();
+        }
+
         $shiftConfig = [
-            'shift_1_start_time' => $this->settingsService->getShiftStartTime($dealershipId, 1),
-            'shift_1_end_time' => $this->settingsService->getShiftEndTime($dealershipId, 1),
-            'shift_2_start_time' => $this->settingsService->getShiftStartTime($dealershipId, 2),
-            'shift_2_end_time' => $this->settingsService->getShiftEndTime($dealershipId, 2),
             'late_tolerance_minutes' => $this->settingsService->getLateTolerance($dealershipId),
+            'schedules' => $schedules,
         ];
 
         return response()->json([
@@ -131,17 +146,15 @@ class SettingsController extends Controller
     }
 
     /**
-     * Update shift configuration
+     * Update shift configuration (only late_tolerance_minutes)
      *
      * POST /api/v1/settings/shift-config
+     *
+     * Расписания смен теперь управляются через /api/v1/shift-schedules.
      */
     public function updateShiftConfig(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'shift_1_start_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'shift_1_end_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'shift_2_start_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'shift_2_end_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
             'late_tolerance_minutes' => ['nullable', 'integer', 'min:0', 'max:120'],
             'dealership_id' => ['nullable', 'integer'],
         ]);
@@ -156,15 +169,11 @@ class SettingsController extends Controller
         try {
             $data = $validator->validated();
             $dealershipId = $data['dealership_id'] ?? null;
-            unset($data['dealership_id']);
 
             $updatedSettings = [];
-            foreach ($data as $key => $value) {
-                if ($value !== null) {
-                    $type = $key === 'late_tolerance_minutes' ? 'integer' : 'time';
-                    $this->settingsService->set($key, $value, $dealershipId, $type);
-                    $updatedSettings[$key] = $value;
-                }
+            if (isset($data['late_tolerance_minutes'])) {
+                $this->settingsService->set('late_tolerance_minutes', $data['late_tolerance_minutes'], $dealershipId, 'integer');
+                $updatedSettings['late_tolerance_minutes'] = $data['late_tolerance_minutes'];
             }
 
             return response()->json([

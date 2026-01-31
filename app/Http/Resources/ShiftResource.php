@@ -36,6 +36,7 @@ class ShiftResource extends JsonResource
             'id' => $this->id,
             'user_id' => $this->user_id,
             'dealership_id' => $this->dealership_id,
+            'shift_schedule_id' => $this->shift_schedule_id,
             'shift_start' => $this->shift_start?->toIso8601String(),
             'shift_end' => $this->shift_end?->toIso8601String(),
             'scheduled_start' => $this->scheduled_start?->toIso8601String(),
@@ -65,6 +66,13 @@ class ShiftResource extends JsonResource
             $data['user'] = [
                 'id' => $this->user->id,
                 'full_name' => $this->user->full_name,
+            ];
+        }
+
+        if ($this->relationLoaded('schedule') && $this->schedule) {
+            $data['schedule'] = [
+                'id' => $this->schedule->id,
+                'name' => $this->schedule->name,
             ];
         }
 

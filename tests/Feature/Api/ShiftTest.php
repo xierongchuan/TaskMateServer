@@ -13,7 +13,15 @@ describe('Shift API', function () {
         $this->manager = User::factory()->create(['role' => Role::MANAGER->value]);
         $this->owner = User::factory()->create(['role' => Role::OWNER->value]);
         $this->employee = User::factory()->create(['role' => Role::EMPLOYEE->value]);
-        $this->dealership = AutoDealership::factory()->create();
+        $this->dealership = AutoDealership::factory()->create(['timezone' => '+00:00']);
+        \App\Models\ShiftSchedule::create([
+            'dealership_id' => $this->dealership->id,
+            'name' => 'Смена 1',
+            'sort_order' => 0,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'is_active' => true,
+        ]);
         \Illuminate\Support\Facades\Storage::fake('public');
     });
 

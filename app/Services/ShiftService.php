@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\ShiftStatus;
 use App\Models\Shift;
+use App\Models\ShiftSchedule;
 use App\Models\User;
 use App\Models\Task;
 use App\Models\TaskResponse;
@@ -51,20 +52,38 @@ class ShiftService
 
         $now = Carbon::now();
 
-        // Get dealership-specific settings (before transaction for performance)
-        $scheduledStart = $this->getScheduledStartTime($now, $dealershipId);
-        $scheduledEnd = $this->getScheduledEndTime($now, $dealershipId);
-        $lateTolerance = $this->settingsService->getLateTolerance($dealershipId);
+        // Определяем расписание смены по текущему времени
+        $timezone = $this->settingsService->getTimezone($dealershipId);
+        $localNow = $now->copy()->setTimezone($timezone);
+        $localTimeStr = $localNow->format('H:i');
 
-        // Calculate if user is late
-        $lateMinutes = (int) max(0, $now->diffInMinutes($scheduledStart));
+        $lateTolerance = $this->settingsService->getLateTolerance($dealershipId);
+        $schedule = $this->resolveShiftSchedule($dealershipId, $localTimeStr, $lateTolerance);
+
+        // Вычисляем scheduled_start и scheduled_end в UTC
+        $scheduledStart = $this->scheduleTimeToUtc($localNow, $schedule->start_time, $timezone);
+        $scheduledEnd = $this->scheduleTimeToUtc($localNow, $schedule->end_time, $timezone);
+
+        // Если end_time < start_time — смена пересекает полночь, end на следующий день
+        if ($schedule->crossesMidnight()) {
+            if ($scheduledEnd->lte($scheduledStart)) {
+                $scheduledEnd->addDay();
+            }
+        }
+
+        // Если текущее время после start → late_minutes = разница
+        // Если до start (раннее открытие) → late_minutes = 0
+        $lateMinutes = 0;
+        if ($now->gt($scheduledStart)) {
+            $lateMinutes = (int) $now->diffInMinutes($scheduledStart);
+        }
         $isLate = $lateMinutes > $lateTolerance;
 
         // Determine shift status
         $status = $isLate ? ShiftStatus::LATE->value : ShiftStatus::OPEN->value;
 
         // Determine shift type based on day of week
-        $dayOfWeek = $now->dayOfWeek; // 0 = Sunday, 6 = Saturday
+        $dayOfWeek = $localNow->dayOfWeek; // 0 = Sunday, 6 = Saturday
         $shiftType = ($dayOfWeek === 0 || $dayOfWeek === 6) ? 'weekend' : 'regular';
 
         // Store photo
@@ -93,6 +112,7 @@ class ShiftService
             $shift = Shift::create([
                 'user_id' => $user->id,
                 'dealership_id' => $dealershipId,
+                'shift_schedule_id' => $schedule->id,
                 'shift_start' => $now,
                 'scheduled_start' => $scheduledStart,
                 'scheduled_end' => $scheduledEnd,
@@ -106,6 +126,7 @@ class ShiftService
 
             Log::info("Shift opened for user {$user->id} in dealership {$dealershipId}", [
                 'shift_id' => $shift->id,
+                'schedule' => $schedule->name,
                 'status' => $status,
                 'late_minutes' => $lateMinutes,
                 'is_replacement' => false,
@@ -213,7 +234,7 @@ class ShiftService
      */
     public function getCurrentShifts(?int $dealershipId = null)
     {
-        $query = Shift::with(['user', 'dealership'])
+        $query = Shift::with(['user', 'dealership', 'schedule'])
             ->whereIn('status', ShiftStatus::activeStatusValues())
             ->orderBy('shift_start', 'desc');
 
@@ -307,61 +328,105 @@ class ShiftService
     }
 
     /**
-     * Get scheduled start time based on dealership settings
+     * Определяет расписание смены для текущего локального времени.
      *
-     * @param Carbon $dateTime
-     * @param int $dealershipId
-     * @return Carbon
+     * Логика:
+     * 1. Если время попадает в интервал активной смены → эта смена
+     * 2. Если не попадает → ищем ближайшую следующую смену
+     *    - Если до неё ≤ lateTolerance минут → раннее открытие, привязываем к ней
+     *    - Если > lateTolerance → ошибка
+     *
+     * @throws \InvalidArgumentException
      */
-    private function getScheduledStartTime(Carbon $dateTime, int $dealershipId): Carbon
+    private function resolveShiftSchedule(int $dealershipId, string $localTime, int $lateTolerance): ShiftSchedule
     {
-        $hour = (int) $dateTime->format('H');
+        $schedules = ShiftSchedule::where('dealership_id', $dealershipId)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
 
-        // First shift: 00:00 - 12:59
-        if ($hour < 13) {
-            $startTime = $this->settingsService->getShiftStartTime($dealershipId, 1);
-            return $dateTime->copy()->setTimeFromTimeString($startTime);
+        if ($schedules->isEmpty()) {
+            throw new \InvalidArgumentException('Не настроены смены для автосалона');
         }
 
-        // Second shift: 13:00 - 23:59
-        $startTime = $this->settingsService->getShiftStartTime($dealershipId, 2);
-        return $dateTime->copy()->setTimeFromTimeString($startTime);
+        // 1. Ищем смену, в интервал которой попадает текущее время
+        foreach ($schedules as $schedule) {
+            if ($schedule->containsTime($localTime)) {
+                return $schedule;
+            }
+        }
+
+        // 2. Не попали ни в одну → ищем ближайшую следующую
+        $bestSchedule = null;
+        $bestMinutes = PHP_INT_MAX;
+
+        foreach ($schedules as $schedule) {
+            $minutes = $schedule->minutesUntilStart($localTime);
+
+            if ($minutes > 0 && $minutes < $bestMinutes) {
+                $bestMinutes = $minutes;
+                $bestSchedule = $schedule;
+            }
+        }
+
+        if ($bestSchedule && $bestMinutes <= $lateTolerance) {
+            return $bestSchedule;
+        }
+
+        // 3. Также проверяем, может время сразу после окончания какой-то смены
+        //    (опоздание после смены) — привязываем к предыдущей
+        $bestPrevSchedule = null;
+        $bestPrevMinutes = PHP_INT_MAX;
+
+        foreach ($schedules as $schedule) {
+            // Минуты после end_time
+            $endMinutes = $this->timeToMinutes($schedule->end_time);
+            $currentMinutes = $this->timeToMinutes($localTime);
+            $diff = $currentMinutes - $endMinutes;
+
+            if ($diff < 0) {
+                $diff += 1440;
+            }
+
+            // Если прошло менее lateTolerance минут после конца смены
+            if ($diff <= $lateTolerance && $diff < $bestPrevMinutes) {
+                $bestPrevMinutes = $diff;
+                $bestPrevSchedule = $schedule;
+            }
+        }
+
+        if ($bestPrevSchedule) {
+            return $bestPrevSchedule;
+        }
+
+        if ($bestSchedule) {
+            throw new \InvalidArgumentException(
+                "Слишком рано для открытия смены \"{$bestSchedule->name}\". До начала: {$bestMinutes} мин. Допустимо: {$lateTolerance} мин."
+            );
+        }
+
+        throw new \InvalidArgumentException('Не удалось определить смену для текущего времени');
     }
 
     /**
-     * Get scheduled end time based on dealership settings
-     *
-     * @param Carbon $dateTime
-     * @param int $dealershipId
-     * @return Carbon
+     * Конвертирует локальное время расписания (HH:MM) в UTC Carbon для конкретной даты.
      */
-    private function getScheduledEndTime(Carbon $dateTime, int $dealershipId): Carbon
+    private function scheduleTimeToUtc(Carbon $localNow, string $time, string $timezone): Carbon
     {
-        $hour = (int) $dateTime->format('H');
+        // Normalize to HH:MM:SS — DB may return HH:MM:SS, input may be HH:MM
+        $parts = explode(':', $time);
+        $normalized = sprintf('%s:%s:%s', $parts[0], $parts[1] ?? '00', $parts[2] ?? '00');
 
-        // First shift: 00:00 - 12:59
-        if ($hour < 13) {
-            $endTime = $this->settingsService->getShiftEndTime($dealershipId, 1);
-            $endDateTime = $dateTime->copy()->setTimeFromTimeString($endTime);
+        return $localNow->copy()
+            ->setTimeFromTimeString($normalized)
+            ->setTimezone('UTC');
+    }
 
-            // If end time is earlier than start time (e.g., night shift crossing midnight)
-            if ($endDateTime->lt($dateTime)) {
-                $endDateTime->addDay();
-            }
+    private function timeToMinutes(string $time): int
+    {
+        $parts = explode(':', $time);
 
-            return $endDateTime;
-        }
-
-        // Second shift: 13:00 - 23:59
-        $endTime = $this->settingsService->getShiftEndTime($dealershipId, 2);
-        $endDateTime = $dateTime->copy()->setTimeFromTimeString($endTime);
-
-        // If end time is earlier than start time (e.g., night shift crossing midnight)
-        if ($endDateTime->lt($dateTime)) {
-            $endDateTime->addDay();
-        }
-
-        return $endDateTime;
+        return (int) $parts[0] * 60 + (int) ($parts[1] ?? 0);
     }
 
     /**

@@ -39,7 +39,7 @@ class ShiftController extends Controller
         $date = $request->query('date');
         $userId = $request->query('user_id') !== null && $request->query('user_id') !== '' ? (int) $request->query('user_id') : null;
 
-        $query = Shift::with(['user', 'dealership']);
+        $query = Shift::with(['user', 'dealership', 'schedule']);
 
         if ($dealershipId) {
             $query->where('dealership_id', $dealershipId);
@@ -194,7 +194,7 @@ class ShiftController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $shift = Shift::with(['user', 'dealership'])
+        $shift = Shift::with(['user', 'dealership', 'schedule'])
             ->find($id);
 
         if (!$shift) {

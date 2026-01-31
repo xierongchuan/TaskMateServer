@@ -18,6 +18,7 @@ class Shift extends Model
     protected $fillable = [
         'user_id',
         'dealership_id',
+        'shift_schedule_id',
         'shift_start',
         'shift_end',
         'opening_photo_path',
@@ -49,6 +50,11 @@ class Shift extends Model
     public function dealership()
     {
         return $this->belongsTo(AutoDealership::class, 'dealership_id');
+    }
+
+    public function schedule()
+    {
+        return $this->belongsTo(ShiftSchedule::class, 'shift_schedule_id');
     }
 
 }

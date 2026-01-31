@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SessionController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\ShiftController;
+use App\Http\Controllers\Api\V1\ShiftScheduleController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\TaskGeneratorController;
 use App\Http\Controllers\Api\V1\TaskProofController;
@@ -111,6 +112,18 @@ Route::prefix('v1')->group(function () {
             Route::post('/shifts', [ShiftController::class, 'store']);
             Route::put('/shifts/{id}', [ShiftController::class, 'update']);
             Route::delete('/shifts/{id}', [ShiftController::class, 'destroy']);
+
+            // Shift Schedules - READ операции
+            Route::get('/shift-schedules', [ShiftScheduleController::class, 'index']);
+            Route::get('/shift-schedules/{id}', [ShiftScheduleController::class, 'show']);
+
+            // Shift Schedules - WRITE операции (только managers и owners)
+            Route::post('/shift-schedules', [ShiftScheduleController::class, 'store'])
+                ->middleware('role:manager,owner');
+            Route::put('/shift-schedules/{id}', [ShiftScheduleController::class, 'update'])
+                ->middleware('role:manager,owner');
+            Route::delete('/shift-schedules/{id}', [ShiftScheduleController::class, 'destroy'])
+                ->middleware('role:manager,owner');
 
             // Shift Photos - доступ с Bearer token авторизацией (stable URLs)
             Route::get('/shift-photos/{id}/{type}', [ShiftPhotoController::class, 'show'])

@@ -50,4 +50,9 @@ class AutoDealership extends Model
     {
         return $this->hasMany(ImportantLink::class, 'dealership_id');
     }
+
+    public function shiftSchedules()
+    {
+        return $this->hasMany(ShiftSchedule::class, 'dealership_id');
+    }
 }

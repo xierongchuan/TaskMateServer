@@ -25,17 +25,27 @@ describe('ShiftService', function () {
         $user = User::factory()->create(['dealership_id' => $dealership->id]);
         $photo = UploadedFile::fake()->image('photo.jpg');
 
-        // Устанавливаем время внутри допустимого окна смены (09:00 + 15 мин tolerance)
+        // Создаём расписание смены для автосалона
+        \App\Models\ShiftSchedule::create([
+            'dealership_id' => $dealership->id,
+            'name' => 'Смена 1',
+            'sort_order' => 0,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+            'is_active' => true,
+        ]);
+
+        // Устанавливаем время внутри допустимого окна смены (09:00 + 10 мин)
         Carbon::setTestNow(Carbon::today()->setHour(9)->setMinute(10));
 
-        $this->settingsService->shouldReceive('getShiftStartTime')->andReturn('09:00');
-        $this->settingsService->shouldReceive('getShiftEndTime')->andReturn('18:00');
+        $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
         $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
 
         $shift = $this->service->openShift($user, $photo);
 
         expect($shift)->toBeInstanceOf(Shift::class)
-            ->and($shift->status)->toBe('open');
+            ->and($shift->status)->toBe('open')
+            ->and($shift->shift_schedule_id)->not->toBeNull();
 
         Carbon::setTestNow(); // Reset
     });
