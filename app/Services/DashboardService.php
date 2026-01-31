@@ -10,6 +10,7 @@ use App\Models\Shift;
 use App\Models\Task;
 use App\Models\TaskGenerator;
 use App\Models\AutoDealership;
+use App\Models\CalendarDay;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -200,10 +201,12 @@ class DashboardService
      */
     protected function getDealershipShiftStats(?int $dealershipId): Collection
     {
+        $settingsService = app(SettingsService::class);
+
         return AutoDealership::query()
             ->when($dealershipId, fn ($q) => $q->where('id', $dealershipId))
             ->get()
-            ->map(function ($dealership) {
+            ->map(function ($dealership) use ($settingsService) {
                 $totalEmployees = User::where('dealership_id', $dealership->id)
                     ->where('role', 'employee')
                     ->count();
@@ -218,6 +221,9 @@ class DashboardService
                     'dealership_name' => $dealership->name,
                     'total_employees' => $totalEmployees,
                     'on_shift_count' => $onShiftCount,
+                    'shift_1_start_time' => $settingsService->getShiftStartTime($dealership->id, 1),
+                    'shift_2_start_time' => $settingsService->getShiftStartTime($dealership->id, 2),
+                    'is_today_holiday' => CalendarDay::isHoliday(TimeHelper::nowUtc(), $dealership->id),
                 ];
             });
     }
