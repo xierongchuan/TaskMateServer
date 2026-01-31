@@ -20,13 +20,4 @@ describe('Shift Model', function () {
 
         expect($shift->dealership->id)->toBe($dealership->id);
     });
-
-    it('has replacement', function () {
-        $shift = Shift::factory()->create();
-        // Assuming factory or manual creation of replacement
-        // Since ShiftReplacementFactory exists now
-        $replacement = \App\Models\ShiftReplacement::factory()->create(['shift_id' => $shift->id]);
-
-        expect($shift->replacement->id)->toBe($replacement->id);
-    });
 });

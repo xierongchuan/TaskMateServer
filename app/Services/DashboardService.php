@@ -163,7 +163,7 @@ class DashboardService
      */
     protected function getActiveShifts(?int $dealershipId): Collection
     {
-        return Shift::with(['user:id,full_name', 'dealership:id,name', 'replacement.replacingUser:id,full_name'])
+        return Shift::with(['user:id,full_name', 'dealership:id,name'])
             ->where('status', ShiftStatus::OPEN->value)
             ->whereNull('shift_end')
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
@@ -178,10 +178,6 @@ class DashboardService
                 'dealership' => $shift->dealership ? [
                     'id' => $shift->dealership->id,
                     'name' => $shift->dealership->name,
-                ] : null,
-                'replacement' => $shift->replacement ? [
-                    'id' => $shift->replacement->replacingUser->id,
-                    'full_name' => $shift->replacement->replacingUser->full_name,
                 ] : null,
                 'status' => $shift->status,
                 'opened_at' => TimeHelper::toIsoZulu($shift->shift_start),

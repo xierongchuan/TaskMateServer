@@ -9,12 +9,18 @@ use App\Http\Controllers\Controller;
 use App\Models\Shift;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\EmployeeStatsService;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
     use HasDealershipAccess;
+
+    public function __construct(
+        private readonly EmployeeStatsService $employeeStatsService,
+    ) {}
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -80,10 +86,6 @@ class ReportController extends Controller
         $applyShiftFilter($lateShiftsQuery);
         $lateShifts = $lateShiftsQuery->count();
 
-        $totalReplacementsQuery = Shift::whereBetween('shift_start', [$from, $to])->has('replacement');
-        $applyShiftFilter($totalReplacementsQuery);
-        $totalReplacements = $totalReplacementsQuery->count();
-
         // === ПОДСЧЁТ СТАТУСОВ БЕЗ ДВОЙНОГО СЧЁТА ===
         // Используем взаимоисключающую логику как в Task::getStatusAttribute()
 
@@ -124,78 +126,15 @@ class ReportController extends Controller
         $overdueTasks = $statusCounts['overdue'];
 
         // === ПРОИЗВОДИТЕЛЬНОСТЬ СОТРУДНИКОВ ===
-        $employeesQuery = User::where('role', 'employee');
+        $employeesQuery = User::query();
         if ($dealershipId) {
             $employeesQuery->where('dealership_id', $dealershipId);
         }
         $employees = $employeesQuery->get();
 
-        $employeesPerformance = $employees->map(function ($employee) use ($from, $to, $nowUtc, $applyTaskFilter) {
-            // Задачи, назначенные этому сотруднику
-            $userTasksQuery = Task::whereHas('assignedUsers', function ($q) use ($employee) {
-                $q->where('user_id', $employee->id);
-            })->whereBetween('created_at', [$from, $to]);
-
-            $userTasks = (clone $userTasksQuery)->count();
-
-            // Выполненные - есть completed response от этого пользователя
-            $userCompleted = (clone $userTasksQuery)
-                ->whereHas('responses', function ($q) use ($employee) {
-                    $q->where('user_id', $employee->id)
-                      ->where('status', 'completed');
-                })
-                ->count();
-
-            // Просроченные - дедлайн прошёл, нет completed response от этого пользователя
-            $userOverdue = (clone $userTasksQuery)
-                ->where('is_active', true)
-                ->whereNotNull('deadline')
-                ->where('deadline', '<', $nowUtc)
-                ->whereDoesntHave('responses', function ($q) use ($employee) {
-                    $q->where('user_id', $employee->id)
-                      ->where('status', 'completed');
-                })
-                ->count();
-
-            // Смены за период
-            $userShiftsQuery = Shift::where('user_id', $employee->id)
-                ->whereBetween('shift_start', [$from, $to]);
-
-            $userTotalShifts = (clone $userShiftsQuery)->count();
-
-            // Опоздания на смены
-            $lateShiftsQuery = (clone $userShiftsQuery)->where('late_minutes', '>', 0);
-            $userLateShifts = (clone $lateShiftsQuery)->count();
-            $userAvgLateMinutes = $userLateShifts > 0
-                ? (int) round((float) $lateShiftsQuery->avg('late_minutes'), 0)
-                : 0;
-
-            // Процент выполнения
-            $completionRate = $userTasks > 0
-                ? round(($userCompleted / $userTasks) * 100, 1)
-                : 0;
-
-            // Расчёт рейтинга
-            $score = 100;
-            if ($userTasks > 0) {
-                $score -= ($userOverdue * 5);
-            }
-            $score -= ($userLateShifts * 10);
-            $score = max(0, min(100, $score));
-
-            return [
-                'employee_id' => $employee->id,
-                'employee_name' => $employee->full_name,
-                'total_tasks' => $userTasks,
-                'completed_tasks' => $userCompleted,
-                'completion_rate' => $completionRate,
-                'overdue_tasks' => $userOverdue,
-                'total_shifts' => $userTotalShifts,
-                'late_shifts' => $userLateShifts,
-                'avg_late_minutes' => (int) $userAvgLateMinutes,
-                'performance_score' => $score,
-            ];
-        })->sortByDesc('performance_score')->values();
+        $employeesPerformance = $employees->map(
+            fn ($employee) => $this->employeeStatsService->getStats($employee, $from, $to)
+        )->filter(fn ($stats) => $stats['has_history'])->sortByDesc('performance_score')->values();
 
         // === ЕЖЕДНЕВНАЯ СТАТИСТИКА ===
         $dailyStats = [];
@@ -323,7 +262,6 @@ class ReportController extends Controller
                 'postponed_tasks' => $postponedTasks,
                 'total_shifts' => $totalShifts,
                 'late_shifts' => $lateShifts,
-                'total_replacements' => $totalReplacements,
             ],
             'tasks_by_status' => $tasksByStatus,
             'employees_performance' => $employeesPerformance,

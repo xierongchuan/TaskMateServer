@@ -77,6 +77,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/users', [UserApiController::class, 'index']);
             Route::get('/users/{id}', [UserApiController::class, 'show']);
             Route::get('/users/{id}/status', [UserApiController::class, 'status']);
+            Route::get('/users/{id}/stats', [UserApiController::class, 'stats']);
 
             // Users - WRITE операции (только managers и owners)
             Route::post('/users', [UserApiController::class, 'store'])

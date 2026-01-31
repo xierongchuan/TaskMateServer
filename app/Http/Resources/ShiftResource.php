@@ -75,31 +75,6 @@ class ShiftResource extends JsonResource
             ];
         }
 
-        if ($this->relationLoaded('replacement') && $this->replacement) {
-            $data['replacement'] = [
-                'id' => $this->replacement->id,
-                'replaced_user_id' => $this->replacement->replaced_user_id,
-                'replacing_user_id' => $this->replacement->replacing_user_id,
-                'reason' => $this->replacement->reason,
-            ];
-
-            // Include replacing user info if loaded
-            if ($this->replacement->relationLoaded('replacingUser') && $this->replacement->replacingUser) {
-                $data['replacement']['replacing_user'] = [
-                    'id' => $this->replacement->replacingUser->id,
-                    'full_name' => $this->replacement->replacingUser->full_name,
-                ];
-            }
-
-            // Include replaced user info if loaded
-            if ($this->replacement->relationLoaded('replacedUser') && $this->replacement->replacedUser) {
-                $data['replacement']['replaced_user'] = [
-                    'id' => $this->replacement->replacedUser->id,
-                    'full_name' => $this->replacement->replacedUser->full_name,
-                ];
-            }
-        }
-
         return $data;
     }
 

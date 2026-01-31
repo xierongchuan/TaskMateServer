@@ -51,8 +51,4 @@ class Shift extends Model
         return $this->belongsTo(AutoDealership::class, 'dealership_id');
     }
 
-    public function replacement()
-    {
-        return $this->hasOne(ShiftReplacement::class, 'shift_id');
-    }
 }

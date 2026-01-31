@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Enums\ShiftStatus;
 use App\Models\Shift;
-use App\Models\ShiftReplacement;
 use App\Models\User;
 use App\Models\Task;
 use App\Models\TaskResponse;
@@ -103,24 +102,13 @@ class ShiftService
                 'late_minutes' => $lateMinutes,
             ]);
 
-            // Handle replacement if needed
-            if ($replacingUser) {
-                $this->createReplacement($shift, $replacingUser, $user, $reason);
-
-                // Close the replaced user's shift
-                $replacedShift = $this->getUserOpenShift($replacingUser);
-                if ($replacedShift) {
-                    $this->closeShiftWithoutPhoto($replacedShift, ShiftStatus::REPLACED->value);
-                }
-            }
-
             DB::commit();
 
             Log::info("Shift opened for user {$user->id} in dealership {$dealershipId}", [
                 'shift_id' => $shift->id,
                 'status' => $status,
                 'late_minutes' => $lateMinutes,
-                'is_replacement' => $replacingUser ? true : false,
+                'is_replacement' => false,
             ]);
 
             return $shift;
@@ -225,7 +213,7 @@ class ShiftService
      */
     public function getCurrentShifts(?int $dealershipId = null)
     {
-        $query = Shift::with(['user', 'dealership', 'replacement'])
+        $query = Shift::with(['user', 'dealership'])
             ->whereIn('status', ShiftStatus::activeStatusValues())
             ->orderBy('shift_start', 'desc');
 
@@ -263,23 +251,11 @@ class ShiftService
         $totalShifts = $query->count();
         $lateShifts = $query->where('status', ShiftStatus::LATE->value)->count();
         $avgLateMinutes = $query->whereNotNull('late_minutes')->avg('late_minutes') ?? 0;
-        $replacements = ShiftReplacement::whereHas('shift', function ($q) use ($dealershipId, $startDate, $endDate) {
-            if ($dealershipId) {
-                $q->where('dealership_id', $dealershipId);
-            }
-            if ($startDate) {
-                $q->where('shift_start', '>=', $startDate);
-            }
-            if ($endDate) {
-                $q->where('shift_start', '<=', $endDate);
-            }
-        })->count();
 
         return [
             'total_shifts' => $totalShifts,
             'late_shifts' => $lateShifts,
             'avg_late_minutes' => round($avgLateMinutes, 2),
-            'replacements' => $replacements,
             'period' => [
                 'start' => $startDate?->format('Y-m-d'),
                 'end' => $endDate?->format('Y-m-d'),
@@ -288,26 +264,7 @@ class ShiftService
     }
 
     /**
-     * Create a shift replacement
-     *
-     * @param Shift $shift
-     * @param User $replacedUser
-     * @param User $replacingUser
-     * @param string|null $reason
-     * @return ShiftReplacement
-     */
-    private function createReplacement(Shift $shift, User $replacedUser, User $replacingUser, ?string $reason): ShiftReplacement
-    {
-        return ShiftReplacement::create([
-            'shift_id' => $shift->id,
-            'replaced_user_id' => $replacedUser->id,
-            'replacing_user_id' => $replacingUser->id,
-            'reason' => $reason,
-        ]);
-    }
-
-    /**
-     * Close shift without photo (for replacement scenarios or manual close)
+     * Close shift without photo (for manual close)
      *
      * @param Shift $shift
      * @param string $status
@@ -482,7 +439,7 @@ class ShiftService
     {
         $query = Shift::where('user_id', $user->id)
             ->where('dealership_id', $user->dealership_id)
-            ->with(['dealership', 'replacement.replacingUser', 'replacement.replacedUser']);
+            ->with(['dealership']);
 
         // Apply filters
         if (isset($filters['status'])) {

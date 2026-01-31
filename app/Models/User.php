@@ -82,16 +82,6 @@ class User extends Authenticatable
         return $this->hasMany(ImportantLink::class, 'creator_id');
     }
 
-    public function replacementsAsReplacing()
-    {
-        return $this->hasMany(ShiftReplacement::class, 'replacing_user_id');
-    }
-
-    public function replacementsAsReplaced()
-    {
-        return $this->hasMany(ShiftReplacement::class, 'replaced_user_id');
-    }
-
     /**
      * Get IDs of all dealerships accessible to this user.
      * Includes primary dealership_id and attached dealerships.

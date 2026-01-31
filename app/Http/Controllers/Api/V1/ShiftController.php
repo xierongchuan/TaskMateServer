@@ -39,7 +39,7 @@ class ShiftController extends Controller
         $date = $request->query('date');
         $userId = $request->query('user_id') !== null && $request->query('user_id') !== '' ? (int) $request->query('user_id') : null;
 
-        $query = Shift::with(['user', 'dealership', 'replacement.replacingUser', 'replacement.replacedUser']);
+        $query = Shift::with(['user', 'dealership']);
 
         if ($dealershipId) {
             $query->where('dealership_id', $dealershipId);
@@ -104,8 +104,6 @@ class ShiftController extends Controller
             'user_id' => 'required|exists:users,id',
             'dealership_id' => 'required|exists:auto_dealerships,id',
             'opening_photo' => 'required|file|image|mimes:jpeg,png,jpg|max:5120',
-            'replacing_user_id' => 'nullable|exists:users,id',
-            'reason' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -157,28 +155,15 @@ class ShiftController extends Controller
                 ], 403);
             }
 
-            $replacingUser = null;
-            if (isset($data['replacing_user_id'])) {
-                $replacingUser = User::findOrFail($data['replacing_user_id']);
-
-                // Validate replacement user belongs to the same dealership
-                if (!$this->shiftService->validateUserDealership($replacingUser, (int) $data['dealership_id'])) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Replacement user does not belong to the specified dealership'
-                    ], 403);
-                }
-            }
-
             $shift = $this->shiftService->openShift(
                 $user,
                 $data['opening_photo'],
-                $replacingUser,
-                $data['reason'] ?? null,
+                null,
+                null,
                 (int) $data['dealership_id']
             );
 
-            $shift->load(['user', 'dealership', 'replacement']);
+            $shift->load(['user', 'dealership']);
             return response()->json([
                 'success' => true,
                 'message' => 'Shift opened successfully',
@@ -209,7 +194,7 @@ class ShiftController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $shift = Shift::with(['user', 'dealership', 'replacement.replacingUser', 'replacement.replacedUser'])
+        $shift = Shift::with(['user', 'dealership'])
             ->find($id);
 
         if (!$shift) {
@@ -262,7 +247,7 @@ class ShiftController extends Controller
 
         $validator = Validator::make($request->all(), [
             'closing_photo' => 'sometimes|required|file|image|mimes:jpeg,png,jpg|max:5120',
-            'status' => 'sometimes|in:open,closed,replaced',
+            'status' => 'sometimes|in:open,closed',
         ]);
 
         if ($validator->fails()) {
@@ -279,7 +264,7 @@ class ShiftController extends Controller
             // If closing photo is provided, close the shift
             if (isset($data['closing_photo'])) {
                 $updatedShift = $this->shiftService->closeShift($shift, $data['closing_photo']);
-                $updatedShift->load(['user', 'dealership', 'replacement']);
+                $updatedShift->load(['user', 'dealership']);
 
                 return response()->json([
                     'success' => true,
@@ -296,7 +281,7 @@ class ShiftController extends Controller
                     $shift->update(['status' => $data['status']]);
                 }
 
-                $shift->load(['user', 'dealership', 'replacement']);
+                $shift->load(['user', 'dealership']);
                 return response()->json([
                     'success' => true,
                     'message' => 'Shift updated successfully',
@@ -455,7 +440,7 @@ class ShiftController extends Controller
             ]);
         }
 
-        $shift->load(['dealership', 'replacement']);
+        $shift->load(['dealership']);
         return response()->json([
             'success' => true,
             'data' => new ShiftResource($shift)

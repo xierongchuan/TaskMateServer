@@ -25,6 +25,11 @@ class GetAuditLogsRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'log_id' => [
+                'nullable',
+                'integer',
+                'min:1',
+            ],
             'table_name' => [
                 'nullable',
                 'string',
@@ -83,6 +88,8 @@ class GetAuditLogsRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'log_id.integer' => 'ID журнала должен быть числом',
+            'log_id.min' => 'ID журнала должен быть больше 0',
             'table_name.in' => 'Неверный тип таблицы. Допустимые значения: tasks, task_responses, shifts, users, auto_dealerships',
             'action.in' => 'Неверное действие. Допустимые значения: created, updated, deleted',
             'actor_id.exists' => 'Пользователь с таким ID не найден',

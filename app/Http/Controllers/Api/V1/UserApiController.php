@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Helpers\TimeHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreUserRequest;
 use App\Http\Requests\Api\V1\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\EmployeeStatsService;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -177,6 +179,39 @@ class UserApiController extends Controller
         return response()->json([
             'is_active' => (bool) $isActive,
         ]);
+    }
+
+    /**
+     * Возвращает подробную статистику пользователя за период.
+     */
+    public function stats(Request $request, $id): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $request->user();
+        $user = User::find($id);
+
+        if (! $user) {
+            return response()->json(['message' => 'Пользователь не найден'], 404);
+        }
+
+        if (! $this->hasAccessToUser($currentUser, $user)) {
+            return response()->json(['message' => 'Пользователь не найден'], 404);
+        }
+
+        $dateFrom = $request->query('date_from');
+        $dateTo = $request->query('date_to');
+
+        // По умолчанию — последние 30 дней
+        $from = $dateFrom
+            ? TimeHelper::startOfDayUtc($dateFrom)
+            : TimeHelper::nowUtc()->subDays(30)->startOfDay();
+        $to = $dateTo
+            ? TimeHelper::endOfDayUtc($dateTo)
+            : TimeHelper::endOfDayUtc(TimeHelper::nowUtc()->format('Y-m-d'));
+
+        $statsService = app(EmployeeStatsService::class);
+
+        return response()->json($statsService->getStats($user, $from, $to));
     }
 
     /**
@@ -474,14 +509,6 @@ class UserApiController extends Controller
 
         if ($user->createdLinks()->count() > 0) {
             $relatedData['created_links'] = $user->createdLinks()->count();
-        }
-
-        if ($user->replacementsAsReplacing()->count() > 0) {
-            $relatedData['replacements_as_replacing'] = $user->replacementsAsReplacing()->count();
-        }
-
-        if ($user->replacementsAsReplaced()->count() > 0) {
-            $relatedData['replacements_as_replaced'] = $user->replacementsAsReplaced()->count();
         }
 
         if (!empty($relatedData)) {

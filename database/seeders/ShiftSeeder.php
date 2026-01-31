@@ -7,7 +7,6 @@ namespace Database\Seeders;
 use App\Enums\Role;
 use App\Models\AutoDealership;
 use App\Models\Shift;
-use App\Models\ShiftReplacement;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -18,7 +17,6 @@ use Illuminate\Database\Seeder;
  * Создаёт реалистичную историю смен для сотрудников:
  * - Закрытые смены за указанный период
  * - Смены с опозданиями
- * - Смены с замещениями
  * - Открытые смены на текущий день
  */
 class ShiftSeeder extends Seeder
@@ -27,17 +25,6 @@ class ShiftSeeder extends Seeder
      * Количество дней истории.
      */
     public static int $historyDays = 30;
-
-    /**
-     * Причины замещения смен.
-     */
-    private const REPLACEMENT_REASONS = [
-        'Болезнь',
-        'Семейные обстоятельства',
-        'Отпуск',
-        'Личные причины',
-        'Учёба',
-    ];
 
     /**
      * Run the database seeds.
@@ -78,7 +65,6 @@ class ShiftSeeder extends Seeder
 
         $shiftsCreated = 0;
         $lateShifts = 0;
-        $replacements = 0;
 
         // Создаём смены за каждый день
         $currentDate = $startDate->copy();
@@ -104,9 +90,6 @@ class ShiftSeeder extends Seeder
             $currentDate->addDay();
         }
 
-        // Создаём замещения для некоторых смен
-        $replacements = $this->createReplacements($dealership, $employees);
-
         // Создаём открытые смены на сегодня (будний день)
         $openShiftsCreated = 0;
         if (!$today->isWeekend()) {
@@ -119,7 +102,7 @@ class ShiftSeeder extends Seeder
             }
         }
 
-        $this->command->info(" - {$dealership->name}: {$shiftsCreated} закрытых смен, {$lateShifts} с опозданием, {$replacements} замещений, {$openShiftsCreated} открытых");
+        $this->command->info(" - {$dealership->name}: {$shiftsCreated} закрытых смен, {$lateShifts} с опозданием, {$openShiftsCreated} открытых");
     }
 
     /**
@@ -191,41 +174,5 @@ class ShiftSeeder extends Seeder
             'scheduled_start' => $scheduledStart,
             'scheduled_end' => $scheduledEnd,
         ]);
-    }
-
-    /**
-     * Создать замещения смен.
-     */
-    private function createReplacements(AutoDealership $dealership, $employees): int
-    {
-        if ($employees->count() < 2) {
-            return 0;
-        }
-
-        $replacementsCount = 0;
-
-        // Находим смены за последние 2 недели для замещений
-        $shifts = Shift::where('dealership_id', $dealership->id)
-            ->where('status', 'closed')
-            ->where('shift_start', '>=', Carbon::now()->subDays(14))
-            ->inRandomOrder()
-            ->limit(3)
-            ->get();
-
-        foreach ($shifts as $shift) {
-            // Выбираем другого сотрудника для замещения
-            $replacingUser = $employees->where('id', '!=', $shift->user_id)->random();
-
-            ShiftReplacement::create([
-                'shift_id' => $shift->id,
-                'replaced_user_id' => $shift->user_id,
-                'replacing_user_id' => $replacingUser->id,
-                'reason' => fake()->randomElement(self::REPLACEMENT_REASONS),
-            ]);
-
-            $replacementsCount++;
-        }
-
-        return $replacementsCount;
     }
 }

@@ -37,6 +37,11 @@ class AuditLogController extends Controller
         $query = AuditLog::query()
             ->orderByDesc('created_at');
 
+        // Фильтр по ID журнала
+        if ($request->filled('log_id')) {
+            $query->where('id', $request->input('log_id'));
+        }
+
         // Фильтр по таблице
         if ($request->filled('table_name')) {
             $query->where('table_name', $request->input('table_name'));
