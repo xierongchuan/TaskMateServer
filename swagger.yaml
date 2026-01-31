@@ -26,7 +26,7 @@ info:
     - `data` — массив элементов
     - `meta` — информация о пагинации (current_page, last_page, per_page, total)
     - `links` — ссылки на страницы (first, last, prev, next)
-  version: 1.3.0
+  version: 1.4.0
   contact:
     name: TaskMate Support
 
@@ -45,6 +45,8 @@ tags:
     description: Управление автосалонами
   - name: Shifts
     description: Управление сменами
+  - name: Shift Schedules
+    description: Расписания смен
   - name: Tasks
     description: Управление задачами
   - name: Task Verification
@@ -89,41 +91,49 @@ components:
         full_name:
           type: string
           example: "Иванов Иван Иванович"
-        phone:
+        phone_number:
           type: string
           example: "+7 (999) 123-45-67"
+          description: Номер телефона (маппинг с поля phone в БД)
         role:
           type: string
           enum: [owner, manager, employee, observer]
           example: "manager"
-        telegram_id:
-          type: integer
-          nullable: true
-          example: 123456789
-        is_active:
-          type: boolean
-          example: true
         dealership_id:
           type: integer
           nullable: true
           example: 1
-        dealership_ids:
-          type: array
-          items:
-            type: integer
-          example: [1, 2]
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
         dealership:
-          $ref: '#/components/schemas/Dealership'
+          type: object
+          nullable: true
+          description: Основной автосалон (если загружена связь)
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            address:
+              type: string
+            phone:
+              type: string
+            is_active:
+              type: boolean
         dealerships:
           type: array
+          description: Все доступные автосалоны (many-to-many)
           items:
-            $ref: '#/components/schemas/Dealership'
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              address:
+                type: string
+              phone:
+                type: string
+              is_active:
+                type: boolean
 
     Dealership:
       type: object
@@ -173,9 +183,13 @@ components:
         dealership_id:
           type: integer
           example: 1
+        shift_schedule_id:
+          type: integer
+          nullable: true
+          description: ID расписания смены
         shift_type:
           type: string
-          enum: [shift_1, shift_2]
+          nullable: true
           example: "shift_1"
         shift_start:
           type: string
@@ -184,6 +198,16 @@ components:
           type: string
           format: date-time
           nullable: true
+        scheduled_start:
+          type: string
+          format: date-time
+          nullable: true
+          description: Плановое время начала смены
+        scheduled_end:
+          type: string
+          format: date-time
+          nullable: true
+          description: Плановое время окончания смены
         status:
           type: string
           enum: [open, late, closed, replaced]
@@ -202,19 +226,84 @@ components:
         is_late:
           type: boolean
           example: false
-        replacing_user_id:
-          type: integer
-          nullable: true
-        reason:
+          description: "Вычисляемое: status=late ИЛИ late_minutes>0"
+        archived_tasks_processed:
+          type: boolean
+          description: Были ли обработаны архивные задачи при закрытии
+        created_at:
           type: string
-          nullable: true
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
         user:
-          $ref: '#/components/schemas/User'
+          type: object
+          nullable: true
+          description: Сотрудник (если загружена связь)
+          properties:
+            id:
+              type: integer
+            full_name:
+              type: string
+        schedule:
+          type: object
+          nullable: true
+          description: Расписание смены (если загружена связь)
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
         dealership:
-          $ref: '#/components/schemas/Dealership'
+          type: object
+          nullable: true
+          description: Автосалон (если загружена связь)
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+
+    ShiftSchedule:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        dealership_id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Смена 1"
+        sort_order:
+          type: integer
+          example: 1
+        start_time:
+          type: string
+          example: "09:00"
+        end_time:
+          type: string
+          example: "18:00"
+        is_active:
+          type: boolean
+          example: true
+        crosses_midnight:
+          type: boolean
+          description: Вычисляемое — смена пересекает полночь
+        is_night_shift:
+          type: boolean
+          description: Вычисляемое — ночная смена
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     Task:
       type: object
+      description: Задача. Возвращается через Task::toApiArray()
       properties:
         id:
           type: integer
@@ -230,6 +319,11 @@ components:
           type: string
           nullable: true
           example: "Обратить внимание на новые поступления"
+        status:
+          type: string
+          enum: [pending, acknowledged, pending_review, completed, completed_late, overdue]
+          description: Вычисляемый статус задачи
+          example: "pending"
         creator_id:
           type: integer
           example: 1
@@ -237,6 +331,10 @@ components:
           type: integer
           nullable: true
           example: 1
+        generator_id:
+          type: integer
+          nullable: true
+          description: ID генератора, создавшего задачу
         appear_date:
           type: string
           format: date-time
@@ -260,6 +358,9 @@ components:
         is_active:
           type: boolean
           example: true
+        postpone_count:
+          type: integer
+          example: 0
         tags:
           type: array
           items:
@@ -267,6 +368,10 @@ components:
           example: ["инвентаризация", "срочно"]
         notification_settings:
           type: object
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
           nullable: true
         created_at:
           type: string
@@ -282,6 +387,28 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TaskResponse'
+        shared_proofs:
+          type: array
+          description: Общие доказательства (для групповых задач)
+          items:
+            $ref: '#/components/schemas/TaskSharedProof'
+        completion_progress:
+          type: object
+          nullable: true
+          description: Прогресс выполнения (только для group задач)
+          properties:
+            total_assignees:
+              type: integer
+            completed_count:
+              type: integer
+            pending_review_count:
+              type: integer
+            rejected_count:
+              type: integer
+            pending_count:
+              type: integer
+            percentage:
+              type: number
         creator:
           $ref: '#/components/schemas/User'
         dealership:
@@ -308,9 +435,6 @@ components:
         id:
           type: integer
           example: 1
-        task_id:
-          type: integer
-          example: 1
         user_id:
           type: integer
           example: 5
@@ -318,13 +442,19 @@ components:
           type: string
           enum: [pending, acknowledged, pending_review, completed, rejected]
           example: "pending_review"
-        completed_at:
+        comment:
+          type: string
+          nullable: true
+        responded_at:
           type: string
           format: date-time
           nullable: true
         rejection_reason:
           type: string
           nullable: true
+        rejection_count:
+          type: integer
+          example: 0
         verified_by:
           type: integer
           nullable: true
@@ -332,15 +462,34 @@ components:
           type: string
           format: date-time
           nullable: true
-        created_at:
+        submission_source:
           type: string
-          format: date-time
+          nullable: true
+          description: Источник отправки (web, telegram, etc.)
+        uses_shared_proofs:
+          type: boolean
+          description: Использует ли общие доказательства группы
+        user:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            full_name:
+              type: string
+        verifier:
+          type: object
+          nullable: true
+          description: Кто проверил доказательство
+          properties:
+            id:
+              type: integer
+            full_name:
+              type: string
         proofs:
           type: array
           items:
             $ref: '#/components/schemas/TaskProof'
-        user:
-          $ref: '#/components/schemas/User'
 
     TaskProof:
       type: object
@@ -348,13 +497,11 @@ components:
         id:
           type: integer
           example: 1
-        task_response_id:
-          type: integer
-          example: 1
-        file_name:
+        url:
           type: string
-          example: "photo_123.jpg"
-        original_name:
+          description: Подписанный URL для скачивания
+          example: "/api/v1/task-proofs/1/download?signature=..."
+        original_filename:
           type: string
           example: "фото_выполнения.jpg"
         mime_type:
@@ -363,9 +510,30 @@ components:
         file_size:
           type: integer
           example: 1024000
-        download_url:
+        created_at:
           type: string
-          example: "/api/v1/task-proofs/1/download?signature=..."
+          format: date-time
+
+    TaskSharedProof:
+      type: object
+      description: Общее доказательство для групповой задачи
+      properties:
+        id:
+          type: integer
+          example: 1
+        url:
+          type: string
+          description: Подписанный URL для скачивания
+          example: "/api/v1/task-shared-proofs/1/download?signature=..."
+        original_filename:
+          type: string
+          example: "общее_фото.jpg"
+        mime_type:
+          type: string
+          example: "image/jpeg"
+        file_size:
+          type: integer
+          example: 1024000
         created_at:
           type: string
           format: date-time
@@ -401,17 +569,27 @@ components:
         deadline_time:
           type: string
           example: "18:00"
+        recurrence_day_of_week:
+          type: integer
+          nullable: true
+          description: День недели (1-7, для weekly)
+        recurrence_day_of_month:
+          type: integer
+          nullable: true
+          description: День месяца (-2..31, для monthly; -2=предпоследний, -1=последний)
         recurrence_days_of_week:
           type: array
           items:
             type: integer
           nullable: true
+          description: Дни недели (устаревший формат, массив)
           example: [1, 2, 3, 4, 5]
         recurrence_days_of_month:
           type: array
           items:
             type: integer
           nullable: true
+          description: Дни месяца (устаревший формат, массив)
         start_date:
           type: string
           format: date
@@ -436,18 +614,29 @@ components:
           type: array
           items:
             type: string
+        notification_settings:
+          type: object
+          nullable: true
         is_active:
           type: boolean
           example: true
+        total_generated:
+          type: integer
+          description: Общее количество сгенерированных задач
+        completed_count:
+          type: integer
+          description: Количество выполненных задач
+        expired_count:
+          type: integer
+          description: Количество просроченных задач
         last_generated_at:
           type: string
           format: date-time
           nullable: true
-        next_generation_at:
+        created_at:
           type: string
           format: date-time
-          nullable: true
-        created_at:
+        updated_at:
           type: string
           format: date-time
         assignments:
@@ -458,30 +647,11 @@ components:
           $ref: '#/components/schemas/Dealership'
 
     ArchivedTask:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        original_task_id:
-          type: integer
-          example: 100
-        title:
-          type: string
-        description:
-          type: string
-          nullable: true
-        dealership_id:
-          type: integer
-        archive_reason:
-          type: string
-          enum: [completed, expired]
-        archived_at:
-          type: string
-          format: date-time
-        task_data:
-          type: object
-          description: Полные данные задачи на момент архивации
+      description: |
+        Архивированная задача. Возвращается в формате Task.toApiArray() —
+        те же поля, что и у Task, с заполненным полем archived_at.
+      allOf:
+        - $ref: '#/components/schemas/Task'
 
     ImportantLink:
       type: object
@@ -612,6 +782,10 @@ components:
         table_name:
           type: string
           example: "tasks"
+        table_label:
+          type: string
+          description: Локализованное название таблицы
+          example: "Задачи"
         record_id:
           type: integer
           example: 100
@@ -619,15 +793,34 @@ components:
           type: string
           enum: [created, updated, deleted]
           example: "updated"
+        action_label:
+          type: string
+          description: Локализованное название действия
+          example: "Обновлено"
         actor_id:
           type: integer
           example: 1
-        actor_name:
-          type: string
-          example: "Иванов Иван"
+        actor:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            full_name:
+              type: string
+            login:
+              type: string
         dealership_id:
           type: integer
           nullable: true
+        dealership:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
         payload:
           type: object
           nullable: true
@@ -641,28 +834,104 @@ components:
       properties:
         total_users:
           type: integer
-          example: 25
         active_users:
           type: integer
-          example: 20
-        total_dealerships:
+        total_tasks:
           type: integer
-          example: 3
+        active_tasks:
+          type: integer
+        completed_tasks:
+          type: integer
+        overdue_tasks:
+          type: integer
+        overdue_tasks_list:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        pending_review_count:
+          type: integer
+        pending_review_tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        open_shifts:
+          type: integer
+        late_shifts_today:
+          type: integer
         active_shifts:
           type: array
           items:
-            $ref: '#/components/schemas/Shift'
-        tasks_summary:
-          type: object
-          properties:
-            total:
-              type: integer
-            pending:
-              type: integer
-            completed:
-              type: integer
-            overdue:
-              type: integer
+            type: object
+            properties:
+              id:
+                type: integer
+              user:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  full_name:
+                    type: string
+              dealership:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+              status:
+                type: string
+              opened_at:
+                type: string
+                format: date-time
+              closed_at:
+                type: string
+                format: date-time
+                nullable: true
+              scheduled_start:
+                type: string
+                format: date-time
+                nullable: true
+              scheduled_end:
+                type: string
+                format: date-time
+                nullable: true
+              is_late:
+                type: boolean
+              late_minutes:
+                type: integer
+        dealership_shift_stats:
+          type: array
+          items:
+            type: object
+            properties:
+              dealership_id:
+                type: integer
+              dealership_name:
+                type: string
+              total_employees:
+                type: integer
+              on_shift_count:
+                type: integer
+              shift_schedules:
+                type: array
+                items:
+                  type: object
+              is_today_holiday:
+                type: boolean
+        today_tasks_list:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        active_generators:
+          type: integer
+        total_generators:
+          type: integer
+        tasks_generated_today:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
 
     Error:
       type: object
@@ -728,9 +997,9 @@ paths:
               schema:
                 type: object
                 properties:
-                  status:
-                    type: string
-                    example: "ok"
+                  success:
+                    type: boolean
+                    example: true
 
   # ============================================
   # FILE CONFIG ENDPOINTS (public)
@@ -956,12 +1225,29 @@ paths:
           in: query
           schema:
             type: string
-          description: Поиск по номеру телефона
+          description: Поиск по номеру телефона (поддерживается также phone_number)
         - name: dealership_id
           in: query
           schema:
             type: integer
           description: Фильтр по автосалону
+        - name: orphan_only
+          in: query
+          schema:
+            type: boolean
+          description: Только пользователи без автосалона
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [created_at, full_name]
+          description: Сортировка по полю
+        - name: sort_dir
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Направление сортировки
       responses:
         '200':
           description: Список пользователей
@@ -1222,6 +1508,69 @@ paths:
                   current_shift:
                     $ref: '#/components/schemas/Shift'
 
+  /v1/users/{id}/stats:
+    get:
+      summary: Статистика сотрудника
+      description: |
+        Получить статистику производительности сотрудника за период.
+
+        **curl пример:**
+        ```bash
+        curl -X GET "http://localhost:8007/api/v1/users/5/stats?date_from=2025-01-01&date_to=2025-01-31" \
+          -H "Authorization: Bearer YOUR_TOKEN"
+        ```
+      tags: [Users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Начало периода (по умолчанию — 30 дней назад)
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Конец периода (по умолчанию — сегодня)
+      responses:
+        '200':
+          description: Статистика сотрудника
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_tasks:
+                    type: integer
+                  completed_tasks:
+                    type: integer
+                  overdue_tasks:
+                    type: integer
+                  completion_rate:
+                    type: number
+                  avg_completion_time:
+                    type: number
+                    description: Среднее время выполнения (минуты)
+                  tasks_by_type:
+                    type: object
+                  shifts:
+                    type: integer
+                  late_shifts:
+                    type: integer
+                  missed_shifts:
+                    type: integer
+                  performance_score:
+                    type: number
+                    description: Оценка производительности (0-100)
+        '404':
+          description: Пользователь не найден
+
   # ============================================
   # DEALERSHIPS ENDPOINTS
   # ============================================
@@ -1307,6 +1656,10 @@ paths:
                   maxLength: 50
                 description:
                   type: string
+                timezone:
+                  type: string
+                  example: "Europe/Moscow"
+                  description: Часовой пояс автосалона
                 is_active:
                   type: boolean
                   default: true
@@ -1389,6 +1742,9 @@ paths:
                   type: string
                 description:
                   type: string
+                timezone:
+                  type: string
+                  example: "Europe/Moscow"
                 is_active:
                   type: boolean
       responses:
@@ -1858,6 +2214,235 @@ paths:
           description: Фото не найдено
 
   # ============================================
+  # SHIFT SCHEDULES ENDPOINTS
+  # ============================================
+  /v1/shift-schedules:
+    get:
+      summary: Список расписаний смен
+      description: |
+        Получить список расписаний смен.
+
+        **curl пример:**
+        ```bash
+        curl -X GET "http://localhost:8007/api/v1/shift-schedules?dealership_id=1&active_only=true" \
+          -H "Authorization: Bearer YOUR_TOKEN"
+        ```
+      tags: [Shift Schedules]
+      parameters:
+        - name: dealership_id
+          in: query
+          schema:
+            type: integer
+        - name: active_only
+          in: query
+          schema:
+            type: boolean
+          description: Только активные расписания
+      responses:
+        '200':
+          description: Список расписаний
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShiftSchedule'
+
+    post:
+      summary: Создать расписание смены
+      description: |
+        Создать новое расписание смены.
+
+        **Доступ:** manager, owner
+
+        **curl пример:**
+        ```bash
+        curl -X POST "http://localhost:8007/api/v1/shift-schedules" \
+          -H "Authorization: Bearer YOUR_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "dealership_id": 1,
+            "name": "Смена 1",
+            "start_time": "09:00",
+            "end_time": "18:00"
+          }'
+        ```
+      tags: [Shift Schedules]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealership_id, name, start_time, end_time]
+              properties:
+                dealership_id:
+                  type: integer
+                name:
+                  type: string
+                  maxLength: 255
+                start_time:
+                  type: string
+                  example: "09:00"
+                  description: Формат HH:MM
+                end_time:
+                  type: string
+                  example: "18:00"
+                  description: Формат HH:MM
+                sort_order:
+                  type: integer
+                is_active:
+                  type: boolean
+      responses:
+        '201':
+          description: Расписание создано
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/ShiftSchedule'
+        '403':
+          description: Недостаточно прав
+        '422':
+          description: Ошибка валидации
+
+  /v1/shift-schedules/{id}:
+    get:
+      summary: Получить расписание смены
+      description: |
+        Получить информацию о расписании смены.
+
+        **curl пример:**
+        ```bash
+        curl -X GET "http://localhost:8007/api/v1/shift-schedules/1" \
+          -H "Authorization: Bearer YOUR_TOKEN"
+        ```
+      tags: [Shift Schedules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Данные расписания
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ShiftSchedule'
+        '404':
+          description: Расписание не найдено
+
+    put:
+      summary: Обновить расписание смены
+      description: |
+        Обновить расписание смены.
+
+        **Доступ:** manager, owner
+
+        **curl пример:**
+        ```bash
+        curl -X PUT "http://localhost:8007/api/v1/shift-schedules/1" \
+          -H "Authorization: Bearer YOUR_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{"name": "Обновлённое расписание", "is_active": false}'
+        ```
+      tags: [Shift Schedules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                start_time:
+                  type: string
+                end_time:
+                  type: string
+                sort_order:
+                  type: integer
+                is_active:
+                  type: boolean
+      responses:
+        '200':
+          description: Расписание обновлено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/ShiftSchedule'
+        '403':
+          description: Недостаточно прав
+        '422':
+          description: Ошибка валидации
+
+    delete:
+      summary: Удалить расписание смены
+      description: |
+        Удалить расписание смены (soft delete).
+
+        **Доступ:** manager, owner
+
+        **curl пример:**
+        ```bash
+        curl -X DELETE "http://localhost:8007/api/v1/shift-schedules/1" \
+          -H "Authorization: Bearer YOUR_TOKEN"
+        ```
+      tags: [Shift Schedules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Расписание удалено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '403':
+          description: Недостаточно прав
+        '422':
+          description: Ошибка валидации
+
+  # ============================================
   # TASKS ENDPOINTS
   # ============================================
   /v1/tasks:
@@ -1877,6 +2462,7 @@ paths:
           in: query
           schema:
             type: integer
+            default: 15
         - name: dealership_id
           in: query
           schema:
@@ -1885,11 +2471,14 @@ paths:
           in: query
           schema:
             type: string
-        - name: response_status
+            enum: [active, completed, pending_review, overdue, pending, acknowledged]
+          description: Фильтр по вычисляемому статусу задачи
+        - name: date_range
           in: query
           schema:
             type: string
-            enum: [pending, acknowledged, pending_review, completed, rejected]
+            enum: [all, today, week, month]
+          description: Предустановленный диапазон дат
         - name: priority
           in: query
           schema:
@@ -1905,26 +2494,53 @@ paths:
           schema:
             type: string
             enum: [notification, completion, completion_with_proof]
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+        - name: creator_id
+          in: query
+          schema:
+            type: integer
+          description: Фильтр по создателю задачи
+        - name: assigned_to
+          in: query
+          schema:
+            type: integer
+          description: Фильтр по назначенному пользователю
         - name: search
           in: query
           schema:
             type: string
-          description: Поиск по названию
+          description: Поиск по названию, описанию, комментарию, тегам (ILIKE)
         - name: tags
           in: query
           schema:
             type: string
-          description: Фильтр по тегам (через запятую)
-        - name: date_from
+          description: Фильтр по тегам (через запятую или массив)
+        - name: deadline_from
           in: query
           schema:
             type: string
             format: date
-        - name: date_to
+          description: Дедлайн от
+        - name: deadline_to
           in: query
           schema:
             type: string
             format: date
+          description: Дедлайн до
+        - name: generator_id
+          in: query
+          schema:
+            type: integer
+          description: Фильтр по генератору
+        - name: from_generator
+          in: query
+          schema:
+            type: string
+            enum: ["yes", "no"]
+          description: Только задачи из генераторов или только ручные
         - name: sort_by
           in: query
           schema:
@@ -1947,8 +2563,27 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Task'
-                  meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                  current_page:
+                    type: integer
+                  last_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+                  links:
+                    type: object
+                    properties:
+                      first:
+                        type: string
+                      last:
+                        type: string
+                      prev:
+                        type: string
+                        nullable: true
+                      next:
+                        type: string
+                        nullable: true
 
     post:
       summary: Создать задачу
@@ -2235,6 +2870,9 @@ paths:
                 complete_for_all:
                   type: boolean
                   description: Выполнить для всех назначенных (только для менеджеров)
+                preserve_proofs:
+                  type: boolean
+                  description: Сохранить доказательства при сбросе статуса в pending
           multipart/form-data:
             schema:
               type: object
@@ -2300,7 +2938,7 @@ paths:
                     type: string
                     example: "Доказательство одобрено"
                   data:
-                    $ref: '#/components/schemas/TaskResponse'
+                    $ref: '#/components/schemas/Task'
         '403':
           description: Недостаточно прав
         '404':
@@ -2351,7 +2989,7 @@ paths:
                   message:
                     type: string
                   data:
-                    $ref: '#/components/schemas/TaskResponse'
+                    $ref: '#/components/schemas/Task'
         '403':
           description: Недостаточно прав
         '422':
@@ -2401,8 +3039,8 @@ paths:
                 properties:
                   message:
                     type: string
-                  rejected_count:
-                    type: integer
+                  data:
+                    $ref: '#/components/schemas/Task'
         '403':
           description: Недостаточно прав
         '404':
@@ -3011,6 +3649,21 @@ paths:
           schema:
             type: string
             enum: [completed, expired]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+        - name: task_type
+          in: query
+          schema:
+            type: string
+            enum: [individual, group]
+        - name: response_type
+          in: query
+          schema:
+            type: string
+            enum: [notification, completion, completion_with_proof]
         - name: generator_id
           in: query
           schema:
@@ -3141,29 +3794,18 @@ paths:
               schema:
                 type: object
                 properties:
-                  total_archived:
+                  total:
                     type: integer
                     example: 150
-                  by_reason:
-                    type: object
-                    properties:
-                      completed:
-                        type: integer
-                        example: 120
-                      expired:
-                        type: integer
-                        example: 30
-                  by_dealership:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        dealership_id:
-                          type: integer
-                        dealership_name:
-                          type: string
-                        count:
-                          type: integer
+                  completed:
+                    type: integer
+                    example: 100
+                  completed_late:
+                    type: integer
+                    example: 20
+                  expired:
+                    type: integer
+                    example: 30
         '401':
           description: Не авторизован
         '403':
@@ -3487,6 +4129,12 @@ paths:
                       to:
                         type: string
                         format: date
+                  date_from:
+                    type: string
+                    format: date
+                  date_to:
+                    type: string
+                    format: date
                   summary:
                     type: object
                     properties:
@@ -3496,22 +4144,53 @@ paths:
                         type: integer
                       overdue_tasks:
                         type: integer
+                      postponed_tasks:
+                        type: integer
                       total_shifts:
                         type: integer
                       late_shifts:
                         type: integer
-                  issues:
+                  tasks_by_status:
                     type: array
                     items:
                       type: object
                       properties:
-                        type:
+                        status:
                           type: string
                         count:
                           type: integer
-                        severity:
+                        percentage:
+                          type: number
+                  employees_performance:
+                    type: array
+                    description: Статистика производительности по сотрудникам
+                    items:
+                      type: object
+                  daily_stats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
                           type: string
-                          enum: [low, medium, high]
+                          format: date
+                        completed:
+                          type: integer
+                        overdue:
+                          type: integer
+                        late_shifts:
+                          type: integer
+                  top_issues:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        issue_type:
+                          type: string
+                        count:
+                          type: integer
+                        description:
+                          type: string
 
   /v1/reports/issues/{type}:
     get:
@@ -3704,21 +4383,29 @@ paths:
               schema:
                 type: object
                 properties:
-                  shift_1_start_time:
-                    type: string
-                    example: "09:00"
-                  shift_1_end_time:
-                    type: string
-                    example: "18:00"
-                  shift_2_start_time:
-                    type: string
-                    example: "14:00"
-                  shift_2_end_time:
-                    type: string
-                    example: "23:00"
-                  late_tolerance_minutes:
-                    type: integer
-                    example: 15
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      late_tolerance_minutes:
+                        type: integer
+                        example: 15
+                      schedules:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                            start_time:
+                              type: string
+                            end_time:
+                              type: string
+                            sort_order:
+                              type: integer
 
     post:
       summary: Обновить конфигурацию смен
@@ -4219,15 +4906,28 @@ paths:
               schema:
                 type: object
                 properties:
-                  year:
-                    type: integer
-                  uses_global:
+                  success:
                     type: boolean
-                    description: Использует ли автосалон глобальный календарь
-                  days:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/CalendarDay'
+                  data:
+                    type: object
+                    properties:
+                      year:
+                        type: integer
+                      dealership_id:
+                        type: integer
+                        nullable: true
+                      uses_global:
+                        type: boolean
+                        description: Использует ли автосалон глобальный календарь
+                      months:
+                        type: object
+                        description: "Объект с ключами 1-12 (месяцы), значения — массивы CalendarDay"
+                        additionalProperties:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/CalendarDay'
+                      holidays_count:
+                        type: integer
 
   /v1/calendar/{year}/holidays:
     get:
@@ -4259,10 +4959,26 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
                   data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/CalendarDay'
+                    type: object
+                    properties:
+                      year:
+                        type: integer
+                      dealership_id:
+                        type: integer
+                        nullable: true
+                      uses_global:
+                        type: boolean
+                      dates:
+                        type: array
+                        description: Массив дат (строки Y-m-d)
+                        items:
+                          type: string
+                          format: date
+                      count:
+                        type: integer
 
   /v1/calendar/check/{date}:
     get:
@@ -4295,17 +5011,24 @@ paths:
               schema:
                 type: object
                 properties:
-                  date:
-                    type: string
-                    format: date
-                  is_holiday:
+                  success:
                     type: boolean
-                  type:
-                    type: string
-                    enum: [holiday, workday]
-                  description:
-                    type: string
-                    nullable: true
+                  data:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                        format: date
+                      is_holiday:
+                        type: boolean
+                      is_workday:
+                        type: boolean
+                      day_of_week:
+                        type: integer
+                        description: День недели (1-7)
+                      dealership_id:
+                        type: integer
+                        nullable: true
 
   /v1/calendar/{date}:
     put:
