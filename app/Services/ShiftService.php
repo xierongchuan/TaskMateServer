@@ -75,7 +75,7 @@ class ShiftService
         // Если до start (раннее открытие) → late_minutes = 0
         $lateMinutes = 0;
         if ($now->gt($scheduledStart)) {
-            $lateMinutes = (int) $now->diffInMinutes($scheduledStart);
+            $lateMinutes = (int) abs($now->diffInMinutes($scheduledStart));
         }
         $isLate = $lateMinutes > $lateTolerance;
 

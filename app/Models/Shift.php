@@ -54,7 +54,7 @@ class Shift extends Model
 
     public function schedule()
     {
-        return $this->belongsTo(ShiftSchedule::class, 'shift_schedule_id');
+        return $this->belongsTo(ShiftSchedule::class, 'shift_schedule_id')->withTrashed();
     }
 
 }

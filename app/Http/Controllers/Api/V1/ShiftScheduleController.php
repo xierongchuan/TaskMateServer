@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ShiftScheduleResource;
+use App\Models\Shift;
 use App\Models\ShiftSchedule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -198,6 +199,18 @@ class ShiftScheduleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Нельзя удалить единственную смену автосалона',
+            ], 422);
+        }
+
+        // Не разрешаем удалить расписание с открытыми сменами
+        $activeShiftsCount = Shift::where('shift_schedule_id', $schedule->id)
+            ->whereIn('status', ['open', 'late'])
+            ->count();
+
+        if ($activeShiftsCount > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => "Нельзя удалить: есть {$activeShiftsCount} открытых смен",
             ], 422);
         }
 
