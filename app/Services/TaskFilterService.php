@@ -56,7 +56,18 @@ class TaskFilterService
 
         $perPage = $request->filled('per_page') ? $request->integer('per_page') : 15;
 
-        return $query->orderByDesc('created_at')->paginate($perPage);
+        $allowedSortFields = ['created_at', 'title', 'priority', 'deadline'];
+        $sortField = $request->get('sort_by', 'created_at');
+        $sortDir = $request->get('sort_dir', 'desc');
+
+        if (!in_array($sortField, $allowedSortFields, true)) {
+            $sortField = 'created_at';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'], true)) {
+            $sortDir = 'desc';
+        }
+
+        return $query->orderBy($sortField, $sortDir)->paginate($perPage);
     }
 
     /**

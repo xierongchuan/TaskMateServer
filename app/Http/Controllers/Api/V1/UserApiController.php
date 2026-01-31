@@ -122,7 +122,18 @@ class UserApiController extends Controller
         $currentUser = $request->user();
         $this->scopeUsersByAccessibleDealerships($query, $currentUser);
 
-        $users = $query->orderByDesc('created_at')->paginate($perPage);
+        $allowedSortFields = ['created_at', 'full_name'];
+        $sortField = $request->get('sort_by', 'created_at');
+        $sortDir = $request->get('sort_dir', 'desc');
+
+        if (!in_array($sortField, $allowedSortFields, true)) {
+            $sortField = 'created_at';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'], true)) {
+            $sortDir = 'desc';
+        }
+
+        $users = $query->orderBy($sortField, $sortDir)->paginate($perPage);
         return UserResource::collection($users);
     }
 
