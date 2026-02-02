@@ -93,6 +93,42 @@ class TaskEventPublisher
     }
 
     /**
+     * Опубликовать событие отправки на проверку.
+     * Критическое уведомление — всегда отправляется.
+     * Отправляется менеджерам и владельцам автосалона.
+     */
+    public static function publishTaskPendingReview(TaskResponse $response): void
+    {
+        $response->loadMissing(['task', 'user']);
+        $task = $response->task;
+
+        // Получаем менеджеров и владельцев автосалона
+        $managerOwnerIds = User::where(function ($query) use ($task) {
+            $query->where('dealership_id', $task->dealership_id)
+                ->orWhereHas('dealerships', function ($q) use ($task) {
+                    $q->where('auto_dealerships.id', $task->dealership_id);
+                });
+        })
+            ->whereIn('role', ['manager', 'owner'])
+            ->where('id', '!=', $response->user_id)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($managerOwnerIds)) {
+            return;
+        }
+
+        self::publish([
+            'event' => 'task.pending_review',
+            'task' => self::serializeTask($task),
+            'user_ids' => array_values($managerOwnerIds),
+            'submitted_by' => $response->user->full_name ?? 'Сотрудник',
+            'response_id' => $response->id,
+            'timestamp' => now()->toIso8601ZuluString(),
+        ]);
+    }
+
+    /**
      * Опубликовать событие группового отклонения.
      * Критическое уведомление — всегда отправляется.
      */

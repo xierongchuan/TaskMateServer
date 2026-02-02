@@ -473,6 +473,11 @@ class TaskController extends Controller
             TaskEventPublisher::publishTaskAssigned($task, $assignedUserIds);
         }
 
+        // Уведомляем менеджеров о новой задаче на проверку
+        if ($status === 'pending_review' && $taskResponse !== null) {
+            TaskEventPublisher::publishTaskPendingReview($taskResponse);
+        }
+
         // Асинхронные операции выполняются ПОСЛЕ успешного коммита транзакции
         // Это гарантирует, что Jobs будут работать с уже зафиксированными данными
 
