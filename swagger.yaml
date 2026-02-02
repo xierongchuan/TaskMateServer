@@ -187,10 +187,6 @@ components:
           type: integer
           nullable: true
           description: ID расписания смены
-        shift_type:
-          type: string
-          nullable: true
-          example: "shift_1"
         shift_start:
           type: string
           format: date-time
@@ -1813,11 +1809,6 @@ paths:
           schema:
             type: string
             enum: [open, late, closed, replaced]
-        - name: shift_type
-          in: query
-          schema:
-            type: string
-            enum: [shift_1, shift_2]
         - name: is_late
           in: query
           schema:

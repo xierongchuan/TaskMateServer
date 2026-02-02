@@ -32,7 +32,6 @@ class Task extends Model
         'deadline',
         'scheduled_date',
         'task_type',
-        'target_shift_type',
         'response_type',
         'tags',
         'is_active',

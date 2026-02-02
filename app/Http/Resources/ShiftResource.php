@@ -42,7 +42,6 @@ class ShiftResource extends JsonResource
             'scheduled_start' => $this->scheduled_start?->toIso8601String(),
             'scheduled_end' => $this->scheduled_end?->toIso8601String(),
             'status' => $this->status,
-            'shift_type' => $this->shift_type,
             'late_minutes' => $this->late_minutes,
             'is_late' => ($this->status === ShiftStatus::LATE->value || $this->late_minutes > 0),
             'archived_tasks_processed' => $this->archived_tasks_processed,
