@@ -212,16 +212,50 @@ class DashboardService
                     ->whereNull('shift_end')
                     ->count();
 
+                $schedules = \App\Models\ShiftSchedule::where('dealership_id', $dealership->id)
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->get(['id', 'name', 'start_time', 'end_time']);
+
+                // Определяем текущее или ближайшее расписание по локальному времени автосалона
+                $currentOrNextSchedule = null;
+                $isCurrentSchedule = false;
+                if ($schedules->isNotEmpty()) {
+                    $timezone = $dealership->timezone ?? '+05:00';
+                    $localNow = Carbon::now($timezone)->format('H:i');
+
+                    // Сначала ищем расписание, в которое попадает текущее время
+                    $currentOrNextSchedule = $schedules->first(function ($s) use ($localNow) {
+                        return $s->containsTime($localNow);
+                    });
+
+                    if ($currentOrNextSchedule) {
+                        $isCurrentSchedule = true;
+                    } else {
+                        // Ищем первое расписание, start_time которого ещё не наступил
+                        $currentOrNextSchedule = $schedules->first(function ($s) use ($localNow) {
+                            $start = substr($s->start_time, 0, 5);
+                            return $start > $localNow;
+                        });
+
+                        // Если все смены уже прошли — берём первую (на завтра)
+                        $currentOrNextSchedule = $currentOrNextSchedule ?? $schedules->first();
+                    }
+                }
+
                 return [
                     'dealership_id' => $dealership->id,
                     'dealership_name' => $dealership->name,
                     'total_employees' => $totalEmployees,
                     'on_shift_count' => $onShiftCount,
-                    'shift_schedules' => \App\Models\ShiftSchedule::where('dealership_id', $dealership->id)
-                        ->where('is_active', true)
-                        ->orderBy('sort_order')
-                        ->get(['id', 'name', 'start_time', 'end_time'])
-                        ->toArray(),
+                    'shift_schedules' => $schedules->toArray(),
+                    'current_or_next_schedule' => $currentOrNextSchedule ? [
+                        'id' => $currentOrNextSchedule->id,
+                        'name' => $currentOrNextSchedule->name,
+                        'start_time' => $currentOrNextSchedule->start_time,
+                        'end_time' => $currentOrNextSchedule->end_time,
+                        'is_current' => $isCurrentSchedule,
+                    ] : null,
                     'is_today_holiday' => CalendarDay::isHoliday(TimeHelper::nowUtc(), $dealership->id),
                 ];
             });
