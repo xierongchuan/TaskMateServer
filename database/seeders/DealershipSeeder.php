@@ -9,6 +9,7 @@ use App\Models\AutoDealership;
 use App\Models\ImportantLink;
 use App\Models\NotificationSetting;
 use App\Models\Setting;
+use App\Models\ShiftSchedule;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -27,6 +28,14 @@ class DealershipSeeder extends Seeder
         ['key' => 'allow_late_completion', 'value' => '1', 'type' => 'boolean', 'description' => 'Разрешить позднее выполнение задач'],
         ['key' => 'max_proof_files', 'value' => '5', 'type' => 'integer', 'description' => 'Максимальное количество файлов доказательств'],
         ['key' => 'proof_file_max_size_mb', 'value' => '200', 'type' => 'integer', 'description' => 'Максимальный размер файла доказательства (МБ)'],
+    ];
+
+    /**
+     * Расписания смен по умолчанию (время в локальном времени автосалона).
+     */
+    private const DEFAULT_SHIFT_SCHEDULES = [
+        ['name' => 'Утренняя смена', 'start_time' => '09:00', 'end_time' => '14:00', 'sort_order' => 1],
+        ['name' => 'Вечерняя смена', 'start_time' => '14:00', 'end_time' => '20:00', 'sort_order' => 2],
     ];
 
     /**
@@ -124,6 +133,10 @@ class DealershipSeeder extends Seeder
             ]);
             $this->command->info(' - 5 важных ссылок');
 
+            // Create Shift Schedules
+            $this->createShiftSchedules($dealership);
+            $this->command->info(' - ' . count(self::DEFAULT_SHIFT_SCHEDULES) . ' расписаний смен');
+
             // Create Settings
             $this->createSettings($dealership);
             $this->command->info(' - ' . count(self::DEFAULT_SETTINGS) . ' настроек');
@@ -131,6 +144,27 @@ class DealershipSeeder extends Seeder
             // Create Notification Settings
             $this->createNotificationSettings($dealership);
             $this->command->info(' - ' . count(self::DEFAULT_NOTIFICATION_SETTINGS) . ' настроек уведомлений');
+        }
+    }
+
+    /**
+     * Создать расписания смен автосалона.
+     */
+    private function createShiftSchedules(AutoDealership $dealership): void
+    {
+        foreach (self::DEFAULT_SHIFT_SCHEDULES as $scheduleData) {
+            ShiftSchedule::updateOrCreate(
+                [
+                    'dealership_id' => $dealership->id,
+                    'name' => $scheduleData['name'],
+                ],
+                [
+                    'start_time' => $scheduleData['start_time'],
+                    'end_time' => $scheduleData['end_time'],
+                    'sort_order' => $scheduleData['sort_order'],
+                    'is_active' => true,
+                ]
+            );
         }
     }
 
