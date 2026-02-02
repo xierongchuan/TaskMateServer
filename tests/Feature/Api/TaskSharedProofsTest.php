@@ -250,10 +250,9 @@ describe('Task Shared Proofs', function () {
             ])
             ->assertOk();
 
-        // Проверяем, что shared proofs СОХРАНЕНЫ (не удалены)
+        // Проверяем, что shared proofs УДАЛЕНЫ
         $task->refresh();
-        expect($task->sharedProofs)->toHaveCount(1);
-        Storage::disk('local')->assertExists($path);
+        expect($task->sharedProofs)->toHaveCount(0);
 
         // Проверяем, что response переключен на индивидуальный режим
         $response->refresh();
@@ -319,9 +318,8 @@ describe('Task Shared Proofs', function () {
         expect($task->responses()->where('status', 'rejected')->count())->toBe(1);
         expect($task->responses()->where('status', 'pending_review')->count())->toBe(2);
 
-        // Проверяем, что shared proofs СОХРАНЕНЫ (не удалены)
-        expect($task->sharedProofs)->toHaveCount(1);
-        Storage::disk('local')->assertExists($path);
+        // Проверяем, что shared proofs УДАЛЕНЫ
+        expect($task->sharedProofs)->toHaveCount(0);
 
         // Проверяем состояние отклоненного response
         $firstResponse->refresh();

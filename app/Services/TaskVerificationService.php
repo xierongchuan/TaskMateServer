@@ -77,15 +77,15 @@ class TaskVerificationService
         $result = DB::transaction(function () use ($response, $verifier, $reason) {
             $previousStatus = $response->status;
 
-            // Удаляем только индивидуальные файлы (НЕ shared_proofs!)
-            // Shared proofs сохраняются чтобы сотрудник мог видеть что было отклонено.
-            // Удаление shared_proofs происходит только в rejectAllForTask().
+            // Удаляем файлы доказательств
             if (! $response->uses_shared_proofs) {
                 $proofCount = $response->proofs()->count();
                 $this->taskProofService->deleteAllProofs($response);
             } else {
-                // Если использовал shared_proofs, у него нет индивидуальных файлов
-                $proofCount = 0;
+                // Удаляем shared_proofs задачи чтобы сотрудник загрузил новые файлы
+                $task = $response->task;
+                $proofCount = $task->sharedProofs()->count();
+                $this->taskProofService->deleteSharedProofs($task);
             }
 
             // Обновляем response - переключаем на индивидуальный режим
