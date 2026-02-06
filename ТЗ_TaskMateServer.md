@@ -1003,16 +1003,16 @@ storage/
 ### 8.1 Docker
 
 - Все сервисы запускаются через podman compose
-- Команды выполняются через `podman compose exec backend_api`
+- Команды выполняются через `podman compose exec api`
 
 ### 8.2 Инициализация
 
 ```bash
 podman compose up -d --build
-podman compose exec backend_api composer install
-podman compose exec backend_api php artisan migrate --force
-podman compose exec backend_api php artisan db:seed-demo
-podman compose exec backend_api php artisan storage:link
+podman compose exec api composer install
+podman compose exec api php artisan migrate --force
+podman compose exec api php artisan db:seed-demo
+podman compose exec api php artisan storage:link
 ```
 
 ### 8.3 Порты

@@ -15,9 +15,9 @@ declare(strict_types=1);
 // Принудительно устанавливаем тестовую базу данных
 // Это необходимо, потому что Docker устанавливает DB_DATABASE на основную БД,
 // и .env.testing / phpunit.xml не могут переопределить системные переменные окружения
-putenv('DB_DATABASE=taskmatebackend_test');
-$_ENV['DB_DATABASE'] = 'taskmatebackend_test';
-$_SERVER['DB_DATABASE'] = 'taskmatebackend_test';
+putenv('DB_DATABASE=app_test');
+$_ENV['DB_DATABASE'] = 'app_test';
+$_SERVER['DB_DATABASE'] = 'app_test';
 
 // Загружаем стандартный autoloader
 require __DIR__ . '/../vendor/autoload.php';

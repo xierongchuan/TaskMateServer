@@ -41,27 +41,27 @@ podman compose up -d --build
 
 ```sh
 # Установка зависимостей (если vendor/ отсутствует)
-podman compose exec backend_api composer install
+podman compose exec api composer install
 
 # Миграции и сидинг демо-данных
-podman compose exec backend_api php artisan migrate --force
-podman compose exec backend_api php artisan db:seed-demo
+podman compose exec api php artisan migrate --force
+podman compose exec api php artisan db:seed-demo
 
 # Создание симлинка для публичных файлов
-podman compose exec backend_api php artisan storage:link
+podman compose exec api php artisan storage:link
 ```
 
 ### Тестирование
 
 ```sh
 # Все тесты (193 теста)
-podman compose exec backend_api php artisan test
+podman compose exec api php artisan test
 
 # Отдельные наборы тестов
-podman compose exec backend_api composer test:unit      # Unit tests
-podman compose exec backend_api composer test:feature   # Feature tests
-podman compose exec backend_api composer test:api       # API endpoint tests
-podman compose exec backend_api composer test:coverage  # С отчётом покрытия (min 50%)
+podman compose exec api composer test:unit      # Unit tests
+podman compose exec api composer test:feature   # Feature tests
+podman compose exec api composer test:api       # API endpoint tests
+podman compose exec api composer test:coverage  # С отчётом покрытия (min 50%)
 ```
 
 ## Seeding (Заполнение данными)
@@ -69,7 +69,7 @@ podman compose exec backend_api composer test:coverage  # С отчётом по
 Чтобы создать пользователя администратора и демо-данные:
 
 ```sh
-podman compose exec src_telegram_bot_api php artisan db:seed
+podman compose exec api php artisan db:seed
 ```
 
 Это создаст:

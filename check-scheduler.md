@@ -17,20 +17,20 @@ docker ps | grep scheduler
 
 ```bash
 # Посмотреть логи планировщика
-docker logs taskmate_backend_scheduler
+docker logs svc-scheduler
 
 # Посмотреть логи supervisor в реальном времени
-docker exec taskmate_backend_scheduler tail -f /var/log/supervisor/laravel-scheduler.log
+docker exec svc-scheduler tail -f /var/log/supervisor/laravel-scheduler.log
 
 # Посмотреть логи воркеров очередей
-docker exec taskmate_backend_scheduler tail -f /var/log/supervisor/laravel-worker.log
+docker exec svc-scheduler tail -f /var/log/supervisor/laravel-worker.log
 ```
 
 ## Проверка статуса процессов
 
 ```bash
 # Зайти в контейнер планировщика
-docker exec -it taskmate_backend_scheduler bash
+docker exec -it svc-scheduler bash
 
 # Проверить статус supervisor
 supervisorctl status
@@ -45,13 +45,13 @@ supervisorctl status
 
 ```bash
 # Внутри контейнера выполнить ручной запуск планировщика
-docker exec taskmate_backend_scheduler php artisan schedule:run
+docker exec svc-scheduler php artisan schedule:run
 
 # Проверить очереди
-docker exec taskmate_backend_scheduler php artisan queue:failed
+docker exec svc-scheduler php artisan queue:failed
 
 # Очистить очередь при необходимости
-docker exec taskmate_backend_scheduler php artisan queue:clear
+docker exec svc-scheduler php artisan queue:clear
 ```
 
 ## Что делает планировщик
@@ -70,6 +70,6 @@ docker exec taskmate_backend_scheduler php artisan queue:clear
 Если планировщик не работает:
 
 1. Проверить статус контейнера: `docker ps | grep scheduler`
-2. Проверить логи: `docker logs taskmate_backend_scheduler`
-3. Проверить статус supervisor: `docker exec taskmate_backend_scheduler supervisorctl status`
-4. Проверить подключение к Redis: `docker exec taskmate_backend_scheduler php artisan tinker --execute="Redis::ping()"`
+2. Проверить логи: `docker logs svc-scheduler`
+3. Проверить статус supervisor: `docker exec svc-scheduler supervisorctl status`
+4. Проверить подключение к Redis: `docker exec svc-scheduler php artisan tinker --execute="Redis::ping()"`
