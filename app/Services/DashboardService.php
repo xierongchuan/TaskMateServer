@@ -164,7 +164,7 @@ class DashboardService
     protected function getActiveShifts(?int $dealershipId): Collection
     {
         return Shift::with(['user:id,full_name', 'dealership:id,name'])
-            ->where('status', ShiftStatus::OPEN->value)
+            ->whereIn('status', ShiftStatus::activeStatusValues())
             ->whereNull('shift_end')
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
             ->orderBy('shift_start')
@@ -208,7 +208,7 @@ class DashboardService
                     ->count();
 
                 $onShiftCount = Shift::where('dealership_id', $dealership->id)
-                    ->where('status', ShiftStatus::OPEN->value)
+                    ->whereIn('status', ShiftStatus::activeStatusValues())
                     ->whereNull('shift_end')
                     ->count();
 
