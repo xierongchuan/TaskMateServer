@@ -73,14 +73,14 @@ class ShiftPhotoController extends Controller
             ], 404);
         }
 
-        // Проверяем существование файла на публичном диске
-        if (!Storage::disk('public')->exists($photoPath)) {
+        // Проверяем существование файла
+        if (!Storage::disk('shift_photos')->exists($photoPath)) {
             return response()->json([
                 'message' => 'Файл не найден на сервере'
             ], 404);
         }
 
-        $fullPath = Storage::disk('public')->path($photoPath);
+        $fullPath = Storage::disk('shift_photos')->path($photoPath);
         $mimeType = mime_content_type($fullPath) ?: 'image/jpeg';
         $filename = basename($photoPath);
 
@@ -134,13 +134,13 @@ class ShiftPhotoController extends Controller
         }
 
         // Проверяем существование файла
-        if (!Storage::disk('public')->exists($photoPath)) {
+        if (!Storage::disk('shift_photos')->exists($photoPath)) {
             return response()->json([
                 'message' => 'Файл не найден на сервере'
             ], 404);
         }
 
-        $fullPath = Storage::disk('public')->path($photoPath);
+        $fullPath = Storage::disk('shift_photos')->path($photoPath);
         $lastModified = filemtime($fullPath);
         $etag = '"' . md5($photoPath . $lastModified) . '"';
         $mimeType = mime_content_type($fullPath) ?: 'image/jpeg';

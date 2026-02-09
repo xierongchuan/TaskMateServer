@@ -24,6 +24,11 @@ class ShiftService
      */
     private const VALIDATION_PRESET = 'shift_photo';
 
+    /**
+     * Диск хранения фото смен.
+     */
+    private const STORAGE_DISK = 'shift_photos';
+
     public function __construct(
         private readonly SettingsService $settingsService,
         private readonly FileValidatorInterface $fileValidator
@@ -98,8 +103,8 @@ class ShiftService
             if ($existingShift) {
                 DB::rollBack();
                 // Clean up photo
-                if ($photoPath && Storage::exists($photoPath)) {
-                    Storage::delete($photoPath);
+                if ($photoPath && Storage::disk(self::STORAGE_DISK)->exists($photoPath)) {
+                    Storage::disk(self::STORAGE_DISK)->delete($photoPath);
                 }
                 throw new \InvalidArgumentException('User already has an open shift in this dealership');
             }
@@ -132,8 +137,8 @@ class ShiftService
             DB::rollBack();
 
             // Clean up photo if shift creation failed
-            if ($photoPath && Storage::exists($photoPath)) {
-                Storage::delete($photoPath);
+            if ($photoPath && Storage::disk(self::STORAGE_DISK)->exists($photoPath)) {
+                Storage::disk(self::STORAGE_DISK)->delete($photoPath);
             }
 
             Log::error("Failed to open shift for user {$user->id}", [
@@ -189,8 +194,8 @@ class ShiftService
             DB::rollBack();
 
             // Clean up photo if shift update failed
-            if ($photoPath && Storage::exists($photoPath)) {
-                Storage::delete($photoPath);
+            if ($photoPath && Storage::disk(self::STORAGE_DISK)->exists($photoPath)) {
+                Storage::disk(self::STORAGE_DISK)->delete($photoPath);
             }
 
             Log::error("Failed to close shift for user {$shift->user_id}", [
@@ -319,7 +324,7 @@ class ShiftService
         $filename = $type . '_' . time() . '_' . $userId . '.' . $extension;
         $path = "dealerships/{$dealershipId}/shifts/{$userId}/" . date('Y/m/d');
 
-        return $photo->storeAs($path, $filename, 'public');
+        return $photo->storeAs($path, $filename, self::STORAGE_DISK);
     }
 
     /**

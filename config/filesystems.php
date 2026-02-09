@@ -66,6 +66,15 @@ return [
             'throw' => true,
         ],
 
+        // Приватное хранилище для фотографий смен (opening/closing)
+        // Доступ только через авторизованные эндпоинты
+        'shift_photos' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/shift_photos'),
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

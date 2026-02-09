@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\URL;
 
 describe('Shift Photo API', function () {
     beforeEach(function () {
-        Storage::fake('public');
+        Storage::fake('shift_photos');
 
         $this->dealership = AutoDealership::factory()->create();
         $this->owner = User::factory()->create([
@@ -39,7 +39,7 @@ describe('Shift Photo API', function () {
             $photoPath = 'shifts/test_opening.jpg';
             // JPEG magic bytes + минимальный контент
             $jpegContent = "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00";
-            Storage::disk('public')->put($photoPath, $jpegContent);
+            Storage::disk('shift_photos')->put($photoPath, $jpegContent);
 
             $shift = Shift::factory()->create([
                 'user_id' => $this->employee->id,
@@ -68,7 +68,7 @@ describe('Shift Photo API', function () {
         it('downloads closing photo with valid signature', function () {
             // Arrange
             $photoPath = 'shifts/test_closing.jpg';
-            Storage::disk('public')->put($photoPath, 'fake image content');
+            Storage::disk('shift_photos')->put($photoPath, 'fake image content');
 
             $shift = Shift::factory()->create([
                 'user_id' => $this->employee->id,
@@ -190,7 +190,7 @@ describe('Shift Photo API', function () {
         it('allows owner to view any shift photo', function () {
             // Arrange
             $photoPath = 'shifts/test_photo.jpg';
-            Storage::disk('public')->put($photoPath, 'fake image content');
+            Storage::disk('shift_photos')->put($photoPath, 'fake image content');
 
             $shift = Shift::factory()->create([
                 'user_id' => $this->employee->id,
@@ -209,7 +209,7 @@ describe('Shift Photo API', function () {
         it('allows manager to view any shift photo', function () {
             // Arrange
             $photoPath = 'shifts/test_photo.jpg';
-            Storage::disk('public')->put($photoPath, 'fake image content');
+            Storage::disk('shift_photos')->put($photoPath, 'fake image content');
 
             $shift = Shift::factory()->create([
                 'user_id' => $this->employee->id,
@@ -228,7 +228,7 @@ describe('Shift Photo API', function () {
         it('allows employee to view own shift photo', function () {
             // Arrange
             $photoPath = 'shifts/test_photo.jpg';
-            Storage::disk('public')->put($photoPath, 'fake image content');
+            Storage::disk('shift_photos')->put($photoPath, 'fake image content');
 
             $shift = Shift::factory()->create([
                 'user_id' => $this->employee->id,
@@ -285,7 +285,7 @@ describe('Shift Photo API', function () {
         it('returns 304 Not Modified for cached request', function () {
             // Arrange
             $photoPath = 'shifts/test_photo.jpg';
-            Storage::disk('public')->put($photoPath, 'fake image content');
+            Storage::disk('shift_photos')->put($photoPath, 'fake image content');
 
             $shift = Shift::factory()->create([
                 'user_id' => $this->employee->id,

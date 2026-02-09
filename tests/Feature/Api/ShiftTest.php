@@ -22,7 +22,7 @@ describe('Shift API', function () {
             'end_time' => '18:00',
             'is_active' => true,
         ]);
-        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::fake('shift_photos');
     });
 
     it('returns shifts list', function () {
