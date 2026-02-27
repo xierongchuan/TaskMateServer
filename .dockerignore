@@ -1,0 +1,43 @@
+# Исключаем из Docker контекста
+
+# Локальные файлы
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Кэш и логи
+storage/app/private/*
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# Vendor (устанавливается в build stage)
+vendor
+
+# Node (если есть)
+node_modules
+
+# Тесты
+tests
+phpunit.xml
+.phpunit.result.cache
+
+# Документация
+*.md
+!README.md
+
+# Docker файлы (они не нужны внутри контейнера)
+docker-compose*.yml
+Makefile

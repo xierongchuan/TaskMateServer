@@ -1,0 +1,55 @@
+# Caddyfile для FrankenPHP с Laravel (стандартный режим без worker mode)
+{
+    # Отключаем автоматический HTTPS для Docker (управляется nginx снаружи)
+    auto_https off
+
+    # Настройки для production
+    servers {
+        protocols h1 h2 h2c
+    }
+}
+
+# Основной сервер
+:8000 {
+    # Корневая директория Laravel
+    root * /app/public
+
+    # Включаем сжатие
+    encode zstd gzip
+
+    # Логирование
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+
+    # Обработка статических файлов
+    @static {
+        file
+        path *.css *.js *.ico *.gif *.jpg *.jpeg *.png *.svg *.woff *.woff2 *.ttf *.eot *.webp *.webm *.mp4 *.mp3 *.pdf
+    }
+    handle @static {
+        file_server
+    }
+
+    # Основной обработчик PHP через FrankenPHP
+    php_server {
+        resolve_root_symlink
+    }
+
+    # Заголовки безопасности
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Убираем заголовок Server для безопасности
+        -Server
+    }
+
+    # Обработка ошибок
+    handle_errors {
+        respond "{err.status_code} {err.status_text}"
+    }
+}
