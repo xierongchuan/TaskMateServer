@@ -8,6 +8,8 @@ use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreTaskGeneratorRequest;
 use App\Http\Requests\Api\V1\UpdateTaskGeneratorRequest;
+use App\Http\Resources\TaskGeneratorResource;
+use App\Http\Resources\TaskResource;
 use App\Models\TaskGenerator;
 use App\Models\TaskGeneratorAssignment;
 use App\Traits\HasDealershipAccess;
@@ -71,7 +73,7 @@ class TaskGeneratorController extends Controller
         $generators = $query->paginate($perPage);
 
         // Transform data
-        $generators->getCollection()->transform(fn ($g) => $g->toApiArray());
+        $generators->getCollection()->transform(fn ($g) => TaskGeneratorResource::make($g)->resolve());
 
         return response()->json($generators);
     }
@@ -91,7 +93,7 @@ class TaskGeneratorController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $generator->toApiArray(),
+            'data' => TaskGeneratorResource::make($generator)->resolve(),
         ]);
     }
 
@@ -159,7 +161,7 @@ class TaskGeneratorController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $generator->toApiArray(),
+            'data' => TaskGeneratorResource::make($generator)->resolve(),
             'message' => 'Task generator created successfully',
         ], 201);
     }
@@ -288,7 +290,7 @@ class TaskGeneratorController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $generator->toApiArray(),
+            'data' => TaskGeneratorResource::make($generator)->resolve(),
             'message' => 'Task generator updated successfully',
         ]);
     }
@@ -330,7 +332,7 @@ class TaskGeneratorController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $generator->toApiArray(),
+            'data' => TaskGeneratorResource::make($generator)->resolve(),
             'message' => 'Task generator paused',
         ]);
     }
@@ -352,7 +354,7 @@ class TaskGeneratorController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $generator->toApiArray(),
+            'data' => TaskGeneratorResource::make($generator)->resolve(),
             'message' => 'Task generator resumed',
         ]);
     }
@@ -434,7 +436,7 @@ class TaskGeneratorController extends Controller
         $tasks = $query->orderBy('scheduled_date', 'desc')->paginate($perPage);
 
         // Transform data
-        $tasks->getCollection()->transform(fn ($t) => $t->toApiArray());
+        $tasks->getCollection()->transform(fn ($t) => TaskResource::make($t)->resolve());
 
         return response()->json($tasks);
     }

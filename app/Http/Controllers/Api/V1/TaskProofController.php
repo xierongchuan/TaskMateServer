@@ -57,9 +57,7 @@ class TaskProofController extends Controller
             }
         }
 
-        return response()->json([
-            'data' => $proof->toApiArray(),
-        ]);
+        return (new \App\Http\Resources\TaskProofResource($proof))->response();
     }
 
     /**

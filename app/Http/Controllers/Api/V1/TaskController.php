@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreTaskRequest;
 use App\Http\Requests\Api\V1\UpdateTaskRequest;
 use App\Http\Requests\Api\V1\UpdateTaskStatusRequest;
+use App\Http\Resources\TaskResource;
 use App\Jobs\StoreTaskSharedProofsJob;
 use App\Models\Shift;
 use App\Models\Task;
@@ -52,10 +53,7 @@ class TaskController extends Controller
 
         $tasks = $this->taskFilterService->getFilteredTasks($request, $currentUser);
 
-        // Transform tasks to use UTC+5 timezone
-        $tasksData = $tasks->getCollection()->map(function ($task) {
-            return $task->toApiArray();
-        });
+        $tasksData = $tasks->getCollection()->map(fn ($task) => TaskResource::make($task)->resolve());
 
         return response()->json([
             'data' => $tasksData,
@@ -104,7 +102,7 @@ class TaskController extends Controller
         // Security check: Access scope via Policy
         $this->authorize('view', $task);
 
-        return response()->json($task->toApiArray());
+        return response()->json(TaskResource::make($task)->resolve());
     }
 
     /**
@@ -130,7 +128,7 @@ class TaskController extends Controller
 
         $task = $this->taskService->createTask($validated, $currentUser);
 
-        return response()->json($task->load(['assignments.user'])->toApiArray(), 201);
+        return response()->json(TaskResource::make($task->load(['assignments.user']))->resolve(), 201);
     }
 
     /**
@@ -176,7 +174,7 @@ class TaskController extends Controller
 
         $task = $this->taskService->updateTask($task, $validated);
 
-        return response()->json($task->load(['assignments.user', 'responses.user'])->toApiArray());
+        return response()->json(TaskResource::make($task->load(['assignments.user', 'responses.user']))->resolve());
     }
 
     /**
@@ -500,9 +498,10 @@ class TaskController extends Controller
         }
 
         return response()->json(
-            $task->refresh()
-                ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier', 'sharedProofs'])
-                ->toApiArray()
+            TaskResource::make(
+                $task->refresh()
+                    ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier', 'sharedProofs'])
+            )->resolve()
         );
     }
 
@@ -551,10 +550,7 @@ class TaskController extends Controller
         $perPage = $request->input('per_page', 15);
         $tasks = $query->paginate((int) $perPage);
 
-        // Transform tasks to API format
-        $tasksData = $tasks->getCollection()->map(function ($task) {
-            return $task->toApiArray();
-        });
+        $tasksData = $tasks->getCollection()->map(fn ($task) => TaskResource::make($task)->resolve());
 
         return response()->json([
             'data' => $tasksData,

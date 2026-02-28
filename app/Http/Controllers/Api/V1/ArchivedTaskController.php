@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TaskResource;
 use App\Models\Task;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
@@ -116,7 +117,7 @@ class ArchivedTaskController extends Controller
         $tasks = $query->paginate($perPage);
 
         // Transform data
-        $tasks->getCollection()->transform(fn ($t) => $t->toApiArray());
+        $tasks->getCollection()->transform(fn ($t) => TaskResource::make($t)->resolve());
 
         return response()->json($tasks);
     }
@@ -146,7 +147,7 @@ class ArchivedTaskController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $task->toApiArray(),
+            'data' => TaskResource::make($task)->resolve(),
             'message' => 'Task restored from archive',
         ]);
     }

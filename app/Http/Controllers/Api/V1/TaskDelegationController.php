@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreDelegationRequest;
+use App\Http\Resources\TaskDelegationResource;
 use App\Models\Task;
 use App\Models\TaskDelegation;
 use App\Models\User;
@@ -50,10 +51,10 @@ class TaskDelegationController extends Controller
 
         TaskEventPublisher::publishDelegationRequested($delegation);
 
-        return response()->json([
-            'message' => 'Запрос на делегирование создан',
-            'data' => $delegation->load(['fromUser', 'toUser', 'task'])->toApiArray(),
-        ], 201);
+        return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
+            ->additional(['message' => 'Запрос на делегирование создан'])
+            ->response()
+            ->setStatusCode(201);
     }
 
     /**
@@ -107,7 +108,7 @@ class TaskDelegationController extends Controller
         $delegations = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $delegations->getCollection()->map(fn ($d) => $d->toApiArray()),
+            'data' => TaskDelegationResource::collection($delegations->getCollection()),
             'current_page' => $delegations->currentPage(),
             'last_page' => $delegations->lastPage(),
             'per_page' => $delegations->perPage(),
@@ -135,7 +136,7 @@ class TaskDelegationController extends Controller
             return response()->json(['message' => 'Нет доступа'], 403);
         }
 
-        return response()->json(['data' => $delegation->toApiArray()]);
+        return (new TaskDelegationResource($delegation))->response();
     }
 
     /**
@@ -167,10 +168,8 @@ class TaskDelegationController extends Controller
 
         TaskEventPublisher::publishDelegationAccepted($delegation);
 
-        return response()->json([
-            'message' => 'Делегирование принято',
-            'data' => $delegation->load(['fromUser', 'toUser', 'task'])->toApiArray(),
-        ]);
+        return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
+            ->additional(['message' => 'Делегирование принято'])->response();
     }
 
     /**
@@ -206,10 +205,8 @@ class TaskDelegationController extends Controller
 
         TaskEventPublisher::publishDelegationRejected($delegation);
 
-        return response()->json([
-            'message' => 'Делегирование отклонено',
-            'data' => $delegation->load(['fromUser', 'toUser', 'task'])->toApiArray(),
-        ]);
+        return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
+            ->additional(['message' => 'Делегирование отклонено'])->response();
     }
 
     /**
@@ -251,10 +248,8 @@ class TaskDelegationController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json([
-            'message' => 'Запрос на делегирование отменён',
-            'data' => $delegation->load(['fromUser', 'toUser', 'task'])->toApiArray(),
-        ]);
+        return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
+            ->additional(['message' => 'Запрос на делегирование отменён'])->response();
     }
 
     /**

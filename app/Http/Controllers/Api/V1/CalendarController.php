@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BulkUpdateCalendarRequest;
 use App\Http\Requests\Api\V1\UpdateCalendarDayRequest;
+use App\Http\Resources\CalendarDayResource;
 use App\Models\CalendarDay;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
@@ -40,7 +41,7 @@ class CalendarController extends Controller
         $grouped = [];
         foreach ($calendar as $day) {
             $month = Carbon::parse($day->date)->month;
-            $grouped[$month][] = $day->toApiArray();
+            $grouped[$month][] = CalendarDayResource::make($day)->resolve();
         }
 
         return response()->json([
@@ -126,7 +127,7 @@ class CalendarController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Calendar day updated',
-            'data' => $calendarDay->toApiArray(),
+            'data' => CalendarDayResource::make($calendarDay)->resolve(),
             'meta' => [
                 'copied_from_global' => $copiedFromGlobal,
             ],

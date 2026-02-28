@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\ShiftStatus;
 use App\Helpers\TimeHelper;
+use App\Http\Resources\TaskResource;
 use App\Models\AutoDealership;
 use App\Models\CalendarDay;
 use App\Models\Shift;
@@ -277,7 +278,7 @@ class DashboardService
             ->limit(5)
             ->get()
             ->map(function ($task) {
-                $data = $task->toApiArray();
+                $data = TaskResource::make($task)->resolve();
 
                 return [
                     'id' => $data['id'],
@@ -353,7 +354,7 @@ class DashboardService
         }
 
         return $overdueTasks->concat($completedTasks)
-            ->map(fn ($task) => $task->toApiArray());
+            ->map(fn ($task) => TaskResource::make($task)->resolve());
     }
 
     /**
@@ -379,7 +380,7 @@ class DashboardService
             ->orderBy('deadline')
             ->limit(10)
             ->get()
-            ->map(fn ($task) => $task->toApiArray());
+            ->map(fn ($task) => TaskResource::make($task)->resolve());
     }
 
     /**
@@ -410,7 +411,7 @@ class DashboardService
             ->orderByDesc('updated_at')
             ->limit($limit)
             ->get()
-            ->map(fn ($task) => $task->toApiArray());
+            ->map(fn ($task) => TaskResource::make($task)->resolve());
     }
 
     /**

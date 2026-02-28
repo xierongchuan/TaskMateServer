@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RejectTaskResponseRequest;
+use App\Http\Resources\TaskResource;
 use App\Models\Task;
 use App\Models\TaskResponse;
 use App\Services\TaskVerificationService;
@@ -67,12 +68,10 @@ class TaskVerificationController extends Controller
         // Одобряем через сервис (записывает историю)
         $this->verificationService->approve($taskResponse, $currentUser);
 
-        return response()->json([
-            'message' => 'Доказательство одобрено',
-            'data' => $task->refresh()
+        return (new TaskResource(
+            $task->refresh()
                 ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier'])
-                ->toApiArray(),
-        ]);
+        ))->additional(['message' => 'Доказательство одобрено'])->response();
     }
 
     /**
@@ -111,12 +110,10 @@ class TaskVerificationController extends Controller
         // Отклоняем через сервис (удаляет файлы, записывает историю, статус -> 'rejected')
         $this->verificationService->reject($taskResponse, $currentUser, $validated['reason']);
 
-        return response()->json([
-            'message' => 'Доказательство отклонено',
-            'data' => $task->refresh()
+        return (new TaskResource(
+            $task->refresh()
                 ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier'])
-                ->toApiArray(),
-        ]);
+        ))->additional(['message' => 'Доказательство отклонено'])->response();
     }
 
     /**
@@ -155,11 +152,9 @@ class TaskVerificationController extends Controller
 
         $this->verificationService->rejectAllForTask($task, $currentUser, $validated['reason']);
 
-        return response()->json([
-            'message' => 'Все ответы отклонены',
-            'data' => $task->refresh()
+        return (new TaskResource(
+            $task->refresh()
                 ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier', 'sharedProofs'])
-                ->toApiArray(),
-        ]);
+        ))->additional(['message' => 'Все ответы отклонены'])->response();
     }
 }

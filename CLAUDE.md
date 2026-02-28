@@ -65,12 +65,24 @@ $tasks = Task::all();
 foreach ($tasks as $task) { $task->creator->name; }
 ```
 
-### Форматирование ответов
+### Форматирование ответов (API Resources)
 
 ```php
-// Используй toApiArray() (гарантирует UTC даты с Z суффиксом)
-// НЕ используй API Resources — кроме User, Shift
-$task->toApiArray();  // appear_date: "2024-01-15T10:30:00Z"
+// Используй API Resources для сериализации (гарантируют UTC даты с Z суффиксом)
+// Доступны: TaskResource, TaskResponseResource, TaskProofResource, TaskSharedProofResource,
+//           TaskDelegationResource, TaskGeneratorResource, CalendarDayResource, UserResource, ShiftResource
+
+// Одиночный ресурс (оборачивает в {"data": {...}})
+return new TaskResource($task);
+
+// С дополнительными полями (message и т.д.)
+return (new TaskResource($task))->additional(['message' => 'Задача создана'])->response();
+
+// Сырой массив БЕЗ обёртки data (для совместимости с существующими форматами)
+return response()->json(TaskResource::make($task)->resolve());
+
+// Для пагинации (сохраняет формат Laravel paginator)
+$tasks->getCollection()->transform(fn ($t) => TaskResource::make($t)->resolve());
 ```
 
 ### Даты (TimeHelper)
