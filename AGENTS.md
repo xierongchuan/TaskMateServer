@@ -63,7 +63,7 @@ $iso = TimeHelper::toIsoZulu($carbon); // "2024-01-15T10:30:00Z"
 ### Security
 
 - **SQL Injection**: Use parameter bindings, never concatenate SQL
-- **XSS**: Escape user output with `e()` function
+- **XSS**: For API JSON responses, `response()->json()` automatically escapes strings. Use `e()` only if manual escaping is needed.
 - **Command Injection**: NEVER use `exec()`, `shell_exec()`, `system()` with user input
 - **File Upload**: Validate MIME type, extension, use random filenames
 - **Memory**: Use chunking for large datasets, limit query results
