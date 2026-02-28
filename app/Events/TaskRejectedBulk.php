@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Events;
 
 use App\Contracts\HasRabbitMQPayload;
+use App\Helpers\TimeHelper;
 use App\Models\Task;
 
 class TaskRejectedBulk implements HasRabbitMQPayload
@@ -25,7 +26,7 @@ class TaskRejectedBulk implements HasRabbitMQPayload
             'task' => TaskAssigned::serializeTask($this->task),
             'user_ids' => array_values($this->userIds),
             'reason' => $this->reason,
-            'timestamp' => now()->toIso8601ZuluString(),
+            'timestamp' => TimeHelper::toIsoZulu(TimeHelper::nowUtc()),
         ];
     }
 }

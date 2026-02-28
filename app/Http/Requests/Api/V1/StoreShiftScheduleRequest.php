@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-
 /**
  * Form Request для создания расписания смены.
  */
-class StoreShiftScheduleRequest extends FormRequest
+class StoreShiftScheduleRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -31,16 +27,5 @@ class StoreShiftScheduleRequest extends FormRequest
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
         ];
-    }
-
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Ошибка валидации',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

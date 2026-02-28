@@ -97,7 +97,7 @@ describe('TaskProof Model', function () {
         });
     });
 
-    describe('toApiArray', function () {
+    describe('API resource serialization', function () {
         it('returns formatted array', function () {
             // Arrange
             $task = Task::factory()->create(['dealership_id' => $this->dealership->id]);
@@ -116,7 +116,7 @@ describe('TaskProof Model', function () {
             ]);
 
             // Act
-            $array = $proof->toApiArray();
+            $array = \App\Http\Resources\TaskProofResource::make($proof)->resolve();
 
             // Assert
             expect($array)->toHaveKeys(['id', 'url', 'original_filename', 'mime_type', 'file_size', 'created_at']);

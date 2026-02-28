@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Events;
 
 use App\Contracts\HasRabbitMQPayload;
+use App\Helpers\TimeHelper;
 use App\Models\TaskResponse;
 use App\Models\User;
 
@@ -19,17 +20,11 @@ class TaskPendingReview implements HasRabbitMQPayload
         $this->response->loadMissing(['task', 'user']);
         $task = $this->response->task;
 
-        // Получаем менеджеров и владельцев автосалона
-        $managerOwnerIds = User::where(function ($query) use ($task) {
-            $query->where('dealership_id', $task->dealership_id)
-                ->orWhereHas('dealerships', function ($q) use ($task) {
-                    $q->where('auto_dealerships.id', $task->dealership_id);
-                });
-        })
-            ->whereIn('role', ['manager', 'owner'])
-            ->where('id', '!=', $this->response->user_id)
-            ->pluck('id')
-            ->toArray();
+        // Получаем менеджеров и владельцев автосалона, исключая автора ответа
+        $managerOwnerIds = array_values(array_diff(
+            User::managerOwnerIdsForDealership($task->dealership_id),
+            [$this->response->user_id],
+        ));
 
         if (empty($managerOwnerIds)) {
             return null;
@@ -41,7 +36,7 @@ class TaskPendingReview implements HasRabbitMQPayload
             'user_ids' => array_values($managerOwnerIds),
             'submitted_by' => $this->response->user->full_name ?? 'Сотрудник',
             'response_id' => $this->response->id,
-            'timestamp' => now()->toIso8601ZuluString(),
+            'timestamp' => TimeHelper::toIsoZulu(TimeHelper::nowUtc()),
         ];
     }
 }

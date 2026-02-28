@@ -8,13 +8,11 @@ use App\Enums\Role;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
 
 /**
  * Form Request для создания задачи.
  */
-class StoreTaskRequest extends FormRequest
+class StoreTaskRequest extends BaseApiRequest
 {
     /**
      * Определяет, авторизован ли пользователь для этого запроса.
@@ -147,19 +145,5 @@ class StoreTaskRequest extends FormRequest
                 }
             }
         });
-    }
-
-    /**
-     * Обработка неуспешной валидации.
-     */
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Ошибка валидации',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

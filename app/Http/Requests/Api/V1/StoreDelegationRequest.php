@@ -7,13 +7,11 @@ namespace App\Http\Requests\Api\V1;
 use App\Enums\Role;
 use App\Models\User;
 use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
 
 /**
  * Form Request для создания запроса на делегирование задачи.
  */
-class StoreDelegationRequest extends FormRequest
+class StoreDelegationRequest extends BaseApiRequest
 {
     /**
      * Только сотрудники (employee) могут делегировать задачи.
@@ -89,19 +87,5 @@ class StoreDelegationRequest extends FormRequest
                 }
             }
         });
-    }
-
-    /**
-     * Обработка неуспешной валидации.
-     */
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Ошибка валидации',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

@@ -14,22 +14,11 @@ use App\Models\TaskGenerator;
 use App\Models\TaskGeneratorAssignment;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TaskGeneratorController extends Controller
 {
     use HasDealershipAccess;
-
-    /**
-     * Проверяет доступ к генератору задач через Policy.
-     */
-    private function validateGeneratorAccess(Request $request, TaskGenerator $generator): ?JsonResponse
-    {
-        $this->authorize('view', $generator);
-
-        return null;
-    }
 
     /**
      * List all task generators with filtering.
@@ -83,13 +72,10 @@ class TaskGeneratorController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $generator = TaskGenerator::with(['creator', 'dealership', 'assignments.user'])
+        $generator = TaskGenerator::with(['creator', 'dealership', 'assignments.user', 'generatedTasks.responses'])
             ->findOrFail($id);
 
-        // Проверка доступа к генератору
-        if ($accessError = $this->validateGeneratorAccess($request, $generator)) {
-            return $accessError;
-        }
+        $this->authorize('view', $generator);
 
         return response()->json([
             'success' => true,
@@ -173,10 +159,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        // Проверка доступа к генератору
-        if ($accessError = $this->validateGeneratorAccess($request, $generator)) {
-            return $accessError;
-        }
+        $this->authorize('view', $generator);
 
         $validated = $request->validated();
 
@@ -302,10 +285,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        // Проверка доступа к генератору
-        if ($accessError = $this->validateGeneratorAccess($request, $generator)) {
-            return $accessError;
-        }
+        $this->authorize('view', $generator);
 
         $generator->delete();
 
@@ -322,10 +302,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        // Проверка доступа к генератору
-        if ($accessError = $this->validateGeneratorAccess($request, $generator)) {
-            return $accessError;
-        }
+        $this->authorize('view', $generator);
 
         $generator->update(['is_active' => false]);
         $generator->load(['creator', 'dealership', 'assignments.user']);
@@ -344,10 +321,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        // Проверка доступа к генератору
-        if ($accessError = $this->validateGeneratorAccess($request, $generator)) {
-            return $accessError;
-        }
+        $this->authorize('view', $generator);
 
         $generator->update(['is_active' => true]);
         $generator->load(['creator', 'dealership', 'assignments.user']);
@@ -414,10 +388,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        // Проверка доступа к генератору
-        if ($accessError = $this->validateGeneratorAccess($request, $generator)) {
-            return $accessError;
-        }
+        $this->authorize('view', $generator);
 
         $query = $generator->generatedTasks()
             ->with(['creator', 'dealership', 'assignments.user', 'responses']);
@@ -450,10 +421,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        // Проверка доступа к генератору
-        if ($accessError = $this->validateGeneratorAccess($request, $generator)) {
-            return $accessError;
-        }
+        $this->authorize('view', $generator);
 
         $allTime = $this->getStatsForPeriod($generator, null);
         $week = $this->getStatsForPeriod($generator, 7);

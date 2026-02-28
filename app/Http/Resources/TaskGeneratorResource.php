@@ -17,27 +17,28 @@ class TaskGeneratorResource extends JsonResource
     {
         $data = parent::toArray($request);
 
-        // Load tasks with responses for accurate status calculation
-        $tasks = $this->generatedTasks()->with('responses')->get();
+        // Statistics only when generatedTasks relation is pre-loaded (avoids N+1 on index)
+        if ($this->relationLoaded('generatedTasks')) {
+            $tasks = $this->generatedTasks;
 
-        // Add statistics
-        $data['total_generated'] = $tasks->count();
+            $data['total_generated'] = $tasks->count();
 
-        $data['completed_count'] = $tasks->filter(function ($task) {
-            if ($task->archived_at !== null && $task->archive_reason === 'completed') {
-                return true;
-            }
+            $data['completed_count'] = $tasks->filter(function ($task) {
+                if ($task->archived_at !== null && $task->archive_reason === 'completed') {
+                    return true;
+                }
 
-            return $task->status === 'completed';
-        })->count();
+                return $task->status === 'completed';
+            })->count();
 
-        $data['expired_count'] = $tasks->filter(function ($task) {
-            if ($task->archived_at !== null && $task->archive_reason === 'expired') {
-                return true;
-            }
+            $data['expired_count'] = $tasks->filter(function ($task) {
+                if ($task->archived_at !== null && $task->archive_reason === 'expired') {
+                    return true;
+                }
 
-            return $task->status === 'overdue';
-        })->count();
+                return $task->status === 'overdue';
+            })->count();
+        }
 
         // All datetime fields in UTC with Z suffix
         $data['start_date'] = TimeHelper::toIsoZulu($this->start_date);

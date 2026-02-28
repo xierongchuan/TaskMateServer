@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Events;
 
 use App\Contracts\HasRabbitMQPayload;
+use App\Helpers\TimeHelper;
 use App\Models\TaskDelegation;
 
 class DelegationRejected implements HasRabbitMQPayload
@@ -24,7 +25,7 @@ class DelegationRejected implements HasRabbitMQPayload
             'to_user' => $this->delegation->toUser->full_name ?? 'Сотрудник',
             'reason' => $this->delegation->rejection_reason,
             'delegation_id' => $this->delegation->id,
-            'timestamp' => now()->toIso8601ZuluString(),
+            'timestamp' => TimeHelper::toIsoZulu(TimeHelper::nowUtc()),
         ];
     }
 }

@@ -110,4 +110,22 @@ class User extends Authenticatable
 
         return array_unique($ids);
     }
+
+    /**
+     * ID менеджеров и владельцев, имеющих доступ к указанному дилерству.
+     *
+     * @return array<int>
+     */
+    public static function managerOwnerIdsForDealership(int $dealershipId): array
+    {
+        return static::where(function ($query) use ($dealershipId) {
+            $query->where('dealership_id', $dealershipId)
+                ->orWhereHas('dealerships', function ($q) use ($dealershipId) {
+                    $q->where('auto_dealerships.id', $dealershipId);
+                });
+        })
+            ->whereIn('role', [Role::MANAGER->value, Role::OWNER->value])
+            ->pluck('id')
+            ->toArray();
+    }
 }

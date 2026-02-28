@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Events;
 
 use App\Contracts\HasRabbitMQPayload;
+use App\Helpers\TimeHelper;
 use App\Models\TaskResponse;
 
 class TaskApproved implements HasRabbitMQPayload
@@ -21,7 +22,7 @@ class TaskApproved implements HasRabbitMQPayload
             'event' => 'task.approved',
             'task' => TaskAssigned::serializeTask($this->response->task),
             'user_ids' => [$this->response->user_id],
-            'timestamp' => now()->toIso8601ZuluString(),
+            'timestamp' => TimeHelper::toIsoZulu(TimeHelper::nowUtc()),
         ];
     }
 }

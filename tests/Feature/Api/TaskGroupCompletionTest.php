@@ -170,7 +170,7 @@ describe('Task Group Completion', function () {
         expect($task->status)->toBe('pending_review');
 
         // Assert: completion_progress shows correct counts
-        $taskData = $task->toApiArray();
+        $taskData = \App\Http\Resources\TaskResource::make($task)->resolve();
         expect($taskData['completion_progress']['total_assignees'])->toBe(3);
         expect($taskData['completion_progress']['completed_count'])->toBe(1);
         expect($taskData['completion_progress']['pending_review_count'])->toBe(1);
@@ -338,8 +338,8 @@ describe('Task Group Completion', function () {
         // Assert: status should be pending
         expect($task->status)->toBe('pending');
 
-        // Assert: toApiArray handles gracefully
-        $taskData = $task->toApiArray();
+        // Assert: TaskResource handles gracefully
+        $taskData = \App\Http\Resources\TaskResource::make($task)->resolve();
         expect($taskData['completion_progress']['total_assignees'])->toBe(0);
         expect($taskData['completion_progress']['percentage'])->toBe(0);
     });

@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-
 /**
  * Form Request для обновления конфигурации уведомлений.
  */
-class UpdateNotificationConfigRequest extends FormRequest
+class UpdateNotificationConfigRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -31,16 +27,5 @@ class UpdateNotificationConfigRequest extends FormRequest
             'notification_types' => ['nullable', 'array'],
             'dealership_id' => ['nullable', 'integer'],
         ];
-    }
-
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

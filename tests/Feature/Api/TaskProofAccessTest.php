@@ -300,7 +300,7 @@ describe('Task Proof Access', function () {
         });
     });
 
-    describe('Proof toApiArray', function () {
+    describe('Proof API resource serialization', function () {
         it('includes all required fields in API response', function () {
             // Arrange
             $task = Task::factory()->completionWithProof()->create([
@@ -319,7 +319,7 @@ describe('Task Proof Access', function () {
             $proof = createProofDirectly($taskResponse, 'test_image.jpg');
 
             // Act
-            $apiArray = $proof->toApiArray();
+            $apiArray = \App\Http\Resources\TaskProofResource::make($proof)->resolve();
 
             // Assert: Все обязательные поля присутствуют
             expect($apiArray)->toHaveKeys([

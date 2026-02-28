@@ -71,19 +71,4 @@ class TaskSharedProof extends Model
             ['id' => $this->id]
         );
     }
-
-    /**
-     * Преобразование в массив для API.
-     */
-    public function toApiArray(): array
-    {
-        return [
-            'id' => $this->id,
-            'url' => $this->url,
-            'original_filename' => $this->original_filename,
-            'mime_type' => $this->mime_type,
-            'file_size' => $this->file_size,
-            'created_at' => $this->created_at?->toIso8601String(),
-        ];
-    }
 }

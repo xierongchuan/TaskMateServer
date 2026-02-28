@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-
 /**
  * Form Request для обновления генератора задач.
  */
-class UpdateTaskGeneratorRequest extends FormRequest
+class UpdateTaskGeneratorRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -47,16 +43,5 @@ class UpdateTaskGeneratorRequest extends FormRequest
             'assignments' => 'sometimes|array|min:1',
             'assignments.*' => 'exists:users,id',
         ];
-    }
-
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => $validator->errors()->first(),
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

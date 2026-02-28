@@ -5,15 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\Role;
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 
 /**
  * Form Request для обновления пользователя.
  */
-class UpdateUserRequest extends FormRequest
+class UpdateUserRequest extends BaseApiRequest
 {
     /**
      * Определяет, авторизован ли пользователь для этого запроса.
@@ -110,19 +107,5 @@ class UpdateUserRequest extends FormRequest
             'dealership_id.exists' => 'Автосалон не найден',
             'dealership_ids.*.exists' => 'Один из автосалонов не найден',
         ];
-    }
-
-    /**
-     * Обработка неуспешной валидации.
-     */
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Ошибка валидации',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

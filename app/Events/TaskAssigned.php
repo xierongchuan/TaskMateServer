@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Events;
 
 use App\Contracts\HasRabbitMQPayload;
+use App\Helpers\TimeHelper;
 use App\Models\NotificationSetting;
 use App\Models\Task;
 use App\Models\User;
@@ -43,7 +44,7 @@ class TaskAssigned implements HasRabbitMQPayload
             'event' => 'task.assigned',
             'task' => self::serializeTask($this->task),
             'user_ids' => array_values($filteredUserIds),
-            'timestamp' => now()->toIso8601ZuluString(),
+            'timestamp' => TimeHelper::toIsoZulu(TimeHelper::nowUtc()),
         ];
     }
 
@@ -77,7 +78,7 @@ class TaskAssigned implements HasRabbitMQPayload
         return [
             'id' => $task->id,
             'title' => $task->title,
-            'deadline' => $task->deadline?->toIso8601ZuluString(),
+            'deadline' => TimeHelper::toIsoZulu($task->deadline),
             'priority' => $task->priority,
             'response_type' => $task->response_type,
             'dealership_id' => $task->dealership_id,

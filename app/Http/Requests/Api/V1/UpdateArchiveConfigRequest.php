@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-
 /**
  * Form Request для обновления конфигурации архивации.
  */
-class UpdateArchiveConfigRequest extends FormRequest
+class UpdateArchiveConfigRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -29,16 +25,5 @@ class UpdateArchiveConfigRequest extends FormRequest
             'archive_overdue_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
             'dealership_id' => ['nullable', 'integer'],
         ];
-    }
-
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

@@ -6,13 +6,11 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Models\Task;
 use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
 
 /**
  * Form Request для обновления задачи.
  */
-class UpdateTaskRequest extends FormRequest
+class UpdateTaskRequest extends BaseApiRequest
 {
     /**
      * Определяет, авторизован ли пользователь для этого запроса.
@@ -107,19 +105,5 @@ class UpdateTaskRequest extends FormRequest
                 );
             }
         });
-    }
-
-    /**
-     * Обработка неуспешной валидации.
-     */
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Ошибка валидации',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

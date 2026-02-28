@@ -313,17 +313,4 @@ class CalendarDay extends Model
             ->delete() > 0;
     }
 
-    /**
-     * Конвертация в API массив.
-     */
-    public function toApiArray(): array
-    {
-        return [
-            'id' => $this->id,
-            'date' => $this->date->toDateString(),
-            'type' => $this->type,
-            'description' => $this->description,
-            'dealership_id' => $this->dealership_id,
-        ];
-    }
 }

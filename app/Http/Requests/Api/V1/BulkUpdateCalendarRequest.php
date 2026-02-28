@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-
 /**
  * Form Request для массового обновления дней календаря.
  */
-class BulkUpdateCalendarRequest extends FormRequest
+class BulkUpdateCalendarRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -39,16 +35,5 @@ class BulkUpdateCalendarRequest extends FormRequest
             // Общие параметры
             'type' => 'required_if:operation,set_weekdays,set_dates|in:holiday,workday',
         ];
-    }
-
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

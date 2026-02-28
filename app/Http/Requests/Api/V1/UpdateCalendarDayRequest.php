@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-
 /**
  * Form Request для обновления дня календаря.
  */
-class UpdateCalendarDayRequest extends FormRequest
+class UpdateCalendarDayRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -34,16 +30,5 @@ class UpdateCalendarDayRequest extends FormRequest
             'description' => 'nullable|string|max:255',
             'dealership_id' => 'nullable|integer|exists:auto_dealerships,id',
         ];
-    }
-
-    protected function failedValidation(Validator $validator): void
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422)
-        );
     }
 }

@@ -333,7 +333,7 @@ describe('CalendarDay Model', function () {
         });
     });
 
-    describe('toApiArray', function () {
+    describe('API resource serialization', function () {
         it('returns formatted array', function () {
             // Arrange
             $day = CalendarDay::create([
@@ -344,7 +344,7 @@ describe('CalendarDay Model', function () {
             ]);
 
             // Act
-            $array = $day->toApiArray();
+            $array = \App\Http\Resources\CalendarDayResource::make($day)->resolve();
 
             // Assert
             expect($array)->toHaveKeys(['id', 'date', 'type', 'description', 'dealership_id']);

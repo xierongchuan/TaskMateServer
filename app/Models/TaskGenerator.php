@@ -197,48 +197,6 @@ class TaskGenerator extends Model
         return $date->copy()->setTimezone('UTC')->setTime($time->hour, $time->minute, 0);
     }
 
-    /**
-     * Convert generator to API array with UTC times.
-     */
-    public function toApiArray(): array
-    {
-        $data = $this->toArray();
-
-        // Load tasks with responses for accurate status calculation
-        $tasks = $this->generatedTasks()->with('responses')->get();
-
-        // Add statistics
-        $data['total_generated'] = $tasks->count();
-
-        // Count completed: archived with reason 'completed' OR active with completed response
-        $data['completed_count'] = $tasks->filter(function ($task) {
-            if ($task->archived_at !== null && $task->archive_reason === 'completed') {
-                return true;
-            }
-
-            // Check if task has completed response (uses the calculated status attribute)
-            return $task->status === 'completed';
-        })->count();
-
-        // Count expired: archived with reason 'expired' OR active but overdue
-        $data['expired_count'] = $tasks->filter(function ($task) {
-            if ($task->archived_at !== null && $task->archive_reason === 'expired') {
-                return true;
-            }
-
-            return $task->status === 'overdue';
-        })->count();
-
-        // All datetime fields in UTC with Z suffix
-        $data['start_date'] = TimeHelper::toIsoZulu($this->start_date);
-        $data['end_date'] = TimeHelper::toIsoZulu($this->end_date);
-        $data['last_generated_at'] = TimeHelper::toIsoZulu($this->last_generated_at);
-        $data['created_at'] = TimeHelper::toIsoZulu($this->created_at);
-        $data['updated_at'] = TimeHelper::toIsoZulu($this->updated_at);
-
-        return $data;
-    }
-
     // Relationships
 
     public function creator()

@@ -68,7 +68,7 @@ describe('TaskSharedProof Model', function () {
         });
     });
 
-    describe('toApiArray', function () {
+    describe('API resource serialization', function () {
         it('returns formatted array', function () {
             // Arrange
             $task = Task::factory()->create(['dealership_id' => $this->dealership->id]);
@@ -81,7 +81,7 @@ describe('TaskSharedProof Model', function () {
             ]);
 
             // Act
-            $array = $sharedProof->toApiArray();
+            $array = \App\Http\Resources\TaskSharedProofResource::make($sharedProof)->resolve();
 
             // Assert
             expect($array)->toHaveKeys(['id', 'url', 'original_filename', 'mime_type', 'file_size', 'created_at']);
