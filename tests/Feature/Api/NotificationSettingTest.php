@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\Enums\Role;
 use App\Models\AutoDealership;
 use App\Models\NotificationSetting;
-use App\Enums\Role;
+use App\Models\User;
 
 describe('Notification Settings API', function () {
     beforeEach(function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 
@@ -47,7 +47,7 @@ describe('Notification Settings API', function () {
 
         // Act
         $response = $this->actingAs($this->manager, 'sanctum')
-            ->putJson("/api/v1/notification-settings/task_assigned", $data);
+            ->putJson('/api/v1/notification-settings/task_assigned', $data);
 
         // Assert
         $response->assertStatus(200);

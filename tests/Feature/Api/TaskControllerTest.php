@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Task;
-use App\Models\AutoDealership;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Task;
+use App\Models\User;
 use Carbon\Carbon;
 
 describe('Task API', function () {
@@ -13,7 +13,7 @@ describe('Task API', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 
@@ -120,7 +120,7 @@ describe('Task API', function () {
         // Arrange
         $task = Task::factory()->create([
             'dealership_id' => $this->dealership->id,
-            'tags' => ['old_tag']
+            'tags' => ['old_tag'],
         ]);
         $newTags = ['new_tag', 'updated'];
 
@@ -141,13 +141,13 @@ describe('Task API', function () {
         Task::factory()->create([
             'dealership_id' => $this->dealership->id,
             'title' => 'First Task',
-            'tags' => ['apple', 'banana']
+            'tags' => ['apple', 'banana'],
         ]);
 
         Task::factory()->create([
             'dealership_id' => $this->dealership->id,
             'title' => 'Second Task',
-            'tags' => ['cherry']
+            'tags' => ['cherry'],
         ]);
 
         // Act - search using 'banana' which is in tags
@@ -220,14 +220,14 @@ describe('Task API', function () {
         $deadline = Carbon::now()->addDay()->toIso8601String();
 
         $taskData = [
-                'title' => 'Duplicate Task',
-                'description' => 'Description',
-                'dealership_id' => $this->dealership->id,
-                'assigned_users' => [$user->id],
-                'appear_date' => Carbon::now()->toIso8601String(),
-                'deadline' => $deadline,
-                'task_type' => 'individual',
-                'response_type' => 'completion',
+            'title' => 'Duplicate Task',
+            'description' => 'Description',
+            'dealership_id' => $this->dealership->id,
+            'assigned_users' => [$user->id],
+            'appear_date' => Carbon::now()->toIso8601String(),
+            'deadline' => $deadline,
+            'task_type' => 'individual',
+            'response_type' => 'completion',
         ];
 
         // Create first task
@@ -321,7 +321,7 @@ describe('Task API', function () {
         // Arrange: task with pending_review status
         $task1 = Task::factory()->create([
             'dealership_id' => $this->dealership->id,
-            'title' => 'Review Task'
+            'title' => 'Review Task',
         ]);
         \App\Models\TaskResponse::create([
             'task_id' => $task1->id,
@@ -333,7 +333,7 @@ describe('Task API', function () {
         // Arrange: regular pending task (no responses)
         $task2 = Task::factory()->create([
             'dealership_id' => $this->dealership->id,
-            'title' => 'Pending Task'
+            'title' => 'Pending Task',
         ]);
 
         // Act: filter by pending status
@@ -347,4 +347,3 @@ describe('Task API', function () {
         expect($data[0]['title'])->toBe('Pending Task');
     });
 });
-

@@ -16,9 +16,9 @@ trait ApiResponses
     /**
      * Успешный ответ с данными.
      *
-     * @param mixed $data Данные для возврата
-     * @param string|null $message Опциональное сообщение
-     * @param int $code HTTP статус код
+     * @param  mixed  $data  Данные для возврата
+     * @param  string|null  $message  Опциональное сообщение
+     * @param  int  $code  HTTP статус код
      */
     protected function successResponse(mixed $data = null, ?string $message = null, int $code = 200): JsonResponse
     {
@@ -38,9 +38,9 @@ trait ApiResponses
     /**
      * Ответ об ошибке.
      *
-     * @param string $message Сообщение об ошибке
-     * @param int $code HTTP статус код
-     * @param array|null $errors Детали ошибок (для валидации)
+     * @param  string  $message  Сообщение об ошибке
+     * @param  int  $code  HTTP статус код
+     * @param  array|null  $errors  Детали ошибок (для валидации)
      */
     protected function errorResponse(string $message, int $code = 400, ?array $errors = null): JsonResponse
     {
@@ -59,7 +59,7 @@ trait ApiResponses
     /**
      * Ресурс не найден.
      *
-     * @param string $resource Название ресурса на русском
+     * @param  string  $resource  Название ресурса на русском
      */
     protected function notFoundResponse(string $resource = 'Ресурс'): JsonResponse
     {
@@ -69,7 +69,7 @@ trait ApiResponses
     /**
      * Ошибка доступа.
      *
-     * @param string $message Сообщение об ошибке доступа
+     * @param  string  $message  Сообщение об ошибке доступа
      */
     protected function forbiddenResponse(string $message = 'Доступ запрещён'): JsonResponse
     {
@@ -79,8 +79,8 @@ trait ApiResponses
     /**
      * Ошибка валидации.
      *
-     * @param string $message Общее сообщение
-     * @param array $errors Массив ошибок валидации
+     * @param  string  $message  Общее сообщение
+     * @param  array  $errors  Массив ошибок валидации
      */
     protected function validationErrorResponse(string $message, array $errors): JsonResponse
     {
@@ -90,8 +90,8 @@ trait ApiResponses
     /**
      * Внутренняя ошибка сервера.
      *
-     * @param string $message Сообщение для пользователя
-     * @param \Throwable|null $e Исключение (для debug режима)
+     * @param  string  $message  Сообщение для пользователя
+     * @param  \Throwable|null  $e  Исключение (для debug режима)
      */
     protected function serverErrorResponse(string $message = 'Внутренняя ошибка сервера', ?\Throwable $e = null): JsonResponse
     {
@@ -111,8 +111,8 @@ trait ApiResponses
     /**
      * Успешное создание ресурса.
      *
-     * @param mixed $data Созданный ресурс
-     * @param string|null $message Сообщение об успехе
+     * @param  mixed  $data  Созданный ресурс
+     * @param  string|null  $message  Сообщение об успехе
      */
     protected function createdResponse(mixed $data, ?string $message = null): JsonResponse
     {
@@ -122,7 +122,7 @@ trait ApiResponses
     /**
      * Ресурс успешно удалён.
      *
-     * @param string|null $message Сообщение об успехе
+     * @param  string|null  $message  Сообщение об успехе
      */
     protected function deletedResponse(?string $message = 'Успешно удалено'): JsonResponse
     {
@@ -132,8 +132,8 @@ trait ApiResponses
     /**
      * Слишком много запросов (rate limiting).
      *
-     * @param string $message Сообщение
-     * @param int $retryAfter Секунды до следующей попытки
+     * @param  string  $message  Сообщение
+     * @param  int  $retryAfter  Секунды до следующей попытки
      */
     protected function tooManyRequestsResponse(string $message, int $retryAfter = 60): JsonResponse
     {

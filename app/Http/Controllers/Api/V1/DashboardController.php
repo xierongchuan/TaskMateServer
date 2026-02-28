@@ -23,8 +23,7 @@ class DashboardController extends Controller
     /**
      * Получает данные дашборда.
      *
-     * @param Request $request HTTP-запрос
-     * @return JsonResponse
+     * @param  Request  $request  HTTP-запрос
      */
     public function index(Request $request): JsonResponse
     {

@@ -44,10 +44,10 @@ class TaskProofService
     /**
      * Сохранить файл доказательства.
      *
-     * @param TaskResponse $response Ответ на задачу
-     * @param UploadedFile $file Загружаемый файл
-     * @param int $dealershipId ID автосалона
-     * @return TaskProof
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  UploadedFile  $file  Загружаемый файл
+     * @param  int  $dealershipId  ID автосалона
+     *
      * @throws InvalidArgumentException
      */
     public function storeProof(
@@ -83,10 +83,11 @@ class TaskProofService
      * При ошибке загрузки любого файла все уже загруженные файлы
      * будут удалены, а транзакция БД откачена.
      *
-     * @param TaskResponse $response Ответ на задачу
-     * @param array<UploadedFile> $files Массив загружаемых файлов
-     * @param int $dealershipId ID автосалона
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  array<UploadedFile>  $files  Массив загружаемых файлов
+     * @param  int  $dealershipId  ID автосалона
      * @return array<TaskProof>
+     *
      * @throws InvalidArgumentException
      */
     public function storeProofs(
@@ -143,7 +144,7 @@ class TaskProofService
                 $storedPath = $file->storeAs($path, $filename, self::STORAGE_DISK);
 
                 if ($storedPath === false) {
-                    throw new InvalidArgumentException('Не удалось сохранить файл: ' . $file->getClientOriginalName());
+                    throw new InvalidArgumentException('Не удалось сохранить файл: '.$file->getClientOriginalName());
                 }
 
                 $storedPaths[] = $storedPath;
@@ -180,9 +181,10 @@ class TaskProofService
      * Валидация выполняется синхронно — ошибки возвращаются сразу.
      * Файлы сохраняются во временное хранилище и передаются в Job.
      *
-     * @param TaskResponse $response Ответ на задачу
-     * @param array<UploadedFile> $files Массив загружаемых файлов
-     * @param int $dealershipId ID автосалона
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  array<UploadedFile>  $files  Массив загружаемых файлов
+     * @param  int  $dealershipId  ID автосалона
+     *
      * @throws InvalidArgumentException
      */
     public function storeProofsAsync(
@@ -261,7 +263,7 @@ class TaskProofService
     /**
      * Удалить файл доказательства.
      *
-     * @param TaskProof $proof Доказательство для удаления
+     * @param  TaskProof  $proof  Доказательство для удаления
      */
     public function deleteProof(TaskProof $proof): void
     {
@@ -273,7 +275,7 @@ class TaskProofService
     /**
      * Удалить все доказательства для ответа.
      *
-     * @param TaskResponse $response Ответ на задачу
+     * @param  TaskResponse  $response  Ответ на задачу
      */
     public function deleteAllProofs(TaskResponse $response): void
     {
@@ -288,7 +290,7 @@ class TaskProofService
      * Поддерживает обратную совместимость: файлы могут быть на диске
      * task_proofs (новая структура) или local (старая структура).
      *
-     * @param \App\Models\TaskSharedProof $proof Общий файл задачи
+     * @param  \App\Models\TaskSharedProof  $proof  Общий файл задачи
      */
     public function deleteSharedProof(\App\Models\TaskSharedProof $proof): void
     {
@@ -309,7 +311,7 @@ class TaskProofService
      *
      * Используется при отклонении групповой задачи с complete_for_all.
      *
-     * @param \App\Models\Task $task Задача
+     * @param  \App\Models\Task  $task  Задача
      */
     public function deleteSharedProofs(\App\Models\Task $task): void
     {
@@ -321,12 +323,12 @@ class TaskProofService
     /**
      * Получить полный путь к файлу на диске.
      *
-     * @param TaskProof $proof Доказательство
+     * @param  TaskProof  $proof  Доказательство
      * @return string|null Путь или null если файл не существует
      */
     public function getFilePath(TaskProof $proof): ?string
     {
-        if (!Storage::disk(self::STORAGE_DISK)->exists($proof->file_path)) {
+        if (! Storage::disk(self::STORAGE_DISK)->exists($proof->file_path)) {
             return null;
         }
 
@@ -336,8 +338,7 @@ class TaskProofService
     /**
      * Проверить существование файла.
      *
-     * @param TaskProof $proof Доказательство
-     * @return bool
+     * @param  TaskProof  $proof  Доказательство
      */
     public function fileExists(TaskProof $proof): bool
     {
@@ -373,8 +374,6 @@ class TaskProofService
 
     /**
      * Получить максимальное количество файлов на ответ.
-     *
-     * @return int
      */
     public function getMaxFilesPerResponse(): int
     {
@@ -413,8 +412,6 @@ class TaskProofService
 
     /**
      * Получить имя диска хранилища.
-     *
-     * @return string
      */
     public static function getStorageDisk(): string
     {
@@ -425,8 +422,6 @@ class TaskProofService
      * Статический геттер максимального количества файлов.
      *
      * Используется в правилах валидации контроллеров, где DI недоступен.
-     *
-     * @return int
      */
     public static function getMaxFilesLimit(): int
     {

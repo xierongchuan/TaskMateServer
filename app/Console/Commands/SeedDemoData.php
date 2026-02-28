@@ -44,6 +44,7 @@ class SeedDemoData extends Command
 
         if ($days < 0) {
             $this->error('Количество дней не может быть отрицательным.');
+
             return;
         }
 
@@ -81,7 +82,7 @@ class SeedDemoData extends Command
     private function runFullSeed(): void
     {
         $this->info('Режим: полный сид (--full)');
-        $this->info('Дней истории: ' . TaskSeeder::$historyDays);
+        $this->info('Дней истории: '.TaskSeeder::$historyDays);
         $this->newLine();
 
         $this->runSeeder('Создание администратора...', AdminSeeder::class);

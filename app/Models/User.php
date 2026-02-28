@@ -5,20 +5,19 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\Role;
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use App\Enums\Role;
-use App\Traits\Auditable;
 
 class User extends Authenticatable
 {
+    use Auditable;
     use HasApiTokens;
     use HasFactory;
     use SoftDeletes;
-    use Auditable;
 
     protected $table = 'users';
 

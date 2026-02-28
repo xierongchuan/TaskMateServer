@@ -19,4 +19,3 @@ describe('ExpenseApproval Model', function () {
         expect($approval->expense_request_id)->toBe($request->id);
     });
 });
-

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
 use App\Enums\Role;
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
 describe('User Model', function () {
@@ -101,8 +101,6 @@ describe('User Model', function () {
         expect($managers)->toHaveCount(2)
             ->and($managers->first()->role)->toBe(Role::MANAGER);
     });
-
-
 
     it('stores and retrieves phone numbers correctly', function () {
         // Arrange

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Models\AutoDealership;
 use App\Models\Shift;
 use App\Models\User;
-use App\Models\AutoDealership;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -44,6 +44,7 @@ class ShiftFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             $start = Carbon::parse($attributes['shift_start']);
+
             return [
                 'status' => 'closed',
                 'shift_end' => $start->copy()->addHours(8),

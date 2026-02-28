@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\Enums\Role;
+use App\Models\AutoDealership;
 use App\Models\Task;
-use App\Models\TaskResponse;
 use App\Models\TaskAssignment;
 use App\Models\TaskGenerator;
-use App\Models\AutoDealership;
+use App\Models\TaskResponse;
+use App\Models\User;
 use App\Services\TaskFilterService;
-use App\Enums\Role;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -18,16 +18,16 @@ describe('TaskFilterService', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->owner = User::factory()->create([
             'role' => Role::OWNER->value,
         ]);
-        $this->filterService = new TaskFilterService();
+        $this->filterService = new TaskFilterService;
     });
 
     describe('getFilteredTasks', function () {

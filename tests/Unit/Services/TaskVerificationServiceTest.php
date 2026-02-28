@@ -2,15 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\Enums\Role;
+use App\Models\AutoDealership;
 use App\Models\Task;
 use App\Models\TaskResponse;
-use App\Models\TaskProof;
-use App\Models\TaskSharedProof;
-use App\Models\AutoDealership;
-use App\Services\TaskVerificationService;
+use App\Models\User;
 use App\Services\TaskProofService;
-use App\Enums\Role;
+use App\Services\TaskVerificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 
@@ -21,11 +19,11 @@ describe('TaskVerificationService', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
 
         $this->proofService = app(TaskProofService::class);
@@ -182,7 +180,7 @@ describe('TaskVerificationService', function () {
 
             $employee2 = User::factory()->create([
                 'role' => Role::EMPLOYEE->value,
-                'dealership_id' => $this->dealership->id
+                'dealership_id' => $this->dealership->id,
             ]);
 
             $response1 = TaskResponse::create([
@@ -242,7 +240,7 @@ describe('TaskVerificationService', function () {
 
             $employee2 = User::factory()->create([
                 'role' => Role::EMPLOYEE->value,
-                'dealership_id' => $this->dealership->id
+                'dealership_id' => $this->dealership->id,
             ]);
 
             $response1 = TaskResponse::create([

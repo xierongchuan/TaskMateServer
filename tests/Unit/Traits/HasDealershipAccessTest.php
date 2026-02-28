@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Task;
-use App\Models\AutoDealership;
-use App\Traits\HasDealershipAccess;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\User;
+use App\Traits\HasDealershipAccess;
 
 // Create a test class that uses the trait
 class HasDealershipAccessTestClass
@@ -60,14 +59,14 @@ describe('HasDealershipAccess Trait', function () {
         ]);
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
 
-        $this->trait = new HasDealershipAccessTestClass();
+        $this->trait = new HasDealershipAccessTestClass;
     });
 
     describe('isOwner', function () {
@@ -167,28 +166,28 @@ describe('HasDealershipAccess Trait', function () {
     describe('hasAccessToUser', function () {
         it('returns true for owner', function () {
             $targetUser = User::factory()->create([
-                'dealership_id' => $this->otherDealership->id
+                'dealership_id' => $this->otherDealership->id,
             ]);
             expect($this->trait->testHasAccessToUser($this->owner, $targetUser))->toBeTrue();
         });
 
         it('returns true for user in same dealership', function () {
             $targetUser = User::factory()->create([
-                'dealership_id' => $this->dealership->id
+                'dealership_id' => $this->dealership->id,
             ]);
             expect($this->trait->testHasAccessToUser($this->manager, $targetUser))->toBeTrue();
         });
 
         it('returns false for user in different dealership', function () {
             $targetUser = User::factory()->create([
-                'dealership_id' => $this->otherDealership->id
+                'dealership_id' => $this->otherDealership->id,
             ]);
             expect($this->trait->testHasAccessToUser($this->manager, $targetUser))->toBeFalse();
         });
 
         it('returns true for user without dealership (orphan)', function () {
             $targetUser = User::factory()->create([
-                'dealership_id' => null
+                'dealership_id' => null,
             ]);
             expect($this->trait->testHasAccessToUser($this->manager, $targetUser))->toBeTrue();
         });
@@ -202,7 +201,7 @@ describe('HasDealershipAccess Trait', function () {
 
         it('returns empty array for user without dealership', function () {
             $user = User::factory()->create([
-                'dealership_id' => null
+                'dealership_id' => null,
             ]);
             $ids = $this->trait->testGetUserDealershipIds($user);
             expect($ids)->toBe([]);

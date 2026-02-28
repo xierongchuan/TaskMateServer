@@ -28,16 +28,15 @@ class TaskProofController extends Controller
     /**
      * Получить информацию о доказательстве.
      *
-     * @param int|string $id ID доказательства
-     * @return JsonResponse
+     * @param  int|string  $id  ID доказательства
      */
     public function show($id): JsonResponse
     {
         $proof = TaskProof::with(['taskResponse.task'])->find($id);
 
-        if (!$proof) {
+        if (! $proof) {
             return response()->json([
-                'message' => 'Доказательство не найдено'
+                'message' => 'Доказательство не найдено',
             ], 404);
         }
 
@@ -46,20 +45,20 @@ class TaskProofController extends Controller
         $task = $proof->taskResponse->task;
 
         // Проверка доступа к задаче
-        if (!$this->isOwner($currentUser)) {
+        if (! $this->isOwner($currentUser)) {
             $isCreator = $task->creator_id === $currentUser->id;
             $isAssigned = $task->assignments()->where('user_id', $currentUser->id)->exists();
             $hasAccess = $this->hasAccessToDealership($currentUser, $task->dealership_id);
 
-            if (!$hasAccess && !$isCreator && !$isAssigned) {
+            if (! $hasAccess && ! $isCreator && ! $isAssigned) {
                 return response()->json([
-                    'message' => 'У вас нет доступа к этому доказательству'
+                    'message' => 'У вас нет доступа к этому доказательству',
                 ], 403);
             }
         }
 
         return response()->json([
-            'data' => $proof->toApiArray()
+            'data' => $proof->toApiArray(),
         ]);
     }
 
@@ -74,33 +73,32 @@ class TaskProofController extends Controller
      * - URL имеет ограниченное время жизни (60 мин)
      * - Проверка прав происходит при генерации URL, а не при скачивании
      *
-     * @param Request $request HTTP-запрос
-     * @param int|string $id ID доказательства
-     * @return StreamedResponse|JsonResponse
+     * @param  Request  $request  HTTP-запрос
+     * @param  int|string  $id  ID доказательства
      */
     public function download(Request $request, $id): StreamedResponse|JsonResponse
     {
         // Проверка подписи URL (единственная проверка безопасности)
-        if (!$request->hasValidSignature()) {
+        if (! $request->hasValidSignature()) {
             return response()->json([
-                'message' => 'Ссылка недействительна или истекла'
+                'message' => 'Ссылка недействительна или истекла',
             ], 403);
         }
 
         $proof = TaskProof::with(['taskResponse.task'])->find($id);
 
-        if (!$proof) {
+        if (! $proof) {
             return response()->json([
-                'message' => 'Доказательство не найдено'
+                'message' => 'Доказательство не найдено',
             ], 404);
         }
 
         // Проверяем существование файла
         $filePath = $this->taskProofService->getFilePath($proof);
 
-        if (!$filePath || !file_exists($filePath)) {
+        if (! $filePath || ! file_exists($filePath)) {
             return response()->json([
-                'message' => 'Файл не найден на сервере'
+                'message' => 'Файл не найден на сервере',
             ], 404);
         }
 
@@ -122,7 +120,7 @@ class TaskProofController extends Controller
             $filename,
             [
                 'Content-Type' => $mimeType,
-                'Content-Disposition' => $disposition . '; filename="' . $this->sanitizeFilename($filename) . '"',
+                'Content-Disposition' => $disposition.'; filename="'.$this->sanitizeFilename($filename).'"',
                 'Content-Length' => $proof->file_size,
                 'Cache-Control' => 'private, max-age=3600',
             ]
@@ -132,25 +130,23 @@ class TaskProofController extends Controller
     /**
      * Скачать общий файл задачи.
      *
-     * @param Request $request
-     * @param int|string $id ID общего доказательства
-     * @return StreamedResponse|JsonResponse
+     * @param  int|string  $id  ID общего доказательства
      */
     public function downloadShared(Request $request, $id): StreamedResponse|JsonResponse
     {
         // Проверка подписи URL (единственная проверка безопасности)
         // Доступ контролируется при генерации подписанного URL, а не при скачивании
-        if (!$request->hasValidSignature()) {
+        if (! $request->hasValidSignature()) {
             return response()->json([
-                'message' => 'Ссылка недействительна или истекла'
+                'message' => 'Ссылка недействительна или истекла',
             ], 403);
         }
 
         $proof = TaskSharedProof::find($id);
 
-        if (!$proof) {
+        if (! $proof) {
             return response()->json([
-                'message' => 'Доказательство не найдено'
+                'message' => 'Доказательство не найдено',
             ], 404);
         }
 
@@ -164,9 +160,9 @@ class TaskProofController extends Controller
             $filePath = Storage::disk('local')->path($proof->file_path);
         }
 
-        if (!$filePath || !file_exists($filePath)) {
+        if (! $filePath || ! file_exists($filePath)) {
             return response()->json([
-                'message' => 'Файл не найден на сервере'
+                'message' => 'Файл не найден на сервере',
             ], 404);
         }
 
@@ -188,7 +184,7 @@ class TaskProofController extends Controller
             $filename,
             [
                 'Content-Type' => $mimeType,
-                'Content-Disposition' => $disposition . '; filename="' . $this->sanitizeFilename($filename) . '"',
+                'Content-Disposition' => $disposition.'; filename="'.$this->sanitizeFilename($filename).'"',
                 'Content-Length' => $proof->file_size,
                 'Cache-Control' => 'private, max-age=3600',
             ]
@@ -200,16 +196,15 @@ class TaskProofController extends Controller
      *
      * Доступно только менеджерам и владельцам.
      *
-     * @param int|string $id ID доказательства
-     * @return JsonResponse
+     * @param  int|string  $id  ID доказательства
      */
     public function destroy($id): JsonResponse
     {
         $proof = TaskProof::with(['taskResponse.task'])->find($id);
 
-        if (!$proof) {
+        if (! $proof) {
             return response()->json([
-                'message' => 'Доказательство не найдено'
+                'message' => 'Доказательство не найдено',
             ], 404);
         }
 
@@ -220,7 +215,7 @@ class TaskProofController extends Controller
         // Запрет удаления файлов выполненных задач
         if (in_array($task->status, ['completed', 'completed_late'])) {
             return response()->json([
-                'message' => 'Нельзя удалять файлы выполненной задачи'
+                'message' => 'Нельзя удалять файлы выполненной задачи',
             ], 422);
         }
 
@@ -229,16 +224,16 @@ class TaskProofController extends Controller
         $hasManageAccess = $this->hasAccessToDealership($currentUser, $task->dealership_id)
             && in_array($currentUser->role->value, ['manager', 'owner']);
 
-        if (!$isProofOwner && !$hasManageAccess && !$this->isOwner($currentUser)) {
+        if (! $isProofOwner && ! $hasManageAccess && ! $this->isOwner($currentUser)) {
             return response()->json([
-                'message' => 'У вас нет прав для удаления этого доказательства'
+                'message' => 'У вас нет прав для удаления этого доказательства',
             ], 403);
         }
 
         $this->taskProofService->deleteProof($proof);
 
         return response()->json([
-            'message' => 'Доказательство успешно удалено'
+            'message' => 'Доказательство успешно удалено',
         ]);
     }
 
@@ -247,16 +242,15 @@ class TaskProofController extends Controller
      *
      * Доступно только менеджерам и владельцам.
      *
-     * @param int|string $id ID общего файла
-     * @return JsonResponse
+     * @param  int|string  $id  ID общего файла
      */
     public function destroyShared($id): JsonResponse
     {
         $proof = TaskSharedProof::with(['task'])->find($id);
 
-        if (!$proof) {
+        if (! $proof) {
             return response()->json([
-                'message' => 'Файл не найден'
+                'message' => 'Файл не найден',
             ], 404);
         }
 
@@ -267,7 +261,7 @@ class TaskProofController extends Controller
         // Запрет удаления файлов выполненных задач
         if (in_array($task->status, ['completed', 'completed_late'])) {
             return response()->json([
-                'message' => 'Нельзя удалять файлы выполненной задачи'
+                'message' => 'Нельзя удалять файлы выполненной задачи',
             ], 422);
         }
 
@@ -275,16 +269,16 @@ class TaskProofController extends Controller
         $hasManageAccess = $this->hasAccessToDealership($currentUser, $task->dealership_id)
             && in_array($currentUser->role->value, ['manager', 'owner']);
 
-        if (!$hasManageAccess && !$this->isOwner($currentUser)) {
+        if (! $hasManageAccess && ! $this->isOwner($currentUser)) {
             return response()->json([
-                'message' => 'У вас нет прав для удаления этого файла'
+                'message' => 'У вас нет прав для удаления этого файла',
             ], 403);
         }
 
         $this->taskProofService->deleteSharedProof($proof);
 
         return response()->json([
-            'message' => 'Файл успешно удалён'
+            'message' => 'Файл успешно удалён',
         ]);
     }
 
@@ -327,7 +321,7 @@ class TaskProofController extends Controller
         if (mb_strlen($filename) > 200) {
             $extension = pathinfo($filename, PATHINFO_EXTENSION);
             $name = mb_substr(pathinfo($filename, PATHINFO_FILENAME), 0, 195 - mb_strlen($extension));
-            $filename = $name . '.' . $extension;
+            $filename = $name.'.'.$extension;
         }
 
         return $filename ?: 'file';

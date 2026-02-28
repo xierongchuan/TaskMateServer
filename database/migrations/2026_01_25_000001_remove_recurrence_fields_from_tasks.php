@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Schema;
  * Tasks are not recurring themselves - they are created by TaskGenerators.
  * This migration removes the legacy recurrence functionality from tasks.
  */
-return new class () extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Task;
-use App\Models\TaskResponse;
-use App\Models\TaskGenerator;
-use App\Models\Shift;
-use App\Models\AutoDealership;
-use App\Services\DashboardService;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Shift;
+use App\Models\Task;
+use App\Models\TaskGenerator;
+use App\Models\TaskResponse;
+use App\Models\User;
+use App\Services\DashboardService;
 use Carbon\Carbon;
 
 describe('DashboardService', function () {
@@ -17,9 +17,9 @@ describe('DashboardService', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
-        $this->dashboardService = new DashboardService();
+        $this->dashboardService = new DashboardService;
     });
 
     describe('getDashboardData', function () {
@@ -183,7 +183,7 @@ describe('DashboardService', function () {
             // Arrange - нужны разные пользователи из-за уникального ограничения
             $employee2 = User::factory()->create([
                 'role' => Role::EMPLOYEE->value,
-                'dealership_id' => $this->dealership->id
+                'dealership_id' => $this->dealership->id,
             ]);
 
             // Используем UTC время, чтобы попасть в границы "сегодня"

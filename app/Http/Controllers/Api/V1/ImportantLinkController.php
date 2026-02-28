@@ -44,8 +44,8 @@ class ImportantLinkController extends Controller
         if ($search !== null && $search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'ilike', "%{$search}%")
-                  ->orWhere('url', 'ilike', "%{$search}%")
-                  ->orWhere('description', 'ilike', "%{$search}%");
+                    ->orWhere('url', 'ilike', "%{$search}%")
+                    ->orWhere('description', 'ilike', "%{$search}%");
             });
         }
 
@@ -62,9 +62,9 @@ class ImportantLinkController extends Controller
         $currentUser = $request->user();
         $link = ImportantLink::with(['creator', 'dealership'])->find($id);
 
-        if (!$link) {
+        if (! $link) {
             return response()->json([
-                'message' => 'Ссылка не найдена'
+                'message' => 'Ссылка не найдена',
             ], 404);
         }
 
@@ -83,7 +83,7 @@ class ImportantLinkController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
 
-        Log::info("Request ImportantLink Store: " . json_encode($request->all()));
+        Log::info('Request ImportantLink Store: '.json_encode($request->all()));
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'url' => 'required|string|max:1000|url',
@@ -95,7 +95,7 @@ class ImportantLinkController extends Controller
         ]);
 
         // Проверка доступа к дилерству, если указан
-        if (!empty($validated['dealership_id'])) {
+        if (! empty($validated['dealership_id'])) {
             if ($accessError = $this->validateDealershipAccess($currentUser, (int) $validated['dealership_id'])) {
                 return $accessError;
             }
@@ -118,9 +118,9 @@ class ImportantLinkController extends Controller
         $currentUser = $request->user();
         $link = ImportantLink::find($id);
 
-        if (!$link) {
+        if (! $link) {
             return response()->json([
-                'message' => 'Ссылка не найдена'
+                'message' => 'Ссылка не найдена',
             ], 404);
         }
 
@@ -162,9 +162,9 @@ class ImportantLinkController extends Controller
         $currentUser = $request->user();
         $link = ImportantLink::find($id);
 
-        if (!$link) {
+        if (! $link) {
             return response()->json([
-                'message' => 'Ссылка не найдена'
+                'message' => 'Ссылка не найдена',
             ], 404);
         }
 
@@ -180,13 +180,13 @@ class ImportantLinkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Ссылка успешно удалена'
+                'message' => 'Ссылка успешно удалена',
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Ошибка при удалении ссылки',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

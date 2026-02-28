@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
 
 class SessionController extends Controller
 {
@@ -27,7 +27,7 @@ class SessionController extends Controller
         Log::info('Login attempt', ['login' => $req->login]);
 
         $req->validate([
-            'login'    => ['required', 'min:4', 'max:64', 'regex:/^(?!.*\..*\.)(?!.*_.*_)[a-zA-Z0-9._]+$/'],
+            'login' => ['required', 'min:4', 'max:64', 'regex:/^(?!.*\..*\.)(?!.*_.*_)[a-zA-Z0-9._]+$/'],
             'password' => 'required|min:6|max:255',
         ]);
 
@@ -35,6 +35,7 @@ class SessionController extends Controller
             $user = User::where('login', $req->login)->first();
         } catch (\Exception $e) {
             Log::error('Login DB Error', ['error' => $e->getMessage()]);
+
             return response()->json(['message' => 'Ошибка базы данных'], 500);
         }
 
@@ -45,8 +46,9 @@ class SessionController extends Controller
                 'login' => $req->login,
                 'locked_until' => $user->locked_until,
             ]);
+
             return response()->json([
-                'message' => "Аккаунт временно заблокирован. Попробуйте через {$minutesLeft} мин."
+                'message' => "Аккаунт временно заблокирован. Попробуйте через {$minutesLeft} мин.",
             ], 429);
         }
 
@@ -69,6 +71,7 @@ class SessionController extends Controller
             }
 
             Log::warning('Login failed: Invalid credentials', ['login' => $req->login]);
+
             return response()->json(['message' => 'Неверные данные'], 401);
         }
 
@@ -119,8 +122,9 @@ class SessionController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             Log::warning('Session check failed: No user found from token');
+
             return response()->json(['message' => 'Не авторизован'], 401);
         }
 

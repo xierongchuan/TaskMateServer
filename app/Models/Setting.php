@@ -35,8 +35,6 @@ class Setting extends Model
 
     /**
      * Get the typed value of the setting.
-     *
-     * @return mixed
      */
     public function getTypedValue(): mixed
     {
@@ -50,8 +48,6 @@ class Setting extends Model
 
     /**
      * Set the typed value of the setting.
-     *
-     * @param mixed $value
      */
     public function setTypedValue(mixed $value): void
     {
@@ -64,6 +60,7 @@ class Setting extends Model
                 'time' => $this->value = '00:00',
                 default => $this->value = '',
             };
+
             return;
         }
 

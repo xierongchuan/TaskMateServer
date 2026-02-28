@@ -7,8 +7,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\Shift;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -28,32 +28,31 @@ class ShiftPhotoController extends Controller
      *
      * Доступ по подписанному URL с проверкой авторизации.
      *
-     * @param Request $request HTTP-запрос
-     * @param int $id ID смены
-     * @param string $type Тип фото: 'opening' или 'closing'
-     * @return BinaryFileResponse|JsonResponse
+     * @param  Request  $request  HTTP-запрос
+     * @param  int  $id  ID смены
+     * @param  string  $type  Тип фото: 'opening' или 'closing'
      */
     public function download(Request $request, int $id, string $type): BinaryFileResponse|JsonResponse
     {
         // Проверка подписи URL
-        if (!$request->hasValidSignature()) {
+        if (! $request->hasValidSignature()) {
             return response()->json([
-                'message' => 'Ссылка недействительна или истекла'
+                'message' => 'Ссылка недействительна или истекла',
             ], 403);
         }
 
         // Проверка типа фото
-        if (!in_array($type, ['opening', 'closing'], true)) {
+        if (! in_array($type, ['opening', 'closing'], true)) {
             return response()->json([
-                'message' => 'Неверный тип фото'
+                'message' => 'Неверный тип фото',
             ], 400);
         }
 
         $shift = Shift::find($id);
 
-        if (!$shift) {
+        if (! $shift) {
             return response()->json([
-                'message' => 'Смена не найдена'
+                'message' => 'Смена не найдена',
             ], 404);
         }
 
@@ -67,16 +66,16 @@ class ShiftPhotoController extends Controller
             ? $shift->opening_photo_path
             : $shift->closing_photo_path;
 
-        if (!$photoPath) {
+        if (! $photoPath) {
             return response()->json([
-                'message' => 'Фото не найдено'
+                'message' => 'Фото не найдено',
             ], 404);
         }
 
         // Проверяем существование файла
-        if (!Storage::disk('shift_photos')->exists($photoPath)) {
+        if (! Storage::disk('shift_photos')->exists($photoPath)) {
             return response()->json([
-                'message' => 'Файл не найден на сервере'
+                'message' => 'Файл не найден на сервере',
             ], 404);
         }
 
@@ -87,7 +86,7 @@ class ShiftPhotoController extends Controller
         // Используем response()->file() для inline отображения (не скачивания)
         return response()->file($fullPath, [
             'Content-Type' => $mimeType,
-            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
             'Cache-Control' => 'private, max-age=3600',
         ]);
     }
@@ -98,27 +97,26 @@ class ShiftPhotoController extends Controller
      * Стабильный URL без подписи - авторизация через auth:sanctum middleware.
      * Поддерживает ETag для эффективного кеширования (304 Not Modified).
      *
-     * @param Request $request HTTP-запрос
-     * @param int $id ID смены
-     * @param string $type Тип фото: 'opening' или 'closing'
-     * @return BinaryFileResponse|JsonResponse|Response
+     * @param  Request  $request  HTTP-запрос
+     * @param  int  $id  ID смены
+     * @param  string  $type  Тип фото: 'opening' или 'closing'
      */
     public function show(Request $request, int $id, string $type): BinaryFileResponse|JsonResponse|Response
     {
         $shift = Shift::find($id);
 
-        if (!$shift) {
+        if (! $shift) {
             return response()->json([
-                'message' => 'Смена не найдена'
+                'message' => 'Смена не найдена',
             ], 404);
         }
 
         $user = $request->user();
 
         // Проверка доступа
-        if (!$this->canViewPhoto($user, $shift)) {
+        if (! $this->canViewPhoto($user, $shift)) {
             return response()->json([
-                'message' => 'Доступ запрещён'
+                'message' => 'Доступ запрещён',
             ], 403);
         }
 
@@ -127,22 +125,22 @@ class ShiftPhotoController extends Controller
             ? $shift->opening_photo_path
             : $shift->closing_photo_path;
 
-        if (!$photoPath) {
+        if (! $photoPath) {
             return response()->json([
-                'message' => 'Фото не найдено'
+                'message' => 'Фото не найдено',
             ], 404);
         }
 
         // Проверяем существование файла
-        if (!Storage::disk('shift_photos')->exists($photoPath)) {
+        if (! Storage::disk('shift_photos')->exists($photoPath)) {
             return response()->json([
-                'message' => 'Файл не найден на сервере'
+                'message' => 'Файл не найден на сервере',
             ], 404);
         }
 
         $fullPath = Storage::disk('shift_photos')->path($photoPath);
         $lastModified = filemtime($fullPath);
-        $etag = '"' . md5($photoPath . $lastModified) . '"';
+        $etag = '"'.md5($photoPath.$lastModified).'"';
         $mimeType = mime_content_type($fullPath) ?: 'image/jpeg';
 
         // Conditional request - 304 Not Modified если не изменилось
@@ -156,7 +154,7 @@ class ShiftPhotoController extends Controller
 
         return response()->file($fullPath, [
             'Content-Type' => $mimeType,
-            'Content-Disposition' => 'inline; filename="' . basename($photoPath) . '"',
+            'Content-Disposition' => 'inline; filename="'.basename($photoPath).'"',
             'Cache-Control' => 'private, max-age=300, must-revalidate',
             'ETag' => $etag,
         ]);
@@ -165,9 +163,7 @@ class ShiftPhotoController extends Controller
     /**
      * Проверка доступа пользователя к фото смены.
      *
-     * @param \App\Models\User $user
-     * @param Shift $shift
-     * @return bool
+     * @param  \App\Models\User  $user
      */
     private function canViewPhoto($user, Shift $shift): bool
     {

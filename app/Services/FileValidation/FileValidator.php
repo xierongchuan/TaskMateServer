@@ -31,7 +31,7 @@ class FileValidator implements FileValidatorInterface
         // Проверка расширения
         $extension = strtolower($file->getClientOriginalExtension());
 
-        if (!$this->isAllowedExtension($extension, $preset)) {
+        if (! $this->isAllowedExtension($extension, $preset)) {
             throw new InvalidArgumentException(
                 sprintf(
                     'Недопустимое расширение файла "%s". Разрешены: %s',
@@ -45,7 +45,7 @@ class FileValidator implements FileValidatorInterface
         $mimeType = $this->mimeResolver->resolve($file);
 
         // Проверить MIME-тип
-        if (!$this->isAllowedMimeType($mimeType, $preset)) {
+        if (! $this->isAllowedMimeType($mimeType, $preset)) {
             throw new InvalidArgumentException(
                 sprintf('Недопустимый тип файла: %s', $mimeType)
             );
@@ -72,13 +72,14 @@ class FileValidator implements FileValidatorInterface
     /**
      * Валидировать MIME-тип напрямую (для Job'ов где файл уже сохранён).
      *
-     * @param string $mimeType MIME-тип файла
-     * @param string $preset Пресет
+     * @param  string  $mimeType  MIME-тип файла
+     * @param  string  $preset  Пресет
+     *
      * @throws InvalidArgumentException Если MIME-тип не разрешён
      */
     public function validateMimeType(string $mimeType, string $preset = 'task_proof'): void
     {
-        if (!$this->isAllowedMimeType($mimeType, $preset)) {
+        if (! $this->isAllowedMimeType($mimeType, $preset)) {
             throw new InvalidArgumentException(
                 sprintf('Недопустимый тип файла: %s', $mimeType)
             );
@@ -153,8 +154,6 @@ class FileValidator implements FileValidatorInterface
 
     /**
      * Получить конфигурацию валидации.
-     *
-     * @return FileValidationConfig
      */
     public function getConfig(): FileValidationConfig
     {
@@ -163,8 +162,6 @@ class FileValidator implements FileValidatorInterface
 
     /**
      * Получить резолвер MIME-типов.
-     *
-     * @return MimeTypeResolver
      */
     public function getMimeResolver(): MimeTypeResolver
     {
@@ -176,9 +173,10 @@ class FileValidator implements FileValidatorInterface
      *
      * Защита от загрузки файлов с подменённым расширением.
      *
-     * @param UploadedFile $file Загружаемый файл
-     * @param string $extension Расширение файла
-     * @param string $mimeType MIME-тип файла
+     * @param  UploadedFile  $file  Загружаемый файл
+     * @param  string  $extension  Расширение файла
+     * @param  string  $mimeType  MIME-тип файла
+     *
      * @throws InvalidArgumentException
      */
     private function validateContent(UploadedFile $file, string $extension, string $mimeType): void
@@ -232,7 +230,7 @@ class FileValidator implements FileValidatorInterface
         $detectedType = $imageInfo[2];
         $allowedExtensions = $imageTypeMap[$detectedType] ?? [];
 
-        if (!in_array($extension, $allowedExtensions, true)) {
+        if (! in_array($extension, $allowedExtensions, true)) {
             throw new InvalidArgumentException(
                 'Расширение файла не соответствует реальному типу изображения'
             );
@@ -292,7 +290,7 @@ class FileValidator implements FileValidatorInterface
             'application/octet-stream', // Некоторые видео определяются так
         ];
 
-        if (!in_array($detectedMime, $videoMimes, true)) {
+        if (! in_array($detectedMime, $videoMimes, true)) {
             throw new InvalidArgumentException(
                 sprintf('Файл не является допустимым видео (обнаружен тип: %s)', $detectedMime)
             );

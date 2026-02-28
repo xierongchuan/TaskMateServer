@@ -25,12 +25,14 @@ use Illuminate\Support\Facades\Log;
  * находит открытые смены, у которых scheduled_end уже прошёл,
  * и закрывает их без фото.
  */
-class AutoCloseShiftsJob implements ShouldQueue, ShouldBeUnique
+class AutoCloseShiftsJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public int $backoff = 60;
+
     public int $uniqueFor = 300;
 
     public function __construct()
@@ -54,7 +56,7 @@ class AutoCloseShiftsJob implements ShouldQueue, ShouldBeUnique
                 false
             );
 
-            if (!$autoClose) {
+            if (! $autoClose) {
                 continue;
             }
 

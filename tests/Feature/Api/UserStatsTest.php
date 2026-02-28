@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\Enums\Role;
 use App\Models\AutoDealership;
 use App\Models\Task;
 use App\Models\TaskResponse;
-use App\Models\Shift;
-use App\Enums\Role;
+use App\Models\User;
 use Carbon\Carbon;
 
 describe('User Stats API - GET /api/v1/users/{id}/stats', function () {

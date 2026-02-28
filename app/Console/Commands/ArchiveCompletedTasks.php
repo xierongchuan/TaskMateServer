@@ -121,12 +121,12 @@ class ArchiveCompletedTasks extends Command
         $totalArchived = $archivedCompleted + $archivedOverdue;
         if ($totalArchived > 0) {
             $this->info("Total archived: $archivedCompleted completed, $archivedOverdue overdue tasks");
-            Log::info("Auto-archived tasks", [
+            Log::info('Auto-archived tasks', [
                 'completed' => $archivedCompleted,
                 'overdue' => $archivedOverdue,
             ]);
         } else {
-            $this->info("No tasks to archive");
+            $this->info('No tasks to archive');
         }
 
         return Command::SUCCESS;

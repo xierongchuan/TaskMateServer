@@ -146,7 +146,7 @@ class ReportController extends Controller
             // Задачи, выполненные в этот день (по времени response)
             $dayCompletedQuery = Task::whereHas('responses', function ($q) use ($dayStart, $dayEnd) {
                 $q->where('status', 'completed')
-                  ->whereBetween('responded_at', [$dayStart, $dayEnd]);
+                    ->whereBetween('responded_at', [$dayStart, $dayEnd]);
             });
             $applyTaskFilter($dayCompletedQuery);
             $dayCompleted = $dayCompletedQuery->count();
@@ -252,7 +252,7 @@ class ReportController extends Controller
         usort($topIssues, fn ($a, $b) => $b['count'] <=> $a['count']);
 
         return response()->json([
-            'period' => $from->format('Y-m-d') . ' - ' . $to->format('Y-m-d'),
+            'period' => $from->format('Y-m-d').' - '.$to->format('Y-m-d'),
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
             'summary' => [

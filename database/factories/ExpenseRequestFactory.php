@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\ExpenseStatus;
 use App\Models\ExpenseRequest;
 use App\Models\User;
-use App\Enums\ExpenseStatus;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**

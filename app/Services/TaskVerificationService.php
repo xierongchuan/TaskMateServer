@@ -9,7 +9,6 @@ use App\Models\Task;
 use App\Models\TaskResponse;
 use App\Models\TaskVerificationHistory;
 use App\Models\User;
-use App\Services\TaskEventPublisher;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,8 +26,8 @@ class TaskVerificationService
     /**
      * Одобрить доказательство выполнения задачи.
      *
-     * @param TaskResponse $response Ответ на задачу
-     * @param User $verifier Верификатор (менеджер/владелец)
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  User  $verifier  Верификатор (менеджер/владелец)
      * @return TaskResponse Обновленный ответ
      */
     public function approve(TaskResponse $response, User $verifier): TaskResponse
@@ -67,9 +66,9 @@ class TaskVerificationService
      * ВАЖНО: Всегда отклоняет только один response, независимо от наличия shared_proofs.
      * Для группового отклонения используйте rejectAllForTask().
      *
-     * @param TaskResponse $response Ответ на задачу
-     * @param User $verifier Верификатор (менеджер/владелец)
-     * @param string $reason Причина отклонения
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  User  $verifier  Верификатор (менеджер/владелец)
+     * @param  string  $reason  Причина отклонения
      * @return TaskResponse Обновленный ответ
      */
     public function reject(TaskResponse $response, User $verifier, string $reason): TaskResponse
@@ -120,9 +119,9 @@ class TaskVerificationService
     /**
      * Отклонить один response (внутренний метод для bulk reject).
      *
-     * @param TaskResponse $response Ответ на задачу
-     * @param User $verifier Верификатор
-     * @param string $reason Причина отклонения
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  User  $verifier  Верификатор
+     * @param  string  $reason  Причина отклонения
      */
     private function rejectSingleResponse(TaskResponse $response, User $verifier, string $reason): void
     {
@@ -162,9 +161,9 @@ class TaskVerificationService
      * Универсальный метод — работает для любых групповых задач,
      * независимо от наличия shared_proofs.
      *
-     * @param Task $task Задача
-     * @param User $verifier Верификатор (менеджер/владелец)
-     * @param string $reason Причина отклонения
+     * @param  Task  $task  Задача
+     * @param  User  $verifier  Верификатор (менеджер/владелец)
+     * @param  string  $reason  Причина отклонения
      */
     public function rejectAllForTask(Task $task, User $verifier, string $reason): void
     {
@@ -186,7 +185,7 @@ class TaskVerificationService
             }
         });
 
-        if (!empty($rejectedUserIds)) {
+        if (! empty($rejectedUserIds)) {
             TaskEventPublisher::publishTaskRejectedBulk($task, $rejectedUserIds, $reason);
         }
     }
@@ -194,8 +193,8 @@ class TaskVerificationService
     /**
      * Записать повторную отправку доказательства.
      *
-     * @param TaskResponse $response Ответ на задачу
-     * @param User $employee Сотрудник
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  User  $employee  Сотрудник
      */
     public function recordResubmission(TaskResponse $response, User $employee): void
     {
@@ -212,8 +211,8 @@ class TaskVerificationService
     /**
      * Записать первоначальную отправку доказательства.
      *
-     * @param TaskResponse $response Ответ на задачу
-     * @param User $employee Сотрудник
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  User  $employee  Сотрудник
      */
     public function recordSubmission(TaskResponse $response, User $employee): void
     {

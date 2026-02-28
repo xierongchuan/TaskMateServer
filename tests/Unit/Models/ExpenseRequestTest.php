@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Enums\ExpenseStatus;
 use App\Models\ExpenseRequest;
 use App\Models\User;
-use App\Enums\ExpenseStatus;
 
 describe('ExpenseRequest Model', function () {
     it('can create an expense request with all fields', function () {

@@ -30,16 +30,15 @@ class TaskVerificationController extends Controller
      *
      * Статус ответа меняется на 'completed'.
      *
-     * @param int|string $id ID ответа на задачу (task_response)
-     * @return JsonResponse
+     * @param  int|string  $id  ID ответа на задачу (task_response)
      */
     public function approve($id): JsonResponse
     {
         $taskResponse = TaskResponse::with(['task.sharedProofs', 'proofs'])->find($id);
 
-        if (!$taskResponse) {
+        if (! $taskResponse) {
             return response()->json([
-                'message' => 'Ответ на задачу не найден'
+                'message' => 'Ответ на задачу не найден',
             ], 404);
         }
 
@@ -48,10 +47,10 @@ class TaskVerificationController extends Controller
         $task = $taskResponse->task;
 
         // Проверка доступа к автосалону
-        if (!$this->isOwner($currentUser)) {
-            if (!$this->hasAccessToDealership($currentUser, $task->dealership_id)) {
+        if (! $this->isOwner($currentUser)) {
+            if (! $this->hasAccessToDealership($currentUser, $task->dealership_id)) {
                 return response()->json([
-                    'message' => 'У вас нет доступа к этой задаче'
+                    'message' => 'У вас нет доступа к этой задаче',
                 ], 403);
             }
         }
@@ -59,7 +58,7 @@ class TaskVerificationController extends Controller
         // Проверка статуса
         if ($taskResponse->status !== 'pending_review') {
             return response()->json([
-                'message' => 'Этот ответ не требует верификации'
+                'message' => 'Этот ответ не требует верификации',
             ], 422);
         }
 
@@ -67,7 +66,7 @@ class TaskVerificationController extends Controller
         // Используем effectiveProofs — учитывает как индивидуальные proofs, так и shared_proofs задачи
         if ($task->response_type === 'completion_with_proof' && $taskResponse->effectiveProofs->isEmpty()) {
             return response()->json([
-                'message' => 'Нет доказательств для верификации'
+                'message' => 'Нет доказательств для верификации',
             ], 422);
         }
 
@@ -78,7 +77,7 @@ class TaskVerificationController extends Controller
             'message' => 'Доказательство одобрено',
             'data' => $task->refresh()
                 ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier'])
-                ->toApiArray()
+                ->toApiArray(),
         ]);
     }
 
@@ -87,9 +86,7 @@ class TaskVerificationController extends Controller
      *
      * Статус ответа меняется на 'pending', файлы удаляются.
      *
-     * @param Request $request
-     * @param int|string $id ID ответа на задачу (task_response)
-     * @return JsonResponse
+     * @param  int|string  $id  ID ответа на задачу (task_response)
      */
     public function reject(Request $request, $id): JsonResponse
     {
@@ -99,9 +96,9 @@ class TaskVerificationController extends Controller
 
         $taskResponse = TaskResponse::with(['task', 'proofs'])->find($id);
 
-        if (!$taskResponse) {
+        if (! $taskResponse) {
             return response()->json([
-                'message' => 'Ответ на задачу не найден'
+                'message' => 'Ответ на задачу не найден',
             ], 404);
         }
 
@@ -110,10 +107,10 @@ class TaskVerificationController extends Controller
         $task = $taskResponse->task;
 
         // Проверка доступа к автосалону
-        if (!$this->isOwner($currentUser)) {
-            if (!$this->hasAccessToDealership($currentUser, $task->dealership_id)) {
+        if (! $this->isOwner($currentUser)) {
+            if (! $this->hasAccessToDealership($currentUser, $task->dealership_id)) {
                 return response()->json([
-                    'message' => 'У вас нет доступа к этой задаче'
+                    'message' => 'У вас нет доступа к этой задаче',
                 ], 403);
             }
         }
@@ -121,7 +118,7 @@ class TaskVerificationController extends Controller
         // Проверка статуса
         if ($taskResponse->status !== 'pending_review') {
             return response()->json([
-                'message' => 'Этот ответ не требует верификации'
+                'message' => 'Этот ответ не требует верификации',
             ], 422);
         }
 
@@ -132,7 +129,7 @@ class TaskVerificationController extends Controller
             'message' => 'Доказательство отклонено',
             'data' => $task->refresh()
                 ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier'])
-                ->toApiArray()
+                ->toApiArray(),
         ]);
     }
 
@@ -142,9 +139,7 @@ class TaskVerificationController extends Controller
      * Используется для групповых задач — отклоняет все ожидающие
      * проверки ответы одним действием с одной причиной.
      *
-     * @param Request $request
-     * @param int|string $taskId ID задачи
-     * @return JsonResponse
+     * @param  int|string  $taskId  ID задачи
      */
     public function rejectAll(Request $request, $taskId): JsonResponse
     {
@@ -154,9 +149,9 @@ class TaskVerificationController extends Controller
 
         $task = Task::with(['responses.proofs', 'sharedProofs'])->find($taskId);
 
-        if (!$task) {
+        if (! $task) {
             return response()->json([
-                'message' => 'Задача не найдена'
+                'message' => 'Задача не найдена',
             ], 404);
         }
 
@@ -164,10 +159,10 @@ class TaskVerificationController extends Controller
         $currentUser = auth()->user();
 
         // Проверка доступа к автосалону
-        if (!$this->isOwner($currentUser)) {
-            if (!$this->hasAccessToDealership($currentUser, $task->dealership_id)) {
+        if (! $this->isOwner($currentUser)) {
+            if (! $this->hasAccessToDealership($currentUser, $task->dealership_id)) {
                 return response()->json([
-                    'message' => 'У вас нет доступа к этой задаче'
+                    'message' => 'У вас нет доступа к этой задаче',
                 ], 403);
             }
         }
@@ -176,7 +171,7 @@ class TaskVerificationController extends Controller
         $pendingCount = $task->responses->where('status', 'pending_review')->count();
         if ($pendingCount === 0) {
             return response()->json([
-                'message' => 'Нет ответов, ожидающих проверки'
+                'message' => 'Нет ответов, ожидающих проверки',
             ], 422);
         }
 
@@ -186,7 +181,7 @@ class TaskVerificationController extends Controller
             'message' => 'Все ответы отклонены',
             'data' => $task->refresh()
                 ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier', 'sharedProofs'])
-                ->toApiArray()
+                ->toApiArray(),
         ]);
     }
 }

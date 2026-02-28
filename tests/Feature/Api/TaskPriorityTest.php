@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Task;
-use App\Models\AutoDealership;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Task;
+use App\Models\User;
 use Carbon\Carbon;
 
 describe('Task Priority API', function () {
@@ -13,7 +13,7 @@ describe('Task Priority API', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 
@@ -58,12 +58,12 @@ describe('Task Priority API', function () {
     it('updates task priority', function () {
         $task = Task::factory()->create([
             'dealership_id' => $this->dealership->id,
-            'priority' => 'low'
+            'priority' => 'low',
         ]);
 
         $response = $this->actingAs($this->manager, 'sanctum')
             ->putJson("/api/v1/tasks/{$task->id}", [
-                'priority' => 'high'
+                'priority' => 'high',
             ]);
 
         $response->assertStatus(200);

@@ -11,17 +11,17 @@ use App\Helpers\TimeHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreTaskRequest;
 use App\Http\Requests\Api\V1\UpdateTaskRequest;
+use App\Jobs\StoreTaskSharedProofsJob;
 use App\Models\Shift;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskDelegation;
 use App\Services\SettingsService;
+use App\Services\TaskEventPublisher;
 use App\Services\TaskFilterService;
 use App\Services\TaskProofService;
-use App\Services\TaskEventPublisher;
 use App\Services\TaskService;
 use App\Services\TaskVerificationService;
-use App\Jobs\StoreTaskSharedProofsJob;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -279,7 +279,7 @@ class TaskController extends Controller
         $existingResponse = $task->responses()->where('user_id', $user->id)->first();
         $currentStatus = $existingResponse?->status;
 
-        if ($currentStatus !== null && !$this->isValidStatusTransition($currentStatus, $status, $user)) {
+        if ($currentStatus !== null && ! $this->isValidStatusTransition($currentStatus, $status, $user)) {
             return response()->json([
                 'message' => "Недопустимый переход статуса: {$currentStatus} -> {$status}",
             ], 422);
@@ -466,7 +466,7 @@ class TaskController extends Controller
             });
         } catch (\Throwable $e) {
             return response()->json([
-                'message' => 'Ошибка при обновлении статуса задачи: ' . $e->getMessage(),
+                'message' => 'Ошибка при обновлении статуса задачи: '.$e->getMessage(),
             ], 500);
         }
 
@@ -614,10 +614,9 @@ class TaskController extends Controller
      * - rejected -> pending_review (переотправка)
      * - completed -> (финальный статус, менеджер может сбросить в pending)
      *
-     * @param string $currentStatus Текущий статус
-     * @param string $newStatus Новый статус
-     * @param \App\Models\User $user Пользователь, инициирующий переход
-     * @return bool
+     * @param  string  $currentStatus  Текущий статус
+     * @param  string  $newStatus  Новый статус
+     * @param  \App\Models\User  $user  Пользователь, инициирующий переход
      */
     private function isValidStatusTransition(string $currentStatus, string $newStatus, $user): bool
     {

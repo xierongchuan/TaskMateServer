@@ -7,7 +7,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class () extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      *
@@ -24,17 +25,17 @@ return new class () extends Migration {
 
         // Шаг 2: Мигрируем существующие данные
         // Конвертируем integer в JSON массив: 5 → [5]
-        DB::statement("
+        DB::statement('
             UPDATE task_generators
             SET recurrence_days_of_week = jsonb_build_array(recurrence_day_of_week)
             WHERE recurrence_day_of_week IS NOT NULL
-        ");
+        ');
 
-        DB::statement("
+        DB::statement('
             UPDATE task_generators
             SET recurrence_days_of_month = jsonb_build_array(recurrence_day_of_month)
             WHERE recurrence_day_of_month IS NOT NULL
-        ");
+        ');
 
         // Шаг 3: Удаляем старые колонки
         Schema::table('task_generators', function (Blueprint $table) {
@@ -55,19 +56,19 @@ return new class () extends Migration {
 
         // Шаг 2: Мигрируем данные обратно (берём первый элемент массива)
         // Используем json_array_length для типа JSON (не JSONB)
-        DB::statement("
+        DB::statement('
             UPDATE task_generators
             SET recurrence_day_of_week = (recurrence_days_of_week->>0)::integer
             WHERE recurrence_days_of_week IS NOT NULL
               AND json_array_length(recurrence_days_of_week) > 0
-        ");
+        ');
 
-        DB::statement("
+        DB::statement('
             UPDATE task_generators
             SET recurrence_day_of_month = (recurrence_days_of_month->>0)::integer
             WHERE recurrence_days_of_month IS NOT NULL
               AND json_array_length(recurrence_days_of_month) > 0
-        ");
+        ');
 
         // Шаг 3: Удаляем новые JSON колонки
         Schema::table('task_generators', function (Blueprint $table) {

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\Role;
+use App\Models\AutoDealership;
 use App\Models\Task;
 use App\Models\TaskResponse;
 use App\Models\TaskVerificationHistory;
-use App\Models\AutoDealership;
 use App\Models\User;
-use App\Enums\Role;
 use Carbon\Carbon;
 
 describe('TaskVerificationHistory Model', function () {
@@ -15,11 +15,11 @@ describe('TaskVerificationHistory Model', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 

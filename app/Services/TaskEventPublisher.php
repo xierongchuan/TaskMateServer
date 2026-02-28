@@ -29,15 +29,15 @@ class TaskEventPublisher
     /**
      * Опубликовать событие назначения задачи.
      *
-     * @param Task $task Созданная/обновлённая задача
-     * @param array<int> $userIds ID назначенных пользователей
+     * @param  Task  $task  Созданная/обновлённая задача
+     * @param  array<int>  $userIds  ID назначенных пользователей
      */
     public static function publishTaskAssigned(Task $task, array $userIds): void
     {
         $dealershipId = $task->dealership_id;
 
         // Проверяем, включён ли канал для автосалона
-        if ($dealershipId && !NotificationSetting::isChannelEnabled($dealershipId, NotificationSetting::CHANNEL_TASK_ASSIGNED)) {
+        if ($dealershipId && ! NotificationSetting::isChannelEnabled($dealershipId, NotificationSetting::CHANNEL_TASK_ASSIGNED)) {
             return;
         }
 
@@ -225,12 +225,12 @@ class TaskEventPublisher
     /**
      * Отфильтровать user_ids по recipient_roles из NotificationSetting.
      *
-     * @param array<int> $userIds
+     * @param  array<int>  $userIds
      * @return array<int>
      */
     private static function filterByRecipientRoles(array $userIds, ?int $dealershipId, string $channelType): array
     {
-        if (!$dealershipId) {
+        if (! $dealershipId) {
             return $userIds;
         }
 
@@ -289,7 +289,7 @@ class TaskEventPublisher
     /**
      * Опубликовать сообщение в RabbitMQ exchange.
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private static function publish(array $payload): void
     {

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\Role;
 use App\Jobs\AutoCloseShiftsJob;
 use App\Models\AutoDealership;
 use App\Models\Setting;
 use App\Models\Shift;
 use App\Models\User;
-use App\Enums\Role;
 use Carbon\Carbon;
 
 describe('AutoCloseShiftsJob', function () {
@@ -36,7 +36,7 @@ describe('AutoCloseShiftsJob', function () {
             'shift_end' => null,
         ]);
 
-        (new AutoCloseShiftsJob())->handle(
+        (new AutoCloseShiftsJob)->handle(
             app(\App\Services\SettingsService::class),
             app(\App\Services\ShiftService::class),
         );
@@ -63,7 +63,7 @@ describe('AutoCloseShiftsJob', function () {
             'shift_end' => null,
         ]);
 
-        (new AutoCloseShiftsJob())->handle(
+        (new AutoCloseShiftsJob)->handle(
             app(\App\Services\SettingsService::class),
             app(\App\Services\ShiftService::class),
         );
@@ -90,7 +90,7 @@ describe('AutoCloseShiftsJob', function () {
             'shift_end' => null,
         ]);
 
-        (new AutoCloseShiftsJob())->handle(
+        (new AutoCloseShiftsJob)->handle(
             app(\App\Services\SettingsService::class),
             app(\App\Services\ShiftService::class),
         );
@@ -115,7 +115,7 @@ describe('AutoCloseShiftsJob', function () {
 
         $originalEnd = $shift->shift_end;
 
-        (new AutoCloseShiftsJob())->handle(
+        (new AutoCloseShiftsJob)->handle(
             app(\App\Services\SettingsService::class),
             app(\App\Services\ShiftService::class),
         );
@@ -141,7 +141,7 @@ describe('AutoCloseShiftsJob', function () {
             'shift_end' => null,
         ]);
 
-        (new AutoCloseShiftsJob())->handle(
+        (new AutoCloseShiftsJob)->handle(
             app(\App\Services\SettingsService::class),
             app(\App\Services\ShiftService::class),
         );

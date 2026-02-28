@@ -20,7 +20,7 @@ describe('Task Shared Proofs', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 
@@ -29,7 +29,7 @@ describe('Task Shared Proofs', function () {
 
         $employees = User::factory()->count(3)->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
 
         $task = Task::factory()->create([

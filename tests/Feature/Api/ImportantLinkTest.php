@@ -61,7 +61,7 @@ describe('Important Links API Endpoints', function () {
 
             // Act
             $response = $this->actingAs($this->manager, 'sanctum')
-                ->getJson('/api/v1/links?dealership_id=' . $this->dealership->id);
+                ->getJson('/api/v1/links?dealership_id='.$this->dealership->id);
 
             // Assert
             $response->assertStatus(200);
@@ -155,7 +155,7 @@ describe('Important Links API Endpoints', function () {
 
             // Act
             $response = $this->actingAs($this->manager, 'sanctum')
-                ->getJson('/api/v1/links/' . $link->id);
+                ->getJson('/api/v1/links/'.$link->id);
 
             // Assert
             $response->assertStatus(200)
@@ -194,7 +194,7 @@ describe('Important Links API Endpoints', function () {
             ]);
 
             // Act
-            $response = $this->getJson('/api/v1/links/' . $link->id);
+            $response = $this->getJson('/api/v1/links/'.$link->id);
 
             // Assert
             $response->assertStatus(401);
@@ -347,7 +347,7 @@ describe('Important Links API Endpoints', function () {
 
             // Act
             $response = $this->actingAs($this->manager, 'sanctum')
-                ->putJson('/api/v1/links/' . $link->id, $updateData);
+                ->putJson('/api/v1/links/'.$link->id, $updateData);
 
             // Assert
             $response->assertStatus(200)
@@ -382,7 +382,7 @@ describe('Important Links API Endpoints', function () {
 
             // Act
             $response = $this->actingAs($this->manager, 'sanctum')
-                ->putJson('/api/v1/links/' . $link->id, ['url' => 'invalid-url']);
+                ->putJson('/api/v1/links/'.$link->id, ['url' => 'invalid-url']);
 
             // Assert
             $response->assertStatus(422)
@@ -398,7 +398,7 @@ describe('Important Links API Endpoints', function () {
 
             // Act
             $response = $this->actingAs($this->employee, 'sanctum')
-                ->putJson('/api/v1/links/' . $link->id, ['title' => 'Updated']);
+                ->putJson('/api/v1/links/'.$link->id, ['title' => 'Updated']);
 
             // Assert
             $response->assertStatus(403);
@@ -415,7 +415,7 @@ describe('Important Links API Endpoints', function () {
 
             // Act
             $response = $this->actingAs($this->manager, 'sanctum')
-                ->deleteJson('/api/v1/links/' . $link->id);
+                ->deleteJson('/api/v1/links/'.$link->id);
 
             // Assert
             $response->assertStatus(200)
@@ -446,7 +446,7 @@ describe('Important Links API Endpoints', function () {
 
             // Act
             $response = $this->actingAs($this->employee, 'sanctum')
-                ->deleteJson('/api/v1/links/' . $link->id);
+                ->deleteJson('/api/v1/links/'.$link->id);
 
             // Assert
             $response->assertStatus(403);

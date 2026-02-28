@@ -22,7 +22,7 @@ class DealershipController extends Controller
     /**
      * Получает список автосалонов с фильтрацией и пагинацией.
      *
-     * @param Request $request HTTP-запрос с параметрами фильтрации
+     * @param  Request  $request  HTTP-запрос с параметрами фильтрации
      * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
@@ -41,9 +41,9 @@ class DealershipController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ILIKE', "%{$search}%")
-                  ->orWhere('address', 'ILIKE', "%{$search}%")
-                  ->orWhere('description', 'ILIKE', "%{$search}%")
-                  ->orWhere('phone', 'ILIKE', "%{$search}%");
+                    ->orWhere('address', 'ILIKE', "%{$search}%")
+                    ->orWhere('description', 'ILIKE', "%{$search}%")
+                    ->orWhere('phone', 'ILIKE', "%{$search}%");
             });
         }
 
@@ -60,8 +60,8 @@ class DealershipController extends Controller
     /**
      * Получает информацию о конкретном автосалоне.
      *
-     * @param Request $request HTTP-запрос
-     * @param int|string $id ID автосалона
+     * @param  Request  $request  HTTP-запрос
+     * @param  int|string  $id  ID автосалона
      * @return \Illuminate\Http\JsonResponse
      */
     public function show(Request $request, $id)
@@ -77,9 +77,9 @@ class DealershipController extends Controller
         $dealership = AutoDealership::with(['users', 'shifts', 'tasks'])
             ->find($id);
 
-        if (!$dealership) {
+        if (! $dealership) {
             return response()->json([
-                'message' => 'Автосалон не найден'
+                'message' => 'Автосалон не найден',
             ], 404);
         }
 
@@ -89,12 +89,12 @@ class DealershipController extends Controller
     /**
      * Создаёт новый автосалон.
      *
-     * @param Request $request HTTP-запрос с данными автосалона
+     * @param  Request  $request  HTTP-запрос с данными автосалона
      * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
-        Log::info("Request Dealership Store: " . json_encode($request->all()));
+        Log::info('Request Dealership Store: '.json_encode($request->all()));
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:500',
@@ -111,17 +111,17 @@ class DealershipController extends Controller
     /**
      * Обновляет данные автосалона.
      *
-     * @param Request $request HTTP-запрос с данными для обновления
-     * @param int|string $id ID автосалона
+     * @param  Request  $request  HTTP-запрос с данными для обновления
+     * @param  int|string  $id  ID автосалона
      * @return \Illuminate\Http\JsonResponse
      */
     public function update(Request $request, $id)
     {
         $dealership = AutoDealership::find($id);
 
-        if (!$dealership) {
+        if (! $dealership) {
             return response()->json([
-                'message' => 'Автосалон не найден'
+                'message' => 'Автосалон не найден',
             ], 404);
         }
 
@@ -141,16 +141,16 @@ class DealershipController extends Controller
     /**
      * Удаляет автосалон.
      *
-     * @param int|string $id ID автосалона
+     * @param  int|string  $id  ID автосалона
      * @return \Illuminate\Http\JsonResponse
      */
     public function destroy($id)
     {
         $dealership = AutoDealership::find($id);
 
-        if (!$dealership) {
+        if (! $dealership) {
             return response()->json([
-                'message' => 'Автосалон не найден'
+                'message' => 'Автосалон не найден',
             ], 404);
         }
 
@@ -169,13 +169,13 @@ class DealershipController extends Controller
             $relatedData['tasks'] = $dealership->tasks()->count();
         }
 
-        if (!empty($relatedData)) {
+        if (! empty($relatedData)) {
             return response()->json([
                 'message' => 'Невозможно удалить автосалон с связанными данными',
                 'related_data' => $relatedData,
                 'errors' => [
-                    'dealership' => ['Автосалон имеет связанные записи: ' . implode(', ', array_keys($relatedData))]
-                ]
+                    'dealership' => ['Автосалон имеет связанные записи: '.implode(', ', array_keys($relatedData))],
+                ],
             ], 422);
         }
 
@@ -184,13 +184,13 @@ class DealershipController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Автосалон успешно удален'
+                'message' => 'Автосалон успешно удален',
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Ошибка при удалении автосалона',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

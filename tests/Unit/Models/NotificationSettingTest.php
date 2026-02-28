@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\NotificationSetting;
 use App\Models\AutoDealership;
+use App\Models\NotificationSetting;
 
 describe('NotificationSetting Model', function () {
     it('belongs to dealership', function () {

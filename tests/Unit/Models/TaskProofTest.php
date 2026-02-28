@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\Role;
+use App\Models\AutoDealership;
 use App\Models\Task;
 use App\Models\TaskProof;
 use App\Models\TaskResponse;
-use App\Models\AutoDealership;
 use App\Models\User;
-use App\Enums\Role;
 use Carbon\Carbon;
 
 describe('TaskProof Model', function () {
@@ -15,7 +15,7 @@ describe('TaskProof Model', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 

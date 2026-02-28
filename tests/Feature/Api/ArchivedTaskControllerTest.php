@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
+use App\Enums\Role;
 use App\Models\AutoDealership;
 use App\Models\Task;
-use App\Models\TaskAssignment;
-use App\Models\TaskResponse;
 use App\Models\User;
-use App\Enums\Role;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -20,6 +18,7 @@ class ArchivedTaskControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $manager;
+
     private AutoDealership $dealership;
 
     protected function setUp(): void
@@ -57,7 +56,7 @@ class ArchivedTaskControllerTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'data' => [
-                    '*' => ['id', 'title', 'archived_at', 'archive_reason']
+                    '*' => ['id', 'title', 'archived_at', 'archive_reason'],
                 ],
                 'current_page',
                 'last_page',

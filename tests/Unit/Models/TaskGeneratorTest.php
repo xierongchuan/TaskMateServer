@@ -2,20 +2,19 @@
 
 declare(strict_types=1);
 
+use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Task;
 use App\Models\TaskGenerator;
 use App\Models\TaskGeneratorAssignment;
-use App\Models\Task;
-use App\Models\AutoDealership;
 use App\Models\User;
-use App\Enums\Role;
-use Carbon\Carbon;
 
 describe('TaskGenerator Model', function () {
     beforeEach(function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 
@@ -68,7 +67,7 @@ describe('TaskGenerator Model', function () {
             ]);
             $employee = User::factory()->create([
                 'role' => Role::EMPLOYEE->value,
-                'dealership_id' => $this->dealership->id
+                'dealership_id' => $this->dealership->id,
             ]);
 
             // Удаляем существующие assignments если есть

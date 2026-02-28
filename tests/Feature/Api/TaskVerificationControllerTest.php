@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Task;
-use App\Models\TaskResponse;
-use App\Models\TaskProof;
-use App\Models\TaskSharedProof;
-use App\Models\TaskAssignment;
-use App\Models\AutoDealership;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Task;
+use App\Models\TaskAssignment;
+use App\Models\TaskResponse;
+use App\Models\User;
 use Carbon\Carbon;
 
 describe('Task Verification API', function () {
@@ -17,15 +15,15 @@ describe('Task Verification API', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->owner = User::factory()->create([
             'role' => Role::OWNER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 
@@ -267,7 +265,7 @@ describe('Task Verification API', function () {
 
             $employee2 = User::factory()->create([
                 'role' => Role::EMPLOYEE->value,
-                'dealership_id' => $this->dealership->id
+                'dealership_id' => $this->dealership->id,
             ]);
 
             TaskAssignment::create(['task_id' => $task->id, 'user_id' => $this->employee->id]);

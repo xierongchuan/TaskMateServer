@@ -83,7 +83,7 @@ class DealershipSeeder extends Seeder
             $this->command->info("Создан автосалон: {$dealership->name}");
 
             // Create Manager
-            $managerLogin = 'manager' . ($index + 1);
+            $managerLogin = 'manager'.($index + 1);
             $manager = User::updateOrCreate(
                 ['login' => $managerLogin],
                 [
@@ -91,14 +91,14 @@ class DealershipSeeder extends Seeder
                     'password' => Hash::make('password'),
                     'role' => Role::MANAGER,
                     'dealership_id' => $dealership->id,
-                    'phone' => '+7' . fake()->numerify('##########'),
+                    'phone' => '+7'.fake()->numerify('##########'),
                 ]
             );
             $this->command->info(" - Менеджер: {$manager->login} / password");
 
             // Create Employees
             for ($i = 1; $i <= 3; $i++) {
-                $empLogin = 'emp' . ($index + 1) . '_' . $i;
+                $empLogin = 'emp'.($index + 1).'_'.$i;
                 $employee = User::updateOrCreate(
                     ['login' => $empLogin],
                     [
@@ -106,14 +106,14 @@ class DealershipSeeder extends Seeder
                         'password' => Hash::make('password'),
                         'role' => Role::EMPLOYEE,
                         'dealership_id' => $dealership->id,
-                        'phone' => '+7' . fake()->numerify('##########'),
+                        'phone' => '+7'.fake()->numerify('##########'),
                     ]
                 );
                 $this->command->info(" - Сотрудник: {$employee->login} / password");
             }
 
             // Create Observer
-            $observerLogin = 'obs' . ($index + 1);
+            $observerLogin = 'obs'.($index + 1);
             $observer = User::updateOrCreate(
                 ['login' => $observerLogin],
                 [
@@ -121,7 +121,7 @@ class DealershipSeeder extends Seeder
                     'password' => Hash::make('password'),
                     'role' => Role::OBSERVER,
                     'dealership_id' => $dealership->id,
-                    'phone' => '+7' . fake()->numerify('##########'),
+                    'phone' => '+7'.fake()->numerify('##########'),
                 ]
             );
             $this->command->info(" - Наблюдатель: {$observer->login} / password");
@@ -135,15 +135,15 @@ class DealershipSeeder extends Seeder
 
             // Create Shift Schedules
             $this->createShiftSchedules($dealership);
-            $this->command->info(' - ' . count(self::DEFAULT_SHIFT_SCHEDULES) . ' расписаний смен');
+            $this->command->info(' - '.count(self::DEFAULT_SHIFT_SCHEDULES).' расписаний смен');
 
             // Create Settings
             $this->createSettings($dealership);
-            $this->command->info(' - ' . count(self::DEFAULT_SETTINGS) . ' настроек');
+            $this->command->info(' - '.count(self::DEFAULT_SETTINGS).' настроек');
 
             // Create Notification Settings
             $this->createNotificationSettings($dealership);
-            $this->command->info(' - ' . count(self::DEFAULT_NOTIFICATION_SETTINGS) . ' настроек уведомлений');
+            $this->command->info(' - '.count(self::DEFAULT_NOTIFICATION_SETTINGS).' настроек уведомлений');
         }
     }
 

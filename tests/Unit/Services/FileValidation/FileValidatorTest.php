@@ -6,7 +6,6 @@ namespace Tests\Unit\Services\FileValidation;
 
 use App\Contracts\FileValidatorInterface;
 use App\Services\FileValidation\FileTypeCategory;
-use App\Services\FileValidation\FileValidator;
 use Illuminate\Http\UploadedFile;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;

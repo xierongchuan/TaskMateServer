@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\TaskGenerator;
 use App\Models\TaskGeneratorAssignment;
 use App\Traits\HasDealershipAccess;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
-use App\Enums\Role;
 
 class TaskGeneratorController extends Controller
 {
@@ -24,14 +24,16 @@ class TaskGeneratorController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = $request->user();
-        if (!$this->hasAccessToDealership($user, $generator->dealership_id)) {
+        if (! $this->hasAccessToDealership($user, $generator->dealership_id)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Нет доступа к этому генератору задач',
             ], 403);
         }
+
         return null;
     }
+
     /**
      * List all task generators with filtering.
      */
@@ -61,7 +63,7 @@ class TaskGeneratorController extends Controller
 
         // Search by title
         if ($request->has('search')) {
-            $query->where('title', 'ilike', '%' . $request->search . '%');
+            $query->where('title', 'ilike', '%'.$request->search.'%');
         }
 
         // Sorting
@@ -74,7 +76,7 @@ class TaskGeneratorController extends Controller
         $generators = $query->paginate($perPage);
 
         // Transform data
-        $generators->getCollection()->transform(fn($g) => $g->toApiArray());
+        $generators->getCollection()->transform(fn ($g) => $g->toApiArray());
 
         return response()->json($generators);
     }
@@ -142,10 +144,10 @@ class TaskGeneratorController extends Controller
         $daysOfMonth = $validated['recurrence_days_of_month'] ?? null;
 
         // If old format is provided, convert to array
-        if (empty($daysOfWeek) && !empty($validated['recurrence_day_of_week'])) {
+        if (empty($daysOfWeek) && ! empty($validated['recurrence_day_of_week'])) {
             $daysOfWeek = [$validated['recurrence_day_of_week']];
         }
-        if (empty($daysOfMonth) && !empty($validated['recurrence_day_of_month'])) {
+        if (empty($daysOfMonth) && ! empty($validated['recurrence_day_of_month'])) {
             $daysOfMonth = [$validated['recurrence_day_of_month']];
         }
 
@@ -193,8 +195,8 @@ class TaskGeneratorController extends Controller
             'creator_id' => $user->id,
             'dealership_id' => $validated['dealership_id'],
             'recurrence' => $validated['recurrence'],
-            'recurrence_time' => $validated['recurrence_time'] . ':00',
-            'deadline_time' => $validated['deadline_time'] . ':00',
+            'recurrence_time' => $validated['recurrence_time'].':00',
+            'deadline_time' => $validated['deadline_time'].':00',
             'recurrence_days_of_week' => $daysOfWeek,
             'recurrence_days_of_month' => $daysOfMonth,
             'start_date' => Carbon::parse($validated['start_date'])->setTimezone('UTC'),
@@ -304,10 +306,10 @@ class TaskGeneratorController extends Controller
             $updateData['recurrence'] = $validated['recurrence'];
         }
         if (isset($validated['recurrence_time'])) {
-            $updateData['recurrence_time'] = $validated['recurrence_time'] . ':00';
+            $updateData['recurrence_time'] = $validated['recurrence_time'].':00';
         }
         if (isset($validated['deadline_time'])) {
-            $updateData['deadline_time'] = $validated['deadline_time'] . ':00';
+            $updateData['deadline_time'] = $validated['deadline_time'].':00';
         }
 
         // Handle backwards compatibility for recurrence days
@@ -453,7 +455,7 @@ class TaskGeneratorController extends Controller
         $query = TaskGenerator::where('is_active', true);
 
         // Не-owner может остановить только генераторы своих дилерств
-        if (!$this->isOwner($user)) {
+        if (! $this->isOwner($user)) {
             $query->whereIn('dealership_id', $this->getAccessibleDealershipIds($user));
         }
 
@@ -477,7 +479,7 @@ class TaskGeneratorController extends Controller
         $query = TaskGenerator::where('is_active', false);
 
         // Не-owner может запустить только генераторы своих дилерств
-        if (!$this->isOwner($user)) {
+        if (! $this->isOwner($user)) {
             $query->whereIn('dealership_id', $this->getAccessibleDealershipIds($user));
         }
 
@@ -519,7 +521,7 @@ class TaskGeneratorController extends Controller
         $tasks = $query->orderBy('scheduled_date', 'desc')->paginate($perPage);
 
         // Transform data
-        $tasks->getCollection()->transform(fn($t) => $t->toApiArray());
+        $tasks->getCollection()->transform(fn ($t) => $t->toApiArray());
 
         return response()->json($tasks);
     }
@@ -690,4 +692,3 @@ class TaskGeneratorController extends Controller
         return $count > 0 ? round($totalMinutes / $count, 2) : null;
     }
 }
-

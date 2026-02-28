@@ -7,9 +7,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Traits\HasDealershipAccess;
-use Illuminate\Http\Request;
 use Carbon\Carbon;
-use App\Enums\Role;
+use Illuminate\Http\Request;
 
 class ArchivedTaskController extends Controller
 {
@@ -101,8 +100,8 @@ class ArchivedTaskController extends Controller
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('title', 'ilike', '%' . $search . '%')
-                  ->orWhere('description', 'ilike', '%' . $search . '%');
+                $q->where('title', 'ilike', '%'.$search.'%')
+                    ->orWhere('description', 'ilike', '%'.$search.'%');
             });
         }
 
@@ -116,7 +115,7 @@ class ArchivedTaskController extends Controller
         $tasks = $query->paginate($perPage);
 
         // Transform data
-        $tasks->getCollection()->transform(fn($t) => $t->toApiArray());
+        $tasks->getCollection()->transform(fn ($t) => $t->toApiArray());
 
         return response()->json($tasks);
     }
@@ -214,7 +213,7 @@ class ArchivedTaskController extends Controller
 
         return response($csvContent, 200, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="archived_tasks_' . date('Y-m-d') . '.csv"',
+            'Content-Disposition' => 'attachment; filename="archived_tasks_'.date('Y-m-d').'.csv"',
         ]);
     }
 

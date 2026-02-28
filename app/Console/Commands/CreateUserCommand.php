@@ -8,7 +8,6 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rules\Enum;
 
 class CreateUserCommand extends Command
 {
@@ -37,14 +36,16 @@ class CreateUserCommand extends Command
         // Получаем данные пользователя
         $userData = $this->collectUserData();
 
-        if (!$userData) {
+        if (! $userData) {
             $this->error('Создание пользователя отменено');
+
             return self::FAILURE;
         }
 
         // Показываем подтверждение
-        if (!$this->confirmCreation($userData)) {
+        if (! $this->confirmCreation($userData)) {
             $this->error('Создание пользователя отменено');
+
             return self::FAILURE;
         }
 
@@ -52,9 +53,11 @@ class CreateUserCommand extends Command
         try {
             $user = $this->createUser($userData);
             $this->displaySuccessMessage($user);
+
             return self::SUCCESS;
         } catch (\Exception $e) {
-            $this->error('Ошибка при создании пользователя: ' . $e->getMessage());
+            $this->error('Ошибка при создании пользователя: '.$e->getMessage());
+
             return self::FAILURE;
         }
     }
@@ -121,6 +124,7 @@ class CreateUserCommand extends Command
                 foreach ($validator->errors()->get($field) as $error) {
                     $this->error("Ошибка: {$error}");
                 }
+
                 continue;
             }
 
@@ -163,8 +167,9 @@ class CreateUserCommand extends Command
                 $defaultRole
             );
 
-            if (!in_array($role, $roleChoices)) {
-                $this->error("Неверная роль. Выберите из: " . implode(', ', $roleChoices));
+            if (! in_array($role, $roleChoices)) {
+                $this->error('Неверная роль. Выберите из: '.implode(', ', $roleChoices));
+
                 continue;
             }
 
@@ -181,28 +186,31 @@ class CreateUserCommand extends Command
 
         if ($dealerships->isEmpty()) {
             $this->info('\nВ системе нет созданных автосалонов.');
+
             return null;
         }
 
         $this->info('\nДоступные автосалоны:');
-        $this->table(['ID', 'Название', 'Адрес'], $dealerships->map(fn($d) => [$d->id, $d->name, $d->address]));
+        $this->table(['ID', 'Название', 'Адрес'], $dealerships->map(fn ($d) => [$d->id, $d->name, $d->address]));
 
-        if (!$this->confirm('\nПривязать пользователя к автосалону?', false)) {
+        if (! $this->confirm('\nПривязать пользователя к автосалону?', false)) {
             return null;
         }
 
         do {
             $dealershipId = $this->ask('Введите ID автосалона');
 
-            if (!is_numeric($dealershipId)) {
+            if (! is_numeric($dealershipId)) {
                 $this->error('ID должен быть числом');
+
                 continue;
             }
 
             $dealershipId = (int) $dealershipId;
 
-            if (!$dealerships->contains('id', $dealershipId)) {
+            if (! $dealerships->contains('id', $dealershipId)) {
                 $this->error('Автосалон с таким ID не найден');
+
                 continue;
             }
 
@@ -218,6 +226,7 @@ class CreateUserCommand extends Command
         if ($this->confirm('Сгенерировать пароль автоматически?', true)) {
             $password = $this->generatePassword();
             $this->info("Сгенерированный пароль: {$password}");
+
             return $password;
         }
 
@@ -241,6 +250,7 @@ class CreateUserCommand extends Command
                 foreach ($validator->errors()->get('password') as $error) {
                     $this->error("Ошибка: {$error}");
                 }
+
                 continue;
             }
 
@@ -248,6 +258,7 @@ class CreateUserCommand extends Command
 
             if ($password !== $confirmPassword) {
                 $this->error('Пароли не совпадают');
+
                 continue;
             }
 
@@ -265,7 +276,7 @@ class CreateUserCommand extends Command
         $digits = '0123456789';
         $special = '!@#$%^&*';
 
-        $all = $uppercase . $lowercase . $digits . $special;
+        $all = $uppercase.$lowercase.$digits.$special;
         $password = '';
 
         // Гарантируем наличие каждого типа символов
@@ -297,7 +308,7 @@ class CreateUserCommand extends Command
             $dealership = AutoDealership::find($userData['dealership_id']);
             $this->line("Автосалон: {$dealership->name} (ID: {$dealership->id})");
         } else {
-            $this->line("Автосалон: Не указан");
+            $this->line('Автосалон: Не указан');
         }
 
         return $this->confirm('\nСоздать пользователя?', true);
@@ -324,12 +335,12 @@ class CreateUserCommand extends Command
     private function displaySuccessMessage(User $user): void
     {
         $this->info('\n✅ Пользователь успешно создан!');
-        $this->info('ID пользователя: ' . $user->id);
-        $this->info('Логин: ' . $user->login);
-        $this->info('Роль: ' . \App\Enums\Role::tryFromString($user->role)?->label() ?? $user->role);
+        $this->info('ID пользователя: '.$user->id);
+        $this->info('Логин: '.$user->login);
+        $this->info('Роль: '.\App\Enums\Role::tryFromString($user->role)?->label() ?? $user->role);
 
         if ($user->dealership) {
-            $this->info('Автосалон: ' . $user->dealership->name);
+            $this->info('Автосалон: '.$user->dealership->name);
         }
 
         $this->info('\n📱 Следующий шаг:');

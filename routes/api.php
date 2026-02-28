@@ -3,25 +3,24 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\ArchivedTaskController;
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DealershipController;
+use App\Http\Controllers\Api\V1\FileConfigController;
 use App\Http\Controllers\Api\V1\ImportantLinkController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SessionController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\ShiftController;
+use App\Http\Controllers\Api\V1\ShiftPhotoController;
 use App\Http\Controllers\Api\V1\ShiftScheduleController;
 use App\Http\Controllers\Api\V1\TaskController;
+use App\Http\Controllers\Api\V1\TaskDelegationController;
 use App\Http\Controllers\Api\V1\TaskGeneratorController;
 use App\Http\Controllers\Api\V1\TaskProofController;
-use App\Http\Controllers\Api\V1\TaskDelegationController;
 use App\Http\Controllers\Api\V1\TaskVerificationController;
 use App\Http\Controllers\Api\V1\UserApiController;
-use App\Http\Controllers\Api\V1\ShiftPhotoController;
-use App\Http\Controllers\Api\V1\AuditLogController;
-use App\Http\Controllers\Api\V1\FileConfigController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -273,4 +272,3 @@ Route::prefix('v1')->group(function () {
                 ->middleware('role:manager,owner');
         });
 });
-

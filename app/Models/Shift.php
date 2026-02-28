@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Shift extends Model
 {
-    use HasFactory;
     use Auditable;
+    use HasFactory;
 
     protected $table = 'shifts';
 
@@ -55,5 +55,4 @@ class Shift extends Model
     {
         return $this->belongsTo(ShiftSchedule::class, 'shift_schedule_id')->withTrashed();
     }
-
 }

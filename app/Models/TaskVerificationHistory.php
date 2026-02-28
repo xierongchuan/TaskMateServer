@@ -20,7 +20,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $new_status
  * @property int $proof_count
  * @property \Carbon\Carbon $created_at
- *
  * @property-read TaskResponse $taskResponse
  * @property-read User $performer
  */
@@ -42,8 +41,11 @@ class TaskVerificationHistory extends Model
      * Константы действий.
      */
     public const ACTION_SUBMITTED = 'submitted';
+
     public const ACTION_APPROVED = 'approved';
+
     public const ACTION_REJECTED = 'rejected';
+
     public const ACTION_RESUBMITTED = 'resubmitted';
 
     /**

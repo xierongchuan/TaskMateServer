@@ -6,7 +6,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class () extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -18,17 +19,18 @@ return new class () extends Migration {
         if (Schema::hasColumn('users', 'dealership_id')) {
             Schema::table('users', function (Blueprint $table) {
                 $foreignKeys = Schema::getForeignKeys('users');
-                $hasFK = collect($foreignKeys)->contains(fn($fk) => $fk['columns'] === ['dealership_id']);
-                if (!$hasFK) {
+                $hasFK = collect($foreignKeys)->contains(fn ($fk) => $fk['columns'] === ['dealership_id']);
+                if (! $hasFK) {
                     $table->foreign('dealership_id')->references('id')->on('auto_dealerships')->onDelete('set null');
                 }
 
                 $indexes = Schema::getIndexes('users');
-                $hasIndex = collect($indexes)->contains(fn($idx) => $idx['columns'] === ['dealership_id']);
-                if (!$hasIndex) {
+                $hasIndex = collect($indexes)->contains(fn ($idx) => $idx['columns'] === ['dealership_id']);
+                if (! $hasIndex) {
                     $table->index('dealership_id');
                 }
             });
+
             return;
         }
 

@@ -43,7 +43,7 @@ class ProcessTaskGeneratorsJob implements ShouldQueue
             ->whereDate('start_date', '<=', $now->toDateString())
             ->where(function ($q) use ($now) {
                 $q->whereNull('end_date')
-                  ->orWhereDate('end_date', '>=', $now->toDateString());
+                    ->orWhereDate('end_date', '>=', $now->toDateString());
             })
             ->get();
 
@@ -60,11 +60,12 @@ class ProcessTaskGeneratorsJob implements ShouldQueue
                         ->lockForUpdate()
                         ->first();
 
-                    if (!$lockedGenerator || !$lockedGenerator->shouldGenerateToday($now)) {
+                    if (! $lockedGenerator || ! $lockedGenerator->shouldGenerateToday($now)) {
                         return false;
                     }
 
                     $this->createTaskFromGenerator($lockedGenerator, $now);
+
                     return true;
                 });
 

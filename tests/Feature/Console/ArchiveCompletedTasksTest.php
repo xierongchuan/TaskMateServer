@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Console;
 
+use App\Enums\Role;
 use App\Models\AutoDealership;
 use App\Models\Setting;
 use App\Models\Task;
-use App\Models\TaskResponse;
 use App\Models\TaskAssignment;
+use App\Models\TaskResponse;
 use App\Models\User;
-use App\Enums\Role;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,7 +20,9 @@ class ArchiveCompletedTasksTest extends TestCase
     use RefreshDatabase;
 
     private AutoDealership $dealership;
+
     private User $manager;
+
     private User $employee;
 
     protected function setUp(): void

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Setting;
-use App\Models\AutoDealership;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 
 describe('Settings API', function () {

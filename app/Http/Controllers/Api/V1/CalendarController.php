@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Validator;
 class CalendarController extends Controller
 {
     use HasDealershipAccess;
+
     /**
      * Получить календарь на год.
      *

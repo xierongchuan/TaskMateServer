@@ -31,12 +31,13 @@ class AuditLogSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info('Создание записей аудита за ' . self::$historyDays . ' дней...');
+        $this->command->info('Создание записей аудита за '.self::$historyDays.' дней...');
 
         $dealerships = AutoDealership::all();
 
         if ($dealerships->isEmpty()) {
             $this->command->warn('Автосалоны не найдены. Пропуск создания аудита.');
+
             return;
         }
 
@@ -64,7 +65,7 @@ class AuditLogSeeder extends Seeder
             ->where('role', Role::EMPLOYEE)
             ->get();
 
-        if (!$manager || $employees->isEmpty()) {
+        if (! $manager || $employees->isEmpty()) {
             return 0;
         }
 

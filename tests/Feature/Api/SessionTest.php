@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
 use App\Enums\Role;
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
 describe('Session API', function () {

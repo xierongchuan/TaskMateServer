@@ -32,12 +32,13 @@ class ShiftSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info('Создание истории смен за ' . self::$historyDays . ' дней...');
+        $this->command->info('Создание истории смен за '.self::$historyDays.' дней...');
 
         $dealerships = AutoDealership::all();
 
         if ($dealerships->isEmpty()) {
             $this->command->warn('Автосалоны не найдены. Пропуск создания смен.');
+
             return;
         }
 
@@ -57,6 +58,7 @@ class ShiftSeeder extends Seeder
 
         if ($employees->isEmpty()) {
             $this->command->warn("Сотрудники не найдены для {$dealership->name}. Пропуск.");
+
             return;
         }
 
@@ -79,6 +81,7 @@ class ShiftSeeder extends Seeder
             // Пропускаем выходные (суббота и воскресенье)
             if ($currentDate->isWeekend()) {
                 $currentDate->addDay();
+
                 continue;
             }
 
@@ -99,7 +102,7 @@ class ShiftSeeder extends Seeder
 
         // Создаём открытые смены на сегодня (будний день)
         $openShiftsCreated = 0;
-        if (!$today->isWeekend()) {
+        if (! $today->isWeekend()) {
             foreach ($employees as $employee) {
                 // 80% сотрудников работают сегодня
                 if (fake()->boolean(80)) {
@@ -150,8 +153,8 @@ class ShiftSeeder extends Seeder
             'shift_schedule_id' => $schedule?->id,
             'shift_start' => $actualStart,
             'shift_end' => $actualEnd,
-            'opening_photo_path' => 'shifts/demo/opening_' . $employee->id . '_' . $date->format('Ymd') . '.jpg',
-            'closing_photo_path' => 'shifts/demo/closing_' . $employee->id . '_' . $date->format('Ymd') . '.jpg',
+            'opening_photo_path' => 'shifts/demo/opening_'.$employee->id.'_'.$date->format('Ymd').'.jpg',
+            'closing_photo_path' => 'shifts/demo/closing_'.$employee->id.'_'.$date->format('Ymd').'.jpg',
             'status' => 'closed',
             'late_minutes' => $lateMinutes,
             'scheduled_start' => $scheduledStart,
@@ -189,7 +192,7 @@ class ShiftSeeder extends Seeder
             'shift_schedule_id' => $schedule?->id,
             'shift_start' => $actualStart,
             'shift_end' => null,
-            'opening_photo_path' => 'shifts/demo/opening_' . $employee->id . '_' . $date->format('Ymd') . '.jpg',
+            'opening_photo_path' => 'shifts/demo/opening_'.$employee->id.'_'.$date->format('Ymd').'.jpg',
             'closing_photo_path' => null,
             'status' => 'open',
             'late_minutes' => $lateMinutes,

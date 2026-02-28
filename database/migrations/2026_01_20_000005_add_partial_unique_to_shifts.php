@@ -5,7 +5,8 @@ declare(strict_types=1);
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-return new class () extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      *
@@ -31,7 +32,7 @@ return new class () extends Migration {
     public function down(): void
     {
         if (config('database.default') === 'pgsql') {
-            DB::statement("DROP INDEX IF EXISTS shifts_user_dealership_open_unique");
+            DB::statement('DROP INDEX IF EXISTS shifts_user_dealership_open_unique');
         }
     }
 };

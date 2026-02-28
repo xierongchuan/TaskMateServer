@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Services\SettingsService;
-use App\Models\Setting;
 use App\Models\AutoDealership;
+use App\Models\Setting;
+use App\Services\SettingsService;
 
 describe('SettingsService', function () {
     beforeEach(function () {
-        $this->service = new SettingsService();
+        $this->service = new SettingsService;
     });
 
     it('gets global setting', function () {
@@ -24,7 +24,7 @@ describe('SettingsService', function () {
         Setting::create([
             'key' => 'test_key',
             'value' => 'dealership_value',
-            'dealership_id' => $dealership->id
+            'dealership_id' => $dealership->id,
         ]);
 
         $value = $this->service->get('test_key', $dealership->id);

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\TaskResponse;
 use App\Models\Task;
+use App\Models\TaskResponse;
 use App\Models\User;
 
 describe('TaskResponse Model', function () {

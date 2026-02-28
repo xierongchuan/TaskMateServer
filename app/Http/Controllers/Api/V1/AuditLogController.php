@@ -11,7 +11,6 @@ use App\Models\AuditLog;
 use App\Models\AutoDealership;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class AuditLogController extends Controller
 {
@@ -29,8 +28,7 @@ class AuditLogController extends Controller
     /**
      * Получает список логов аудита с пагинацией и фильтрацией.
      *
-     * @param GetAuditLogsRequest $request HTTP-запрос с валидацией
-     * @return JsonResponse
+     * @param  GetAuditLogsRequest  $request  HTTP-запрос с валидацией
      */
     public function index(GetAuditLogsRequest $request): JsonResponse
     {
@@ -101,16 +99,15 @@ class AuditLogController extends Controller
     /**
      * Получает историю изменений конкретной записи.
      *
-     * @param string $tableName Название таблицы
-     * @param int $recordId ID записи
-     * @return JsonResponse
+     * @param  string  $tableName  Название таблицы
+     * @param  int  $recordId  ID записи
      */
     public function forRecord(string $tableName, int $recordId): JsonResponse
     {
         // Validate table name to prevent arbitrary table access
-        if (!in_array($tableName, self::ALLOWED_TABLES)) {
+        if (! in_array($tableName, self::ALLOWED_TABLES)) {
             return response()->json([
-                'message' => 'Таблица не поддерживается'
+                'message' => 'Таблица не поддерживается',
             ], 400);
         }
 
@@ -138,8 +135,7 @@ class AuditLogController extends Controller
     /**
      * Получает список пользователей для фильтра (все пользователи автосалона).
      *
-     * @param GetAuditActorsRequest $request HTTP-запрос с валидацией
-     * @return JsonResponse
+     * @param  GetAuditActorsRequest  $request  HTTP-запрос с валидацией
      */
     public function actors(GetAuditActorsRequest $request): JsonResponse
     {
@@ -153,14 +149,14 @@ class AuditLogController extends Controller
                 // Пользователи с primary dealership_id = X
                 $q->where('users.dealership_id', $dealershipId)
                   // ИЛИ прикрепленные через pivot таблицу
-                  ->orWhereHas('dealerships', function ($subQ) use ($dealershipId) {
-                      $subQ->where('auto_dealerships.id', $dealershipId);
-                  });
+                    ->orWhereHas('dealerships', function ($subQ) use ($dealershipId) {
+                        $subQ->where('auto_dealerships.id', $dealershipId);
+                    });
             });
         } else {
             // Пользователи без привязки к автосалонам (orphan users)
             $query->whereNull('users.dealership_id')
-                  ->whereDoesntHave('dealerships');
+                ->whereDoesntHave('dealerships');
         }
 
         // Сортировка: сначала по роли, потом по имени
@@ -189,10 +185,8 @@ class AuditLogController extends Controller
     /**
      * Форматирует запись лога для ответа API.
      *
-     * @param AuditLog $log
-     * @param \Illuminate\Support\Collection $actors
-     * @param \Illuminate\Support\Collection $dealerships
-     * @return array
+     * @param  \Illuminate\Support\Collection  $actors
+     * @param  \Illuminate\Support\Collection  $dealerships
      */
     private function formatLogEntry(AuditLog $log, $actors, $dealerships): array
     {
@@ -231,9 +225,6 @@ class AuditLogController extends Controller
 
     /**
      * Возвращает человекочитаемое название таблицы.
-     *
-     * @param string $tableName
-     * @return string
      */
     private function getTableLabel(string $tableName): string
     {
@@ -249,9 +240,6 @@ class AuditLogController extends Controller
 
     /**
      * Возвращает человекочитаемое название действия.
-     *
-     * @param string $action
-     * @return string
      */
     private function getActionLabel(string $action): string
     {

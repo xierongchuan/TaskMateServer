@@ -11,7 +11,6 @@ use App\Models\TaskResponse;
 use App\Models\TaskSharedProof;
 use App\Models\TaskVerificationHistory;
 use App\Models\User;
-use App\Services\TaskProofService;
 use App\Services\TaskVerificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;

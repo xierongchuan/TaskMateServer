@@ -49,7 +49,7 @@ class TaskProofFactory extends Factory
 
         return [
             'task_response_id' => TaskResponse::factory(),
-            'file_path' => 'task_proofs/demo/stub_' . Str::uuid() . '.' . $extension,
+            'file_path' => 'task_proofs/demo/stub_'.Str::uuid().'.'.$extension,
             'original_filename' => $this->generateFilename($mimeType, $extension),
             'mime_type' => $mimeType,
             'file_size' => fake()->numberBetween($minSize, $maxSize),
@@ -71,7 +71,7 @@ class TaskProofFactory extends Factory
         $prefix = fake()->randomElement($prefixes);
         $timestamp = fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His');
 
-        return "{$prefix}_{$timestamp}." . $extension;
+        return "{$prefix}_{$timestamp}.".$extension;
     }
 
     /**
@@ -80,8 +80,8 @@ class TaskProofFactory extends Factory
     public function image(): static
     {
         return $this->state(fn (array $attributes) => [
-            'file_path' => 'task_proofs/demo/stub_' . Str::uuid() . '.jpg',
-            'original_filename' => 'фото_' . fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His') . '.jpg',
+            'file_path' => 'task_proofs/demo/stub_'.Str::uuid().'.jpg',
+            'original_filename' => 'фото_'.fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His').'.jpg',
             'mime_type' => 'image/jpeg',
             'file_size' => fake()->numberBetween(100000, 5000000),
         ]);
@@ -93,8 +93,8 @@ class TaskProofFactory extends Factory
     public function png(): static
     {
         return $this->state(fn (array $attributes) => [
-            'file_path' => 'task_proofs/demo/stub_' . Str::uuid() . '.png',
-            'original_filename' => 'скриншот_' . fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His') . '.png',
+            'file_path' => 'task_proofs/demo/stub_'.Str::uuid().'.png',
+            'original_filename' => 'скриншот_'.fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His').'.png',
             'mime_type' => 'image/png',
             'file_size' => fake()->numberBetween(50000, 3000000),
         ]);
@@ -106,8 +106,8 @@ class TaskProofFactory extends Factory
     public function video(): static
     {
         return $this->state(fn (array $attributes) => [
-            'file_path' => 'task_proofs/demo/stub_' . Str::uuid() . '.mp4',
-            'original_filename' => 'видео_' . fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His') . '.mp4',
+            'file_path' => 'task_proofs/demo/stub_'.Str::uuid().'.mp4',
+            'original_filename' => 'видео_'.fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His').'.mp4',
             'mime_type' => 'video/mp4',
             'file_size' => fake()->numberBetween(1000000, 100000000),
         ]);
@@ -119,8 +119,8 @@ class TaskProofFactory extends Factory
     public function pdf(): static
     {
         return $this->state(fn (array $attributes) => [
-            'file_path' => 'task_proofs/demo/stub_' . Str::uuid() . '.pdf',
-            'original_filename' => 'отчёт_' . fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His') . '.pdf',
+            'file_path' => 'task_proofs/demo/stub_'.Str::uuid().'.pdf',
+            'original_filename' => 'отчёт_'.fake()->dateTimeBetween('-30 days', 'now')->format('Ymd_His').'.pdf',
             'mime_type' => 'application/pdf',
             'file_size' => fake()->numberBetween(50000, 10000000),
         ]);

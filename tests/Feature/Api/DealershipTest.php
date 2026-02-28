@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\AutoDealership;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\User;
 
 describe('Dealership API', function () {
     beforeEach(function () {

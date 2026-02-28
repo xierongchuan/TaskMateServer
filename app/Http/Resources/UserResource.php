@@ -17,10 +17,10 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         $data = [
-            'id'           => $this->id,
-            'login'        => $this->login,
-            'full_name'    => $this->full_name,
-            'role'         => $this->role,
+            'id' => $this->id,
+            'login' => $this->login,
+            'full_name' => $this->full_name,
+            'role' => $this->role,
             'phone_number' => $this->phone,
             'dealership_id' => $this->dealership_id,
         ];

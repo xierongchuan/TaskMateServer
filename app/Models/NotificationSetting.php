@@ -28,13 +28,21 @@ class NotificationSetting extends Model
 
     // Notification channel types
     public const CHANNEL_TASK_ASSIGNED = 'task_assigned';
+
     public const CHANNEL_TASK_DEADLINE_30MIN = 'task_deadline_30min';
+
     public const CHANNEL_TASK_OVERDUE = 'task_overdue';
+
     public const CHANNEL_TASK_HOUR_LATE = 'task_hour_late';
+
     public const CHANNEL_SHIFT_LATE = 'shift_late';
+
     public const CHANNEL_TASK_POSTPONED = 'task_postponed';
+
     public const CHANNEL_SHIFT_REPLACEMENT = 'shift_replacement';
+
     public const CHANNEL_DAILY_SUMMARY = 'daily_summary';
+
     public const CHANNEL_WEEKLY_REPORT = 'weekly_report';
 
     public static function getAllChannelTypes(): array

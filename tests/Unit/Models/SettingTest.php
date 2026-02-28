@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\Setting;
 use App\Models\AutoDealership;
+use App\Models\Setting;
 
 describe('Setting Model', function () {
     it('can create a setting with all fields', function () {

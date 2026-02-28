@@ -88,7 +88,7 @@ class ShiftResource extends JsonResource
     /**
      * Check if user can view shift photos.
      *
-     * @param \App\Models\User $user
+     * @param  \App\Models\User  $user
      */
     private function canViewPhotos($user): bool
     {
@@ -116,7 +116,7 @@ class ShiftResource extends JsonResource
     {
         $path = $type === 'opening' ? $this->opening_photo_path : $this->closing_photo_path;
 
-        if (!$path) {
+        if (! $path) {
             return null;
         }
 
@@ -133,7 +133,7 @@ class ShiftResource extends JsonResource
     {
         $path = $type === 'opening' ? $this->opening_photo_path : $this->closing_photo_path;
 
-        if (!$path) {
+        if (! $path) {
             return null;
         }
 

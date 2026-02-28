@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Task;
-use App\Models\TaskResponse;
-use App\Models\TaskProof;
-use App\Models\TaskSharedProof;
-use App\Models\AutoDealership;
-use App\Services\TaskProofService;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Task;
+use App\Models\TaskProof;
+use App\Models\TaskResponse;
+use App\Models\TaskSharedProof;
+use App\Models\User;
+use App\Services\TaskProofService;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 describe('TaskProofService', function () {
     beforeEach(function () {
@@ -24,7 +24,7 @@ describe('TaskProofService', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         // Получаем сервис из контейнера с внедрёнными зависимостями
         $this->proofService = app(TaskProofService::class);
@@ -66,7 +66,7 @@ describe('TaskProofService', function () {
 
             // Создаём временный файл с валидным PDF заголовком
             $pdfContent = "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>%%EOF";
-            $tempPath = sys_get_temp_dir() . '/test_document.pdf';
+            $tempPath = sys_get_temp_dir().'/test_document.pdf';
             file_put_contents($tempPath, $pdfContent);
             $file = new \Illuminate\Http\UploadedFile($tempPath, 'document.pdf', 'application/pdf', null, true);
 

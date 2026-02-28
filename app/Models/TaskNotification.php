@@ -52,10 +52,15 @@ class TaskNotification extends Model
      * Notification types constants
      */
     public const TYPE_UPCOMING_DEADLINE = 'upcoming_deadline';
+
     public const TYPE_OVERDUE = 'overdue';
+
     public const TYPE_HOUR_OVERDUE = 'hour_overdue';
+
     public const TYPE_UNRESPONDED_2H = 'unresponded_2h';
+
     public const TYPE_UNRESPONDED_6H = 'unresponded_6h';
+
     public const TYPE_UNRESPONDED_24H = 'unresponded_24h';
 
     /**

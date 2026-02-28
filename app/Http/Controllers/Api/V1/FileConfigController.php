@@ -18,9 +18,6 @@ class FileConfigController extends Controller
 {
     /**
      * Получить конфигурацию загрузки файлов.
-     *
-     * @param FileValidationConfig $config
-     * @return JsonResponse
      */
     public function index(FileValidationConfig $config): JsonResponse
     {
@@ -32,14 +29,10 @@ class FileConfigController extends Controller
 
     /**
      * Получить конфигурацию для конкретного пресета.
-     *
-     * @param FileValidationConfig $config
-     * @param string $preset
-     * @return JsonResponse
      */
     public function show(FileValidationConfig $config, string $preset): JsonResponse
     {
-        if (!$config->presetExists($preset)) {
+        if (! $config->presetExists($preset)) {
             return response()->json([
                 'error' => 'Неизвестный пресет',
                 'available_presets' => array_keys($config->getPresets()),

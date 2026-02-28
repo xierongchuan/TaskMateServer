@@ -24,10 +24,10 @@ class TaskDelegationService
     /**
      * Создать запрос на делегирование задачи.
      *
-     * @param Task $task Задача для делегирования
-     * @param User $fromUser Текущий исполнитель
-     * @param User $toUser Целевой сотрудник
-     * @param string|null $reason Причина делегирования
+     * @param  Task  $task  Задача для делегирования
+     * @param  User  $fromUser  Текущий исполнитель
+     * @param  User  $toUser  Целевой сотрудник
+     * @param  string|null  $reason  Причина делегирования
      *
      * @throws \DomainException Если делегирование невозможно
      */
@@ -148,7 +148,7 @@ class TaskDelegationService
     /**
      * Отклонить запрос на делегирование.
      *
-     * @param string $rejectionReason Причина отказа
+     * @param  string  $rejectionReason  Причина отказа
      *
      * @throws \DomainException Если запрос уже обработан
      */
@@ -176,7 +176,7 @@ class TaskDelegationService
      *
      * Может быть выполнена инициатором или менеджером/владельцем.
      *
-     * @param User $cancelledBy Кто отменяет
+     * @param  User  $cancelledBy  Кто отменяет
      *
      * @throws \DomainException Если запрос не в статусе pending
      */

@@ -13,8 +13,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ShiftSchedule extends Model
 {
-    use HasFactory;
     use Auditable;
+    use HasFactory;
     use SoftDeletes;
 
     protected $table = 'shift_schedules';

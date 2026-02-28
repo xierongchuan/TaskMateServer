@@ -6,15 +6,14 @@ namespace App\Services;
 
 use App\Enums\ShiftStatus;
 use App\Helpers\TimeHelper;
+use App\Models\AutoDealership;
+use App\Models\CalendarDay;
 use App\Models\Shift;
 use App\Models\Task;
 use App\Models\TaskGenerator;
-use App\Models\AutoDealership;
-use App\Models\CalendarDay;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Сервис для получения данных дашборда.
@@ -34,7 +33,7 @@ class DashboardService
     /**
      * Получает все данные для дашборда.
      *
-     * @param int|null $dealershipId ID автосалона для фильтрации
+     * @param  int|null  $dealershipId  ID автосалона для фильтрации
      * @return array<string, mixed>
      */
     public function getDashboardData(?int $dealershipId = null): array
@@ -85,7 +84,6 @@ class DashboardService
     /**
      * Получает статистику задач оптимизированным запросом.
      *
-     * @param int|null $dealershipId
      * @return array{total_active: int, completed_today: int, overdue: int, postponed: int}
      */
     protected function getTaskStatistics(?int $dealershipId): array
@@ -124,17 +122,17 @@ class DashboardService
                             ->whereBetween('responded_at', [$todayStart, $todayEnd]));
                 })
                 // Групповые задачи: ВСЕ назначенные выполнили И хотя бы один за сегодня
-                ->orWhere(function ($group) use ($todayStart, $todayEnd) {
-                    $group->where('task_type', 'group')
-                        ->whereHas('assignments')
-                        ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
-                            ->whereBetween('responded_at', [$todayStart, $todayEnd]))
-                        ->whereRaw('(
+                    ->orWhere(function ($group) use ($todayStart, $todayEnd) {
+                        $group->where('task_type', 'group')
+                            ->whereHas('assignments')
+                            ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
+                                ->whereBetween('responded_at', [$todayStart, $todayEnd]))
+                            ->whereRaw('(
                             SELECT COUNT(DISTINCT ta.user_id)
                             FROM task_assignments ta
                             WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
                         ) > 0')
-                        ->whereRaw('(
+                            ->whereRaw('(
                             SELECT COUNT(DISTINCT ta.user_id)
                             FROM task_assignments ta
                             WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
@@ -143,7 +141,7 @@ class DashboardService
                             FROM task_responses tr
                             WHERE tr.task_id = tasks.id AND tr.status = ?
                         )', ['completed']);
-                });
+                    });
             })
             ->count();
 
@@ -157,9 +155,6 @@ class DashboardService
 
     /**
      * Получает активные смены.
-     *
-     * @param int|null $dealershipId
-     * @return Collection
      */
     protected function getActiveShifts(?int $dealershipId): Collection
     {
@@ -191,9 +186,6 @@ class DashboardService
 
     /**
      * Получает статистику сотрудников на смене по автосалонам.
-     *
-     * @param int|null $dealershipId
-     * @return Collection
      */
     protected function getDealershipShiftStats(?int $dealershipId): Collection
     {
@@ -202,7 +194,7 @@ class DashboardService
         return AutoDealership::query()
             ->when($dealershipId, fn ($q) => $q->where('id', $dealershipId))
             ->get()
-            ->map(function ($dealership) use ($settingsService) {
+            ->map(function ($dealership) {
                 $totalEmployees = User::where('dealership_id', $dealership->id)
                     ->where('role', 'employee')
                     ->count();
@@ -235,6 +227,7 @@ class DashboardService
                         // Ищем первое расписание, start_time которого ещё не наступил
                         $currentOrNextSchedule = $schedules->first(function ($s) use ($localNow) {
                             $start = substr($s->start_time, 0, 5);
+
                             return $start > $localNow;
                         });
 
@@ -263,9 +256,6 @@ class DashboardService
 
     /**
      * Получает количество опоздавших смен сегодня.
-     *
-     * @param int|null $dealershipId
-     * @return int
      */
     protected function getLateShiftsCount(?int $dealershipId): int
     {
@@ -278,9 +268,6 @@ class DashboardService
 
     /**
      * Получает последние задачи.
-     *
-     * @param int|null $dealershipId
-     * @return Collection
      */
     protected function getRecentTasks(?int $dealershipId): Collection
     {
@@ -291,6 +278,7 @@ class DashboardService
             ->get()
             ->map(function ($task) {
                 $data = $task->toApiArray();
+
                 return [
                     'id' => $data['id'],
                     'title' => $data['title'],
@@ -307,9 +295,6 @@ class DashboardService
      * Получает список задач за сегодня: просроченные первыми, затем выполненные.
      *
      * "Сегодня" определяется по timezone автосалона (todayBoundaries).
-     *
-     * @param int|null $dealershipId
-     * @return Collection
      */
     protected function getTodayTasksList(?int $dealershipId): Collection
     {
@@ -341,17 +326,17 @@ class DashboardService
                             ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
                                 ->whereBetween('responded_at', [$todayStart, $todayEnd]));
                     })
-                    ->orWhere(function ($group) use ($todayStart, $todayEnd) {
-                        $group->where('task_type', 'group')
-                            ->whereHas('assignments')
-                            ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
-                                ->whereBetween('responded_at', [$todayStart, $todayEnd]))
-                            ->whereRaw('(
+                        ->orWhere(function ($group) use ($todayStart, $todayEnd) {
+                            $group->where('task_type', 'group')
+                                ->whereHas('assignments')
+                                ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
+                                    ->whereBetween('responded_at', [$todayStart, $todayEnd]))
+                                ->whereRaw('(
                                 SELECT COUNT(DISTINCT ta.user_id)
                                 FROM task_assignments ta
                                 WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
                             ) > 0')
-                            ->whereRaw('(
+                                ->whereRaw('(
                                 SELECT COUNT(DISTINCT ta.user_id)
                                 FROM task_assignments ta
                                 WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
@@ -360,7 +345,7 @@ class DashboardService
                                 FROM task_responses tr
                                 WHERE tr.task_id = tasks.id AND tr.status = ?
                             )', ['completed']);
-                    });
+                        });
                 })
                 ->orderByDesc('updated_at')
                 ->limit($remainingLimit)
@@ -373,9 +358,6 @@ class DashboardService
 
     /**
      * Получает количество пользователей.
-     *
-     * @param int|null $dealershipId
-     * @return int
      */
     protected function getUserCount(?int $dealershipId): int
     {
@@ -386,9 +368,6 @@ class DashboardService
 
     /**
      * Получает список просроченных задач.
-     *
-     * @param int|null $dealershipId
-     * @return Collection
      */
     protected function getOverdueTasksList(?int $dealershipId): Collection
     {
@@ -405,9 +384,6 @@ class DashboardService
 
     /**
      * Получает количество задач на проверке.
-     *
-     * @param int|null $dealershipId
-     * @return int
      */
     protected function getPendingReviewCount(?int $dealershipId): int
     {
@@ -420,10 +396,6 @@ class DashboardService
 
     /**
      * Получает список задач на проверке.
-     *
-     * @param int|null $dealershipId
-     * @param int $limit
-     * @return Collection
      */
     protected function getPendingReviewTasks(?int $dealershipId, int $limit = 5): Collection
     {
@@ -444,7 +416,6 @@ class DashboardService
     /**
      * Получает статистику генераторов задач.
      *
-     * @param int|null $dealershipId
      * @return array{total: int, active: int, generated_today: int}
      */
     protected function getGeneratorStats(?int $dealershipId): array

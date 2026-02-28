@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\TaskNotification;
 use App\Models\Task;
+use App\Models\TaskNotification;
 use App\Models\User;
 
 describe('TaskNotification Model', function () {

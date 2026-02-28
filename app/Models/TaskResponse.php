@@ -38,8 +38,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class TaskResponse extends Model
 {
-    use HasFactory;
     use Auditable;
+    use HasFactory;
 
     protected $table = 'task_responses';
 

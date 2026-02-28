@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
-use App\Models\User;
 use App\Services\SettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,8 +18,7 @@ class SettingsController extends Controller
 {
     public function __construct(
         private readonly SettingsService $settingsService
-    ) {
-    }
+    ) {}
 
     /**
      * Get all global settings
@@ -53,7 +51,7 @@ class SettingsController extends Controller
             'data' => [
                 'key' => $key,
                 'value' => $value,
-                'scope' => 'global'
+                'scope' => 'global',
             ],
         ]);
     }
@@ -96,7 +94,7 @@ class SettingsController extends Controller
                 'data' => [
                     'key' => $key,
                     'value' => $setting->getTypedValue(),
-                    'scope' => 'global'
+                    'scope' => 'global',
                 ],
             ]);
         } catch (\InvalidArgumentException $e) {
@@ -250,9 +248,13 @@ class SettingsController extends Controller
             foreach ($data as $key => $value) {
                 if ($value !== null) {
                     $type = 'string';
-                    if (is_bool($value)) $type = 'boolean';
-                    elseif (is_int($value)) $type = 'integer';
-                    elseif (is_array($value)) $type = 'json';
+                    if (is_bool($value)) {
+                        $type = 'boolean';
+                    } elseif (is_int($value)) {
+                        $type = 'integer';
+                    } elseif (is_array($value)) {
+                        $type = 'json';
+                    }
 
                     $this->settingsService->set($key, $value, $dealershipId, $type);
                     $updatedSettings[$key] = $value;

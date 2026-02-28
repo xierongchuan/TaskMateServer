@@ -21,7 +21,7 @@ return [
 
     'allowed_origins' => array_filter(
         explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:8099')),
-        fn($origin) => !empty(trim($origin))
+        fn ($origin) => ! empty(trim($origin))
     ),
 
     'allowed_origins_patterns' => [],

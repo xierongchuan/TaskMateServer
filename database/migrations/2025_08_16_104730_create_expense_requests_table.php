@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Enums\ExpenseStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
-use App\Enums\ExpenseStatus;
+use Illuminate\Support\Facades\Schema;
 
-return new class () extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -39,25 +40,25 @@ return new class () extends Migration {
         // Skip PostgreSQL specific alterations for SQLite
         if (config('database.default') !== 'sqlite') {
             DB::statement(
-                "ALTER TABLE expense_requests ALTER COLUMN status DROP DEFAULT;"
+                'ALTER TABLE expense_requests ALTER COLUMN status DROP DEFAULT;'
             );
             DB::statement(
-                "ALTER TABLE expense_requests ALTER COLUMN status TYPE expense_status USING status::expense_status;"
+                'ALTER TABLE expense_requests ALTER COLUMN status TYPE expense_status USING status::expense_status;'
             );
             DB::statement(
                 "ALTER TABLE expense_requests ALTER COLUMN status SET DEFAULT '"
-                . ExpenseStatus::PENDING->value
-                . "';"
+                .ExpenseStatus::PENDING->value
+                ."';"
             );
         }
 
         // Create indexes (works for both PostgreSQL and SQLite)
         if (config('database.default') !== 'sqlite') {
             DB::statement(
-                "CREATE INDEX idx_expense_requests_requester ON expense_requests(requester_id);"
+                'CREATE INDEX idx_expense_requests_requester ON expense_requests(requester_id);'
             );
             DB::statement(
-                "CREATE INDEX idx_expense_requests_status_created ON expense_requests(status, created_at);"
+                'CREATE INDEX idx_expense_requests_status_created ON expense_requests(status, created_at);'
             );
         }
     }

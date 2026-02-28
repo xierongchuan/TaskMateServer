@@ -21,8 +21,7 @@ class ShiftController extends Controller
 {
     public function __construct(
         private readonly ShiftService $shiftService
-    ) {
-    }
+    ) {}
 
     /**
      * Get list of shifts with filtering and pagination
@@ -59,15 +58,15 @@ class ShiftController extends Controller
                     // Опоздание: статус 'late' ИЛИ late_minutes > 0
                     $query->where(function ($q) {
                         $q->where('status', ShiftStatus::LATE->value)
-                          ->orWhere('late_minutes', '>', 0);
+                            ->orWhere('late_minutes', '>', 0);
                     });
                 } else {
                     // Без опоздания: статус НЕ 'late' И late_minutes <= 0
                     $query->where('status', '!=', ShiftStatus::LATE->value)
-                          ->where(function ($q) {
-                              $q->where('late_minutes', '<=', 0)
+                        ->where(function ($q) {
+                            $q->where('late_minutes', '<=', 0)
                                 ->orWhereNull('late_minutes');
-                          });
+                        });
                 }
             }
         }
@@ -91,7 +90,7 @@ class ShiftController extends Controller
     public function store(Request $request): JsonResponse
     {
         $currentUser = $request->user();
-        if (!$currentUser) {
+        if (! $currentUser) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
@@ -105,33 +104,33 @@ class ShiftController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $data = $validator->validated();
 
         // SECURITY CHECK: Opening shift for another user
-        if ((int)$data['user_id'] !== $currentUser->id) {
+        if ((int) $data['user_id'] !== $currentUser->id) {
             // Only Owner can open shift for others
             if ($currentUser->role !== Role::OWNER) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Только Владелец может открывать смены за других пользователей'
+                    'message' => 'Только Владелец может открывать смены за других пользователей',
                 ], 403);
             }
         }
 
         // SECURITY CHECK: Role restriction
         // Owner can open shifts for anyone, Employee can open only their own shift
-        $isOpeningOwnShift = (int)$data['user_id'] === $currentUser->id;
+        $isOpeningOwnShift = (int) $data['user_id'] === $currentUser->id;
         $canOpenShift = $currentUser->role === Role::OWNER ||
                         ($currentUser->role === Role::EMPLOYEE && $isOpeningOwnShift);
 
-        if (!$canOpenShift) {
-             return response()->json([
+        if (! $canOpenShift) {
+            return response()->json([
                 'success' => false,
-                'message' => 'Открытие смен через админку доступно только Владельцу и сотрудникам (для своих смен).'
+                'message' => 'Открытие смен через админку доступно только Владельцу и сотрудникам (для своих смен).',
             ], 403);
         }
 
@@ -143,10 +142,10 @@ class ShiftController extends Controller
             $user = User::findOrFail($data['user_id']);
 
             // Validate user belongs to the specified dealership
-            if (!$this->shiftService->validateUserDealership($user, (int) $data['dealership_id'])) {
+            if (! $this->shiftService->validateUserDealership($user, (int) $data['dealership_id'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'User does not belong to the specified dealership'
+                    'message' => 'User does not belong to the specified dealership',
                 ], 403);
             }
 
@@ -159,25 +158,27 @@ class ShiftController extends Controller
             );
 
             $shift->load(['user', 'dealership']);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Shift opened successfully',
-                'data' => new ShiftResource($shift)
+                'data' => new ShiftResource($shift),
             ], 201);
 
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         } catch (\Exception $e) {
             Log::error('Failed to open shift', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to open shift'
+                'message' => 'Failed to open shift',
             ], 500);
         }
     }
@@ -192,16 +193,16 @@ class ShiftController extends Controller
         $shift = Shift::with(['user', 'dealership', 'schedule'])
             ->find($id);
 
-        if (!$shift) {
+        if (! $shift) {
             return response()->json([
                 'success' => false,
-                'message' => 'Смена не найдена'
+                'message' => 'Смена не найдена',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => new ShiftResource($shift)
+            'data' => new ShiftResource($shift),
         ]);
     }
 
@@ -216,16 +217,16 @@ class ShiftController extends Controller
         $currentUser = $request->user();
 
         // SECURITY CHECK: Closing/Editing shift
-        if (!$currentUser) {
-             return response()->json(['message' => 'Unauthenticated'], 401);
+        if (! $currentUser) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
         // 1. If trying to close/edit someone else's shift -> Only Owner allowed
         $isOwnShift = $shift->user_id === $currentUser->id;
-        if (!$isOwnShift && $currentUser->role !== Role::OWNER) {
+        if (! $isOwnShift && $currentUser->role !== Role::OWNER) {
             return response()->json([
                 'success' => false,
-                'message' => 'Редактирование смен других пользователей доступно только Владельцу'
+                'message' => 'Редактирование смен других пользователей доступно только Владельцу',
             ], 403);
         }
 
@@ -233,10 +234,10 @@ class ShiftController extends Controller
         $canEditShift = $currentUser->role === Role::OWNER ||
                         ($currentUser->role === Role::EMPLOYEE && $isOwnShift);
 
-        if (!$canEditShift) {
-             return response()->json([
+        if (! $canEditShift) {
+            return response()->json([
                 'success' => false,
-                'message' => 'Управление сменами через админку доступно только Владельцу и сотрудникам (для своих смен).'
+                'message' => 'Управление сменами через админку доступно только Владельцу и сотрудникам (для своих смен).',
             ], 403);
         }
 
@@ -249,7 +250,7 @@ class ShiftController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -264,7 +265,7 @@ class ShiftController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Shift closed successfully',
-                    'data' => new ShiftResource($updatedShift)
+                    'data' => new ShiftResource($updatedShift),
                 ]);
             }
 
@@ -277,27 +278,28 @@ class ShiftController extends Controller
                 }
 
                 $shift->load(['user', 'dealership']);
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Shift updated successfully',
-                    'data' => new ShiftResource($shift)
+                    'data' => new ShiftResource($shift),
                 ]);
             }
 
             return response()->json([
                 'success' => false,
-                'message' => 'No valid fields to update'
+                'message' => 'No valid fields to update',
             ], 400);
 
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update shift'
+                'message' => 'Failed to update shift',
             ], 500);
         }
     }
@@ -313,10 +315,10 @@ class ShiftController extends Controller
 
         try {
             // Only allow deletion of shifts that are not in progress
-            if ($shift->status === ShiftStatus::OPEN->value && !$shift->shift_end) {
+            if ($shift->status === ShiftStatus::OPEN->value && ! $shift->shift_end) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot delete an active shift'
+                    'message' => 'Cannot delete an active shift',
                 ], 400);
             }
 
@@ -324,13 +326,13 @@ class ShiftController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Shift deleted successfully'
+                'message' => 'Shift deleted successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete shift'
+                'message' => 'Failed to delete shift',
             ], 500);
         }
     }
@@ -347,7 +349,7 @@ class ShiftController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ShiftResource::collection($currentShifts)
+            'data' => ShiftResource::collection($currentShifts),
         ]);
     }
 
@@ -370,7 +372,7 @@ class ShiftController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $statistics
+            'data' => $statistics,
         ]);
     }
 
@@ -383,10 +385,10 @@ class ShiftController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthenticated'
+                'message' => 'Unauthenticated',
             ], 401);
         }
 
@@ -404,7 +406,7 @@ class ShiftController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ShiftResource::collection($shifts)
+            'data' => ShiftResource::collection($shifts),
         ]);
     }
 
@@ -417,28 +419,29 @@ class ShiftController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthenticated'
+                'message' => 'Unauthenticated',
             ], 401);
         }
 
         $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
         $shift = $this->shiftService->getUserOpenShift($user, $dealershipId);
 
-        if (!$shift) {
+        if (! $shift) {
             return response()->json([
                 'success' => true,
                 'data' => null,
-                'message' => 'No active shift found'
+                'message' => 'No active shift found',
             ]);
         }
 
         $shift->load(['dealership']);
+
         return response()->json([
             'success' => true,
-            'data' => new ShiftResource($shift)
+            'data' => new ShiftResource($shift),
         ]);
     }
 }

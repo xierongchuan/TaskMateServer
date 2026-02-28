@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\User;
-use App\Services\TaskEventPublisher;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,9 +23,8 @@ class TaskService
     /**
      * Создаёт новую задачу.
      *
-     * @param array<string, mixed> $data Валидированные данные задачи
-     * @param User $creator Пользователь, создающий задачу
-     * @return Task
+     * @param  array<string, mixed>  $data  Валидированные данные задачи
+     * @param  User  $creator  Пользователь, создающий задачу
      *
      * @throws \App\Exceptions\DuplicateTaskException
      * @throws \App\Exceptions\AccessDeniedException
@@ -55,7 +53,7 @@ class TaskService
             ]);
 
             // Назначение пользователей
-            if (!empty($data['assignments'])) {
+            if (! empty($data['assignments'])) {
                 $this->syncAssignments($task, $data['assignments']);
             }
 
@@ -63,7 +61,7 @@ class TaskService
         });
 
         // Публикуем событие после коммита транзакции
-        if (!empty($data['assignments'])) {
+        if (! empty($data['assignments'])) {
             TaskEventPublisher::publishTaskAssigned($task, $data['assignments']);
         }
 
@@ -73,9 +71,8 @@ class TaskService
     /**
      * Обновляет существующую задачу.
      *
-     * @param Task $task Задача для обновления
-     * @param array<string, mixed> $data Валидированные данные для обновления
-     * @return Task
+     * @param  Task  $task  Задача для обновления
+     * @param  array<string, mixed>  $data  Валидированные данные для обновления
      */
     public function updateTask(Task $task, array $data): Task
     {
@@ -94,8 +91,7 @@ class TaskService
     /**
      * Проверяет, является ли задача дубликатом.
      *
-     * @param array<string, mixed> $data Данные задачи для проверки
-     * @return bool
+     * @param  array<string, mixed>  $data  Данные задачи для проверки
      */
     public function isDuplicate(array $data): bool
     {
@@ -113,7 +109,7 @@ class TaskService
         }
 
         // Проверка дедлайна с допуском (игнорируя несоответствие секунд)
-        if (!empty($data['deadline'])) {
+        if (! empty($data['deadline'])) {
             // deadline приходит как ISO 8601 (с Z или offset), парсим и конвертируем в UTC
             $deadlineDate = Carbon::parse($data['deadline'])->setTimezone('UTC');
             $start = $deadlineDate->copy()->startOfMinute();
@@ -125,7 +121,7 @@ class TaskService
         }
 
         // Проверка описания
-        if (!empty($data['description'])) {
+        if (! empty($data['description'])) {
             $query->where('description', $data['description']);
         } else {
             $query->whereNull('description');
@@ -142,8 +138,8 @@ class TaskService
      *
      * ВАЖНО: Метод должен вызываться внутри транзакции для предотвращения race conditions.
      *
-     * @param Task $task Задача
-     * @param array<int> $userIds Массив ID пользователей
+     * @param  Task  $task  Задача
+     * @param  array<int>  $userIds  Массив ID пользователей
      */
     protected function syncAssignments(Task $task, array $userIds): void
     {
@@ -157,7 +153,7 @@ class TaskService
         $toRemove = array_diff($existingAssignments, $userIds);
 
         // SoftDelete удалённых назначений
-        if (!empty($toRemove)) {
+        if (! empty($toRemove)) {
             TaskAssignment::where('task_id', $task->id)
                 ->whereIn('user_id', $toRemove)
                 ->delete();
@@ -171,7 +167,7 @@ class TaskService
             ->pluck('user_id')
             ->toArray();
 
-        if (!empty($restoredIds)) {
+        if (! empty($restoredIds)) {
             TaskAssignment::withTrashed()
                 ->where('task_id', $task->id)
                 ->whereIn('user_id', $restoredIds)
@@ -191,8 +187,8 @@ class TaskService
     /**
      * Проверяет доступ к автосалону для создания задачи.
      *
-     * @param User $user Пользователь
-     * @param int|null $dealershipId ID автосалона
+     * @param  User  $user  Пользователь
+     * @param  int|null  $dealershipId  ID автосалона
      * @return bool True, если доступ разрешён
      */
     public function canAccessDealership(User $user, ?int $dealershipId): bool
@@ -211,8 +207,8 @@ class TaskService
     /**
      * Проверяет, может ли пользователь редактировать задачу.
      *
-     * @param User $user Пользователь
-     * @param Task $task Задача
+     * @param  User  $user  Пользователь
+     * @param  Task  $task  Задача
      * @return bool True, если редактирование разрешено
      */
     public function canEditTask(User $user, Task $task): bool
@@ -233,8 +229,8 @@ class TaskService
     /**
      * Проверяет, может ли пользователь просматривать задачу.
      *
-     * @param User $user Пользователь
-     * @param Task $task Задача
+     * @param  User  $user  Пользователь
+     * @param  Task  $task  Задача
      * @return bool True, если просмотр разрешён
      */
     public function canViewTask(User $user, Task $task): bool

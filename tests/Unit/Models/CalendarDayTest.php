@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\CalendarDay;
 use App\Models\AutoDealership;
+use App\Models\CalendarDay;
 use Carbon\Carbon;
 
 describe('CalendarDay Model', function () {

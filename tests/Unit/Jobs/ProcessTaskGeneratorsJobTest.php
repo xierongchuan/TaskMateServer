@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Enums\Role;
 use App\Jobs\ProcessTaskGeneratorsJob;
+use App\Models\AutoDealership;
 use App\Models\Task;
 use App\Models\TaskGenerator;
 use App\Models\TaskGeneratorAssignment;
-use App\Models\AutoDealership;
 use App\Models\User;
-use App\Enums\Role;
 use Carbon\Carbon;
 
 describe('ProcessTaskGeneratorsJob', function () {
@@ -16,17 +16,17 @@ describe('ProcessTaskGeneratorsJob', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 
     it('uses correct queue', function () {
         // Act
-        $job = new ProcessTaskGeneratorsJob();
+        $job = new ProcessTaskGeneratorsJob;
 
         // Assert
         expect($job->queue)->toBe('task_generators');
@@ -44,7 +44,7 @@ describe('ProcessTaskGeneratorsJob', function () {
             'is_active' => true,
             'recurrence' => 'daily',
             'start_date' => Carbon::yesterday('UTC'),
-            'recurrence_time' => $pastTime . ':00', // Time that has already passed in UTC
+            'recurrence_time' => $pastTime.':00', // Time that has already passed in UTC
             'deadline_time' => '23:59:00',
             'last_generated_at' => Carbon::yesterday('UTC')->subDay(), // Not generated today
         ]);
@@ -55,7 +55,7 @@ describe('ProcessTaskGeneratorsJob', function () {
         ]);
 
         // Act
-        $job = new ProcessTaskGeneratorsJob();
+        $job = new ProcessTaskGeneratorsJob;
         $job->handle();
 
         // Assert
@@ -72,7 +72,7 @@ describe('ProcessTaskGeneratorsJob', function () {
         ]);
 
         // Act
-        $job = new ProcessTaskGeneratorsJob();
+        $job = new ProcessTaskGeneratorsJob;
         $job->handle();
 
         // Assert
@@ -89,7 +89,7 @@ describe('ProcessTaskGeneratorsJob', function () {
         ]);
 
         // Act
-        $job = new ProcessTaskGeneratorsJob();
+        $job = new ProcessTaskGeneratorsJob;
         $job->handle();
 
         // Assert
@@ -109,7 +109,7 @@ describe('ProcessTaskGeneratorsJob', function () {
         ]);
 
         // Act
-        $job = new ProcessTaskGeneratorsJob();
+        $job = new ProcessTaskGeneratorsJob;
         $job->handle();
 
         // Assert
@@ -138,7 +138,7 @@ describe('ProcessTaskGeneratorsJob', function () {
         ]);
 
         // Act
-        $job = new ProcessTaskGeneratorsJob();
+        $job = new ProcessTaskGeneratorsJob;
         $job->handle();
 
         // Assert
@@ -165,7 +165,7 @@ describe('ProcessTaskGeneratorsJob', function () {
         $originalLastGenerated = $generator->last_generated_at;
 
         // Act
-        $job = new ProcessTaskGeneratorsJob();
+        $job = new ProcessTaskGeneratorsJob;
         $job->handle();
 
         // Assert

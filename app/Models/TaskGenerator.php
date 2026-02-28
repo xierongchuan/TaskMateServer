@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Helpers\TimeHelper;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
 
 class TaskGenerator extends Model
 {
@@ -76,7 +76,7 @@ class TaskGenerator extends Model
         $now = $now ?? TimeHelper::nowUtc();
 
         // Check if generator is active
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return false;
         }
 
@@ -182,6 +182,7 @@ class TaskGenerator extends Model
     public function getAppearTimeForDate(Carbon $date): Carbon
     {
         $time = Carbon::createFromFormat('H:i:s', $this->recurrence_time, 'UTC');
+
         return $date->copy()->setTimezone('UTC')->setTime($time->hour, $time->minute, 0);
     }
 
@@ -192,6 +193,7 @@ class TaskGenerator extends Model
     public function getDeadlineTimeForDate(Carbon $date): Carbon
     {
         $time = Carbon::createFromFormat('H:i:s', $this->deadline_time, 'UTC');
+
         return $date->copy()->setTimezone('UTC')->setTime($time->hour, $time->minute, 0);
     }
 
@@ -213,6 +215,7 @@ class TaskGenerator extends Model
             if ($task->archived_at !== null && $task->archive_reason === 'completed') {
                 return true;
             }
+
             // Check if task has completed response (uses the calculated status attribute)
             return $task->status === 'completed';
         })->count();
@@ -222,6 +225,7 @@ class TaskGenerator extends Model
             if ($task->archived_at !== null && $task->archive_reason === 'expired') {
                 return true;
             }
+
             return $task->status === 'overdue';
         })->count();
 
@@ -275,6 +279,7 @@ class TaskGenerator extends Model
         if ($dealershipId === null) {
             return $query->whereNull('dealership_id');
         }
+
         return $query->where('dealership_id', $dealershipId);
     }
 }

@@ -28,8 +28,9 @@ class FileValidationConfig
     /**
      * Получить список разрешённых расширений для пресета.
      *
-     * @param string $preset Пресет ('task_proof', 'shift_photo')
+     * @param  string  $preset  Пресет ('task_proof', 'shift_photo')
      * @return array<string>
+     *
      * @throws InvalidArgumentException Если пресет не найден
      */
     public function getAllowedExtensions(string $preset = 'task_proof'): array
@@ -48,8 +49,9 @@ class FileValidationConfig
     /**
      * Получить список разрешённых MIME-типов для пресета.
      *
-     * @param string $preset Пресет
+     * @param  string  $preset  Пресет
      * @return array<string>
+     *
      * @throws InvalidArgumentException Если пресет не найден
      */
     public function getAllowedMimeTypes(string $preset = 'task_proof'): array
@@ -68,7 +70,7 @@ class FileValidationConfig
     /**
      * Получить максимальный размер файла для категории.
      *
-     * @param FileTypeCategory $category Категория
+     * @param  FileTypeCategory  $category  Категория
      * @return int Размер в байтах
      */
     public function getMaxSize(FileTypeCategory $category): int
@@ -92,8 +94,6 @@ class FileValidationConfig
 
     /**
      * Получить максимальное количество файлов на ответ.
-     *
-     * @return int
      */
     public function getMaxFilesPerResponse(): int
     {
@@ -123,7 +123,7 @@ class FileValidationConfig
     /**
      * Получить конфигурацию категории.
      *
-     * @param FileTypeCategory $category Категория
+     * @param  FileTypeCategory  $category  Категория
      * @return array{extensions: array<string>, mime_types: array<string>, max_size: int}
      */
     public function getCategoryConfig(FileTypeCategory $category): array
@@ -148,7 +148,7 @@ class FileValidationConfig
     /**
      * Преобразовать конфигурацию в массив для API.
      *
-     * @param string $preset Пресет
+     * @param  string  $preset  Пресет
      * @return array{extensions: array<string>, mime_types: array<string>, limits: array{max_files: int, max_total_size: int, max_size_image: int, max_size_document: int, max_size_video: int}}
      */
     public function toArray(string $preset = 'task_proof'): array
@@ -170,8 +170,7 @@ class FileValidationConfig
     /**
      * Проверить существование пресета.
      *
-     * @param string $preset Название пресета
-     * @return bool
+     * @param  string  $preset  Название пресета
      */
     public function presetExists(string $preset): bool
     {
@@ -181,13 +180,14 @@ class FileValidationConfig
     /**
      * Получить категории для пресета.
      *
-     * @param string $preset Пресет
+     * @param  string  $preset  Пресет
      * @return array<string>
+     *
      * @throws InvalidArgumentException Если пресет не найден
      */
     private function getCategoriesForPreset(string $preset): array
     {
-        if (!$this->presetExists($preset)) {
+        if (! $this->presetExists($preset)) {
             throw new InvalidArgumentException(
                 sprintf('Неизвестный пресет "%s". Доступные: %s', $preset, implode(', ', array_keys($this->config['presets'] ?? [])))
             );

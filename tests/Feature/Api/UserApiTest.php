@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
 use App\Enums\Role;
+use App\Models\User;
 
 describe('Users API', function () {
     describe('GET /api/v1/users', function () {
@@ -29,7 +29,7 @@ describe('Users API', function () {
 
             // Act
             $response = $this->actingAs($manager, 'sanctum')
-                ->getJson('/api/v1/users?role=' . Role::MANAGER->value);
+                ->getJson('/api/v1/users?role='.Role::MANAGER->value);
 
             // Assert
             $response->assertStatus(200);
@@ -144,7 +144,7 @@ describe('Users API', function () {
                 ]);
             expect($response->status())->toBe(422);
 
-             // Case 4: Multiple dots
+            // Case 4: Multiple dots
             $response = $this->actingAs($manager, 'sanctum')
                 ->postJson('/api/v1/users', [
                     'login' => 'user.name.test',
@@ -155,7 +155,7 @@ describe('Users API', function () {
                 ]);
             expect($response->status())->toBe(422);
 
-             // Case 5: Multiple underscores
+            // Case 5: Multiple underscores
             $response = $this->actingAs($manager, 'sanctum')
                 ->postJson('/api/v1/users', [
                     'login' => 'user_name_test',

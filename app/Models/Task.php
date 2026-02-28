@@ -7,17 +7,17 @@ namespace App\Models;
 use App\Enums\TaskStatus;
 use App\Helpers\TimeHelper;
 use App\Traits\Auditable;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class Task extends Model
 {
+    use Auditable;
     use HasFactory;
     use SoftDeletes;
-    use Auditable;
 
     protected $table = 'tasks';
 
@@ -110,11 +110,11 @@ class Task extends Model
     public function getStatusAttribute(): string
     {
         // Проверка загрузки relations для предотвращения N+1
-        if (!$this->relationLoaded('responses')) {
-            Log::warning('N+1 Query: Task::responses не загружены для задачи #' . $this->id . '. Используйте eager loading: Task::with("responses")');
+        if (! $this->relationLoaded('responses')) {
+            Log::warning('N+1 Query: Task::responses не загружены для задачи #'.$this->id.'. Используйте eager loading: Task::with("responses")');
         }
-        if (!$this->relationLoaded('assignments')) {
-            Log::warning('N+1 Query: Task::assignments не загружены для задачи #' . $this->id . '. Используйте eager loading: Task::with("assignments")');
+        if (! $this->relationLoaded('assignments')) {
+            Log::warning('N+1 Query: Task::assignments не загружены для задачи #'.$this->id.'. Используйте eager loading: Task::with("assignments")');
         }
 
         // Используем загруженные relations или загружаем (с предупреждением выше)
@@ -377,14 +377,14 @@ class Task extends Model
      */
     public function getIsArchivedAttribute(): bool
     {
-        return !$this->is_active || $this->archived_at !== null;
+        return ! $this->is_active || $this->archived_at !== null;
     }
 
     /**
      * Archive the task with a reason.
      * This method ensures both is_active and archived_at are set consistently.
      *
-     * @param string|null $reason The reason for archiving
+     * @param  string|null  $reason  The reason for archiving
      */
     public function archive(?string $reason = null): void
     {
@@ -440,11 +440,11 @@ class Task extends Model
         }
 
         // Проверка загрузки relations для предотвращения N+1
-        if (!$this->relationLoaded('assignments')) {
-            Log::warning('N+1 Query: Task::assignments не загружены для задачи #' . $this->id . '. Используйте eager loading: Task::with("assignments")');
+        if (! $this->relationLoaded('assignments')) {
+            Log::warning('N+1 Query: Task::assignments не загружены для задачи #'.$this->id.'. Используйте eager loading: Task::with("assignments")');
         }
-        if (!$this->relationLoaded('responses')) {
-            Log::warning('N+1 Query: Task::responses не загружены для задачи #' . $this->id . '. Используйте eager loading: Task::with("responses")');
+        if (! $this->relationLoaded('responses')) {
+            Log::warning('N+1 Query: Task::responses не загружены для задачи #'.$this->id.'. Используйте eager loading: Task::with("responses")');
         }
 
         // Используем загруженные relations или загружаем (с предупреждением выше)
@@ -481,4 +481,3 @@ class Task extends Model
         return $query->where('generator_id', $generatorId);
     }
 }
-

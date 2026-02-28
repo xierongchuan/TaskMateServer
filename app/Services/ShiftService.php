@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\FileValidatorInterface;
 use App\Enums\ShiftStatus;
 use App\Models\Shift;
 use App\Models\ShiftSchedule;
-use App\Models\User;
 use App\Models\Task;
-use App\Models\TaskResponse;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Contracts\FileValidatorInterface;
+use Illuminate\Support\Facades\Storage;
 
 class ShiftService
 {
@@ -32,17 +31,11 @@ class ShiftService
     public function __construct(
         private readonly SettingsService $settingsService,
         private readonly FileValidatorInterface $fileValidator
-    ) {
-    }
+    ) {}
 
     /**
      * Open a new shift for a user
      *
-     * @param User $user
-     * @param UploadedFile $photo
-     * @param User|null $replacingUser
-     * @param string|null $reason
-     * @return Shift
      * @throws \InvalidArgumentException
      */
     public function openShift(User $user, UploadedFile $photo, ?User $replacingUser = null, ?string $reason = null, ?int $dealershipId = null): Shift
@@ -51,7 +44,7 @@ class ShiftService
         $dealershipId = $dealershipId ?? $user->dealership_id;
 
         // Validate user belongs to a dealership
-        if (!$dealershipId) {
+        if (! $dealershipId) {
             throw new \InvalidArgumentException('User must belong to a dealership to open a shift');
         }
 
@@ -146,16 +139,13 @@ class ShiftService
                 'dealership_id' => $dealershipId,
             ]);
 
-            throw new \InvalidArgumentException('Failed to open shift: ' . $e->getMessage());
+            throw new \InvalidArgumentException('Failed to open shift: '.$e->getMessage());
         }
     }
 
     /**
      * Close a shift
      *
-     * @param Shift $shift
-     * @param UploadedFile $photo
-     * @return Shift
      * @throws \InvalidArgumentException
      */
     public function closeShift(Shift $shift, UploadedFile $photo): Shift
@@ -203,16 +193,12 @@ class ShiftService
                 'shift_id' => $shift->id,
             ]);
 
-            throw new \InvalidArgumentException('Failed to close shift: ' . $e->getMessage());
+            throw new \InvalidArgumentException('Failed to close shift: '.$e->getMessage());
         }
     }
 
     /**
      * Get user's current open shift
-     *
-     * @param User $user
-     * @param int|null $dealershipId
-     * @return Shift|null
      */
     public function getUserOpenShift(User $user, ?int $dealershipId = null): ?Shift
     {
@@ -229,7 +215,6 @@ class ShiftService
     /**
      * Get current open shifts for a dealership
      *
-     * @param int|null $dealershipId
      * @return \Illuminate\Database\Eloquent\Collection
      */
     public function getCurrentShifts(?int $dealershipId = null)
@@ -247,11 +232,6 @@ class ShiftService
 
     /**
      * Get shift statistics for a dealership and period
-     *
-     * @param int|null $dealershipId
-     * @param Carbon|null $startDate
-     * @param Carbon|null $endDate
-     * @return array
      */
     public function getShiftStatistics(?int $dealershipId = null, ?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
@@ -286,10 +266,6 @@ class ShiftService
 
     /**
      * Close shift without photo (for manual close)
-     *
-     * @param Shift $shift
-     * @param string $status
-     * @return Shift
      */
     public function closeShiftWithoutPhoto(Shift $shift, string $status): Shift
     {
@@ -308,11 +284,6 @@ class ShiftService
     /**
      * Store shift photo with proper path structure
      *
-     * @param UploadedFile $photo
-     * @param string $type
-     * @param int $userId
-     * @param int $dealershipId
-     * @return string
      * @throws \InvalidArgumentException
      */
     private function storeShiftPhoto(UploadedFile $photo, string $type, int $userId, int $dealershipId): string
@@ -321,8 +292,8 @@ class ShiftService
         $this->fileValidator->validate($photo, self::VALIDATION_PRESET);
 
         $extension = strtolower($photo->getClientOriginalExtension());
-        $filename = $type . '_' . time() . '_' . $userId . '.' . $extension;
-        $path = "dealerships/{$dealershipId}/shifts/{$userId}/" . date('Y/m/d');
+        $filename = $type.'_'.time().'_'.$userId.'.'.$extension;
+        $path = "dealerships/{$dealershipId}/shifts/{$userId}/".date('Y/m/d');
 
         return $photo->storeAs($path, $filename, self::STORAGE_DISK);
     }
@@ -431,19 +402,15 @@ class ShiftService
 
     /**
      * Log incomplete tasks for a shift
-     *
-     * @param Shift $shift
-     * @param User $user
-     * @return void
      */
     private function logIncompleteTasks(Shift $shift, User $user): void
     {
         // Get tasks assigned to user that are due during the shift period
-        $tasks = Task::where(function ($query) use ($shift, $user) {
-                $query->whereHas('assignments', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                })->orWhere('task_type', 'group');
-            })
+        $tasks = Task::where(function ($query) use ($user) {
+            $query->whereHas('assignments', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->orWhere('task_type', 'group');
+        })
             ->where('dealership_id', $shift->dealership_id)
             ->where('is_active', true)
             ->where(function ($query) use ($shift) {
@@ -452,12 +419,12 @@ class ShiftService
             })
             ->whereDoesntHave('responses', function ($q) use ($user) {
                 $q->where('user_id', $user->id)
-                  ->whereIn('status', ['completed', 'acknowledged']);
+                    ->whereIn('status', ['completed', 'acknowledged']);
             })
             ->get();
 
         foreach ($tasks as $task) {
-            Log::info("Incomplete task at shift end", [
+            Log::info('Incomplete task at shift end', [
                 'shift_id' => $shift->id,
                 'task_id' => $task->id,
                 'user_id' => $user->id,
@@ -468,14 +435,10 @@ class ShiftService
 
     /**
      * Validate user can work with shifts in their dealership
-     *
-     * @param User $user
-     * @param int|null $dealershipId
-     * @return bool
      */
     public function validateUserDealership(User $user, ?int $dealershipId = null): bool
     {
-        if (!$dealershipId) {
+        if (! $dealershipId) {
             return (bool) $user->dealership_id;
         }
 
@@ -496,8 +459,6 @@ class ShiftService
     /**
      * Get shifts for a user with dealership context
      *
-     * @param User $user
-     * @param array $filters
      * @return \Illuminate\Database\Eloquent\Collection
      */
     public function getUserShifts(User $user, array $filters = [])

@@ -153,8 +153,8 @@ describe('Task Query Optimization', function () {
 
         TaskProof::create([
             'task_response_id' => $response->id,
-            'file_path' => "test/proof.jpg",
-            'original_filename' => "proof.jpg",
+            'file_path' => 'test/proof.jpg',
+            'original_filename' => 'proof.jpg',
             'mime_type' => 'image/jpeg',
             'file_size' => 12345,
         ]);

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\Enums\Role;
 use App\Models\AutoDealership;
 use App\Models\Task;
 use App\Models\TaskResponse;
-use App\Enums\Role;
+use App\Models\User;
 use Carbon\Carbon;
 
 describe('Report API', function () {
@@ -44,17 +44,17 @@ describe('Report API', function () {
         $employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
             'dealership_id' => $this->dealership->id,
-            'full_name' => 'Employee One'
+            'full_name' => 'Employee One',
         ]);
         $observer = User::factory()->create([
             'role' => Role::OBSERVER->value,
             'dealership_id' => $this->dealership->id,
-            'full_name' => 'Observer User'
+            'full_name' => 'Observer User',
         ]);
         $managerWithNoHistory = User::factory()->create([
             'role' => Role::MANAGER->value,
             'dealership_id' => $this->dealership->id,
-            'full_name' => 'Manager No History'
+            'full_name' => 'Manager No History',
         ]);
 
         // Give the employee a task (history)

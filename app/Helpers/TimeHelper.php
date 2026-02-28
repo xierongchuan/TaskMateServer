@@ -38,7 +38,7 @@ class TimeHelper
     /**
      * Парсинг ISO 8601 строки (с Z или offset) в UTC Carbon
      *
-     * @param string|null $datetime ISO 8601 строка (например, "2025-01-27T10:30:00Z")
+     * @param  string|null  $datetime  ISO 8601 строка (например, "2025-01-27T10:30:00Z")
      */
     public static function parseIso(?string $datetime): ?Carbon
     {
@@ -64,7 +64,7 @@ class TimeHelper
     /**
      * Начало дня в UTC
      *
-     * @param Carbon|string|null $date ISO 8601 строка, Y-m-d строка, или Carbon объект
+     * @param  Carbon|string|null  $date  ISO 8601 строка, Y-m-d строка, или Carbon объект
      */
     public static function startOfDayUtc(Carbon|string|null $date = null): Carbon
     {
@@ -88,7 +88,7 @@ class TimeHelper
     /**
      * Конец дня в UTC
      *
-     * @param Carbon|string|null $date ISO 8601 строка, Y-m-d строка, или Carbon объект
+     * @param  Carbon|string|null  $date  ISO 8601 строка, Y-m-d строка, или Carbon объект
      */
     public static function endOfDayUtc(Carbon|string|null $date = null): Carbon
     {
@@ -124,7 +124,7 @@ class TimeHelper
     /**
      * Границы текущего дня в UTC, рассчитанные по timezone автосалона.
      *
-     * @param string $timezone Timezone автосалона (например, "Asia/Tashkent", "+05:00")
+     * @param  string  $timezone  Timezone автосалона (например, "Asia/Tashkent", "+05:00")
      * @return array{start: Carbon, end: Carbon}
      */
     public static function dayBoundariesForTimezone(string $timezone): array

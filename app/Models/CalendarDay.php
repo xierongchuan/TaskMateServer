@@ -52,8 +52,8 @@ class CalendarDay extends Model
     /**
      * Проверяет, есть ли у автосалона собственный календарь за указанный год.
      *
-     * @param int $year Год для проверки
-     * @param int $dealershipId ID автосалона
+     * @param  int  $year  Год для проверки
+     * @param  int  $dealershipId  ID автосалона
      * @return bool true если есть хотя бы одна запись с этим dealership_id за год
      */
     public static function hasOwnCalendarForYear(int $year, int $dealershipId): bool
@@ -70,8 +70,8 @@ class CalendarDay extends Model
      * Копирует все глобальные записи за год для указанного автосалона.
      * Используется при первом изменении календаря автосалоном.
      *
-     * @param int $year Год для копирования
-     * @param int $dealershipId ID автосалона
+     * @param  int  $year  Год для копирования
+     * @param  int  $dealershipId  ID автосалона
      * @return int Количество скопированных записей
      */
     public static function copyGlobalToDealer(int $year, int $dealershipId): int
@@ -111,8 +111,8 @@ class CalendarDay extends Model
     /**
      * Удаляет кастомный календарь автосалона за год (возврат к глобальному).
      *
-     * @param int $year Год
-     * @param int $dealershipId ID автосалона
+     * @param  int  $year  Год
+     * @param  int  $dealershipId  ID автосалона
      * @return int Количество удалённых записей
      */
     public static function resetToGlobal(int $year, int $dealershipId): int
@@ -170,16 +170,16 @@ class CalendarDay extends Model
      */
     public static function isWorkday(Carbon $date, ?int $dealershipId = null): bool
     {
-        return !self::isHoliday($date, $dealershipId);
+        return ! self::isHoliday($date, $dealershipId);
     }
 
     /**
      * Массовая установка выходных по дням недели.
      *
-     * @param int $year Год
-     * @param array $weekdays Дни недели (1=Пн, 7=Вс)
-     * @param int|null $dealershipId ID автосалона или null для глобальных
-     * @param string $type Тип дня: 'holiday' или 'workday'
+     * @param  int  $year  Год
+     * @param  array  $weekdays  Дни недели (1=Пн, 7=Вс)
+     * @param  int|null  $dealershipId  ID автосалона или null для глобальных
+     * @param  string  $type  Тип дня: 'holiday' или 'workday'
      */
     public static function setWeekdaysForYear(
         int $year,
@@ -209,7 +209,7 @@ class CalendarDay extends Model
         }
 
         // Используем upsert для добавления/обновления
-        if (!empty($records)) {
+        if (! empty($records)) {
             foreach (array_chunk($records, 100) as $chunk) {
                 DB::table('calendar_days')->upsert(
                     $chunk,
@@ -229,8 +229,8 @@ class CalendarDay extends Model
      * - Если у автосалона ЕСТЬ собственный календарь — возвращаем ТОЛЬКО его записи
      * - Если у автосалона НЕТ собственного календаря — возвращаем глобальные записи
      *
-     * @param int $year Год
-     * @param int|null $dealershipId ID автосалона или null для глобальных
+     * @param  int  $year  Год
+     * @param  int|null  $dealershipId  ID автосалона или null для глобальных
      * @return Collection Коллекция записей CalendarDay
      */
     public static function getYearCalendar(int $year, ?int $dealershipId = null): Collection

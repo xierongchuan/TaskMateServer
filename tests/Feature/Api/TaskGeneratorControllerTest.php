@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
+use App\Enums\Role;
 use App\Models\AutoDealership;
 use App\Models\TaskGenerator;
-use App\Models\TaskGeneratorAssignment;
 use App\Models\User;
-use App\Enums\Role;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -19,6 +18,7 @@ class TaskGeneratorControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $manager;
+
     private AutoDealership $dealership;
 
     protected function setUp(): void
@@ -46,7 +46,7 @@ class TaskGeneratorControllerTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'data' => [
-                    '*' => ['id', 'title', 'recurrence', 'is_active']
+                    '*' => ['id', 'title', 'recurrence', 'is_active'],
                 ],
                 'current_page',
                 'last_page',
@@ -242,7 +242,7 @@ class TaskGeneratorControllerTest extends TestCase
                         'on_time_rate',
                     ],
                     'average_completion_time_minutes',
-                ]
+                ],
             ]);
     }
 

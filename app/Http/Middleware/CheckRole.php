@@ -37,14 +37,12 @@ class CheckRole
     /**
      * Handle an incoming request.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @param  string  ...$roles Разрешенные роли (можно несколько через запятую)
+     * @param  string  ...$roles  Разрешенные роли (можно несколько через запятую)
      * @return mixed
      */
     public function handle(Request $request, Closure $next, string ...$roles)
     {
-        if (!$request->user()) {
+        if (! $request->user()) {
             return response()->json([
                 'message' => 'Не авторизован',
             ], 401);
@@ -60,7 +58,7 @@ class CheckRole
         }
 
         // Проверяем, что у пользователя есть одна из разрешенных ролей
-        if (!in_array($userRole, $roles)) {
+        if (! in_array($userRole, $roles)) {
             return response()->json([
                 'message' => 'Недостаточно прав для выполнения этого действия',
                 'required_roles' => $roles,
@@ -74,9 +72,8 @@ class CheckRole
     /**
      * Проверяет, имеет ли роль более высокий или равный уровень доступа
      *
-     * @param string $userRole Роль пользователя
-     * @param string $requiredRole Требуемая роль
-     * @return bool
+     * @param  string  $userRole  Роль пользователя
+     * @param  string  $requiredRole  Требуемая роль
      */
     public static function hasRoleOrHigher(string $userRole, string $requiredRole): bool
     {

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Models\Task;
-use App\Models\Shift;
-use App\Models\Setting;
-use App\Models\AutoDealership;
-use App\Models\User;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Setting;
+use App\Models\Shift;
+use App\Models\Task;
+use App\Models\User;
 use Carbon\Carbon;
 
 describe('ArchiveOverdueAfterShift Command', function () {
@@ -15,7 +15,7 @@ describe('ArchiveOverdueAfterShift Command', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Shift;
-use App\Models\AutoDealership;
 use App\Enums\Role;
+use App\Models\AutoDealership;
+use App\Models\Shift;
+use App\Models\User;
 use Carbon\Carbon;
 
 describe('Shift API', function () {
@@ -178,4 +178,3 @@ describe('Shift API', function () {
         $response->assertStatus(403);
     });
 });
-

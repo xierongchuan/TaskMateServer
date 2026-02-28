@@ -55,7 +55,7 @@ trait HasDealershipAccess
             return null;
         }
 
-        if (!$this->hasAccessToDealership($user, $dealershipId)) {
+        if (! $this->hasAccessToDealership($user, $dealershipId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Нет доступа к указанному дилерству',
@@ -68,7 +68,7 @@ trait HasDealershipAccess
     /**
      * Проверяет доступ к нескольким дилерствам.
      *
-     * @param int[] $dealershipIds
+     * @param  int[]  $dealershipIds
      * @return JsonResponse|null Возвращает JsonResponse с ошибкой или null если доступ есть
      */
     protected function validateMultipleDealershipsAccess(User $user, array $dealershipIds): ?JsonResponse
@@ -80,7 +80,7 @@ trait HasDealershipAccess
         $accessibleIds = $this->getAccessibleDealershipIds($user);
         $inaccessible = array_diff($dealershipIds, $accessibleIds);
 
-        if (!empty($inaccessible)) {
+        if (! empty($inaccessible)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Нет доступа к одному или нескольким дилерствам',
@@ -108,7 +108,7 @@ trait HasDealershipAccess
             return true;
         }
 
-        return !empty(array_intersect($targetDealershipIds, $accessibleIds));
+        return ! empty(array_intersect($targetDealershipIds, $accessibleIds));
     }
 
     /**
@@ -134,7 +134,7 @@ trait HasDealershipAccess
      */
     protected function validateUserAccess(User $currentUser, User $targetUser): ?JsonResponse
     {
-        if (!$this->hasAccessToUser($currentUser, $targetUser)) {
+        if (! $this->hasAccessToUser($currentUser, $targetUser)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Нет доступа к данному пользователю',
@@ -147,9 +147,7 @@ trait HasDealershipAccess
     /**
      * Применяет scope к запросу для фильтрации по доступным дилерствам.
      *
-     * @param Builder $query
-     * @param User $user
-     * @param string $dealershipColumn Название колонки с ID дилерства
+     * @param  string  $dealershipColumn  Название колонки с ID дилерства
      */
     protected function scopeByAccessibleDealerships(
         Builder $query,

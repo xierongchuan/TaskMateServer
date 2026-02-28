@@ -22,6 +22,6 @@ class ExpenseApproval extends Model
     public $timestamps = false; // created_at пишем вручную
 
     protected $casts = [
-    'created_at' => 'datetime',
+        'created_at' => 'datetime',
     ];
 }

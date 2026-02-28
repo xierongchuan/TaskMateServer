@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\AutoDealership;
 use App\Models\Shift;
 use App\Models\User;
-use App\Models\AutoDealership;
 
 describe('Shift Model', function () {
     it('belongs to user', function () {

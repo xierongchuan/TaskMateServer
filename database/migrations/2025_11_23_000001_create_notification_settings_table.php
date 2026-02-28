@@ -70,7 +70,7 @@ return new class extends Migration
             }
         }
 
-        if (!empty($data)) {
+        if (! empty($data)) {
             DB::table('notification_settings')->insert($data);
         }
     }

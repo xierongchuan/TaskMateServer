@@ -20,4 +20,4 @@ $_ENV['DB_DATABASE'] = 'app_test';
 $_SERVER['DB_DATABASE'] = 'app_test';
 
 // Загружаем стандартный autoloader
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';

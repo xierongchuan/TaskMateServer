@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\NotificationSetting;
-use App\Enums\Role;
 use App\Traits\HasDealershipAccess;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class NotificationSettingController extends Controller
@@ -52,7 +52,7 @@ class NotificationSettingController extends Controller
             });
 
         return response()->json([
-            'data' => $settings
+            'data' => $settings,
         ]);
     }
 
@@ -126,9 +126,9 @@ class NotificationSettingController extends Controller
             ->where('channel_type', $channelType)
             ->first();
 
-        if (!$setting) {
+        if (! $setting) {
             return response()->json([
-                'message' => 'Notification setting not found'
+                'message' => 'Notification setting not found',
             ], 404);
         }
 
@@ -144,7 +144,7 @@ class NotificationSettingController extends Controller
             'user_id' => $user->id,
             'dealership_id' => $dealershipId,
             'channel_type' => $channelType,
-            'is_enabled' => $setting->is_enabled
+            'is_enabled' => $setting->is_enabled,
         ]);
 
         return response()->json([
@@ -157,7 +157,7 @@ class NotificationSettingController extends Controller
                 'notification_day' => $setting->notification_day,
                 'notification_offset' => $setting->notification_offset,
                 'recipient_roles' => $setting->recipient_roles ?? [],
-            ]
+            ],
         ]);
     }
 
@@ -204,12 +204,12 @@ class NotificationSettingController extends Controller
         Log::info('Bulk notification settings updated', [
             'user_id' => $user->id,
             'dealership_id' => $dealershipId,
-            'updated_count' => $updatedCount
+            'updated_count' => $updatedCount,
         ]);
 
         return response()->json([
             'message' => 'Settings updated successfully',
-            'updated_count' => $updatedCount
+            'updated_count' => $updatedCount,
         ]);
     }
 
@@ -243,16 +243,16 @@ class NotificationSettingController extends Controller
             ->where('channel_type', NotificationSetting::CHANNEL_WEEKLY_REPORT)
             ->update([
                 'notification_time' => '09:00',
-                'notification_day' => 'monday'
+                'notification_day' => 'monday',
             ]);
 
         Log::info('Notification settings reset to defaults', [
             'user_id' => $user->id,
-            'dealership_id' => $dealershipId
+            'dealership_id' => $dealershipId,
         ]);
 
         return response()->json([
-            'message' => 'Settings reset to defaults successfully'
+            'message' => 'Settings reset to defaults successfully',
         ]);
     }
 }

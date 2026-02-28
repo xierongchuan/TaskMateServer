@@ -48,7 +48,7 @@ class TaskSharedProofFactory extends Factory
 
         return [
             'task_id' => Task::factory(),
-            'file_path' => 'task_shared_proofs/demo/group_' . Str::uuid() . '.' . $extension,
+            'file_path' => 'task_shared_proofs/demo/group_'.Str::uuid().'.'.$extension,
             'original_filename' => $this->generateFilename($mimeType, $extension),
             'mime_type' => $mimeType,
             'file_size' => fake()->numberBetween($minSize, $maxSize),
@@ -69,7 +69,7 @@ class TaskSharedProofFactory extends Factory
         $prefix = fake()->randomElement($prefixes);
         $timestamp = fake()->dateTimeBetween('-30 days', 'now')->format('Ymd');
 
-        return "{$prefix}_{$timestamp}." . $extension;
+        return "{$prefix}_{$timestamp}.".$extension;
     }
 
     /**
@@ -78,8 +78,8 @@ class TaskSharedProofFactory extends Factory
     public function image(): static
     {
         return $this->state(fn (array $attributes) => [
-            'file_path' => 'task_shared_proofs/demo/group_' . Str::uuid() . '.jpg',
-            'original_filename' => 'групповое_фото_' . fake()->dateTimeBetween('-30 days', 'now')->format('Ymd') . '.jpg',
+            'file_path' => 'task_shared_proofs/demo/group_'.Str::uuid().'.jpg',
+            'original_filename' => 'групповое_фото_'.fake()->dateTimeBetween('-30 days', 'now')->format('Ymd').'.jpg',
             'mime_type' => 'image/jpeg',
             'file_size' => fake()->numberBetween(100000, 5000000),
         ]);
@@ -91,8 +91,8 @@ class TaskSharedProofFactory extends Factory
     public function pdf(): static
     {
         return $this->state(fn (array $attributes) => [
-            'file_path' => 'task_shared_proofs/demo/group_' . Str::uuid() . '.pdf',
-            'original_filename' => 'отчёт_группы_' . fake()->dateTimeBetween('-30 days', 'now')->format('Ymd') . '.pdf',
+            'file_path' => 'task_shared_proofs/demo/group_'.Str::uuid().'.pdf',
+            'original_filename' => 'отчёт_группы_'.fake()->dateTimeBetween('-30 days', 'now')->format('Ymd').'.pdf',
             'mime_type' => 'application/pdf',
             'file_size' => fake()->numberBetween(100000, 15000000),
         ]);

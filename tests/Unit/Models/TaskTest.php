@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\AutoDealership;
 use App\Models\Task;
 use App\Models\User;
-use App\Models\AutoDealership;
-use App\Models\TaskResponse;
 use Carbon\Carbon;
 
 describe('Task Model', function () {

@@ -14,11 +14,6 @@ class SettingsService
 
     /**
      * Get a setting value with caching.
-     *
-     * @param string $key
-     * @param int|null $dealershipId
-     * @param mixed $default
-     * @return mixed
      */
     public function get(string $key, ?int $dealershipId = null, mixed $default = null): mixed
     {
@@ -50,6 +45,7 @@ class SettingsService
             $value = $setting->getTypedValue();
             // Only cache actual values, not defaults
             Cache::put($cacheKey, $value, self::CACHE_TTL);
+
             return $value;
         }
 
@@ -60,12 +56,6 @@ class SettingsService
     /**
      * Set a setting value.
      *
-     * @param string $key
-     * @param mixed $value
-     * @param int|null $dealershipId
-     * @param string $type
-     * @param string|null $description
-     * @return Setting
      * @throws \InvalidArgumentException When value is invalid for the type
      */
     public function set(
@@ -105,10 +95,6 @@ class SettingsService
 
     /**
      * Process value for storage to avoid null constraint violations.
-     *
-     * @param mixed $value
-     * @param string $type
-     * @return string|int|float
      */
     private function processValueForStorage(mixed $value, string $type): string|int|float
     {
@@ -136,9 +122,6 @@ class SettingsService
     /**
      * Validate setting value based on type.
      *
-     * @param mixed $value
-     * @param string $type
-     * @param string $key
      * @throws \InvalidArgumentException
      */
     private function validateSettingValue(mixed $value, string $type, string $key): void
@@ -155,8 +138,6 @@ class SettingsService
     /**
      * Validate time value.
      *
-     * @param mixed $value
-     * @param string $key
      * @throws \InvalidArgumentException
      */
     private function validateTimeValue(mixed $value, string $key): void
@@ -165,7 +146,7 @@ class SettingsService
             return; // null will be converted to default '00:00'
         }
 
-        if (!is_string($value) && !is_numeric($value)) {
+        if (! is_string($value) && ! is_numeric($value)) {
             throw new \InvalidArgumentException("Time value for '{$key}' must be a string or numeric");
         }
 
@@ -175,11 +156,12 @@ class SettingsService
             if ($hours < 0 || $hours > 23) {
                 throw new \InvalidArgumentException("Hour value for '{$key}' must be between 0 and 23");
             }
+
             return; // Allow numeric hours, will be converted in setTypedValue
         }
 
         // Validate HH:MM format
-        if (!preg_match('/^([0-1][0-9]|2[0-3]):([0-5][0-9])$/', $value)) {
+        if (! preg_match('/^([0-1][0-9]|2[0-3]):([0-5][0-9])$/', $value)) {
             throw new \InvalidArgumentException("Time value for '{$key}' must be in HH:MM format (24-hour)");
         }
     }
@@ -187,8 +169,6 @@ class SettingsService
     /**
      * Validate integer value.
      *
-     * @param mixed $value
-     * @param string $key
      * @throws \InvalidArgumentException
      */
     private function validateIntegerValue(mixed $value, string $key): void
@@ -197,7 +177,7 @@ class SettingsService
             return; // null will be converted to default 0
         }
 
-        if (!is_numeric($value)) {
+        if (! is_numeric($value)) {
             throw new \InvalidArgumentException("Integer value for '{$key}' must be numeric");
         }
     }
@@ -205,8 +185,6 @@ class SettingsService
     /**
      * Validate boolean value.
      *
-     * @param mixed $value
-     * @param string $key
      * @throws \InvalidArgumentException
      */
     private function validateBooleanValue(mixed $value, string $key): void
@@ -215,7 +193,7 @@ class SettingsService
             return; // null will be converted to default false
         }
 
-        if (!is_bool($value) && !in_array($value, [0, 1, '0', '1', 'true', 'false'], true)) {
+        if (! is_bool($value) && ! in_array($value, [0, 1, '0', '1', 'true', 'false'], true)) {
             throw new \InvalidArgumentException(
                 "Boolean value for '{$key}' must be true, false, 0, 1, or equivalent strings"
             );
@@ -225,8 +203,6 @@ class SettingsService
     /**
      * Validate JSON value.
      *
-     * @param mixed $value
-     * @param string $key
      * @throws \InvalidArgumentException
      */
     private function validateJsonValue(mixed $value, string $key): void
@@ -235,12 +211,12 @@ class SettingsService
             return; // null is valid JSON
         }
 
-        if (!is_array($value) && !is_object($value) && !is_string($value)) {
+        if (! is_array($value) && ! is_object($value) && ! is_string($value)) {
             throw new \InvalidArgumentException("JSON value for '{$key}' must be an array, object, or JSON string");
         }
 
         if (is_string($value) && json_decode($value) === null && json_last_error() !== JSON_ERROR_NONE) {
-            throw new \InvalidArgumentException("Invalid JSON string for '{$key}': " . json_last_error_msg());
+            throw new \InvalidArgumentException("Invalid JSON string for '{$key}': ".json_last_error_msg());
         }
     }
 
@@ -252,7 +228,6 @@ class SettingsService
      * 2. Global timezone setting (from settings table)
      * 3. Default '+05:00'
      *
-     * @param int|null $dealershipId
      * @return string Timezone in UTC offset format (e.g., '+05:00')
      */
     public function getTimezone(?int $dealershipId = null): string
@@ -262,7 +237,7 @@ class SettingsService
         // If dealership is specified, check its timezone first
         if ($dealershipId !== null) {
             $dealership = \App\Models\AutoDealership::find($dealershipId);
-            if ($dealership && !empty($dealership->timezone)) {
+            if ($dealership && ! empty($dealership->timezone)) {
                 return $dealership->timezone;
             }
         }
@@ -274,8 +249,7 @@ class SettingsService
     /**
      * Get shift start time for a dealership.
      *
-     * @param int|null $dealershipId
-     * @param int $shiftNumber 1 or 2
+     * @param  int  $shiftNumber  1 or 2
      * @return string Time in HH:MM format
      */
     public function getShiftStartTime(?int $dealershipId = null, int $shiftNumber = 1): string
@@ -289,8 +263,7 @@ class SettingsService
     /**
      * Get shift end time for a dealership.
      *
-     * @param int|null $dealershipId
-     * @param int $shiftNumber 1 or 2
+     * @param  int  $shiftNumber  1 or 2
      * @return string Time in HH:MM format
      */
     public function getShiftEndTime(?int $dealershipId = null, int $shiftNumber = 1): string
@@ -303,9 +276,6 @@ class SettingsService
 
     /**
      * Get late tolerance in minutes.
-     *
-     * @param int|null $dealershipId
-     * @return int
      */
     public function getLateTolerance(?int $dealershipId = null): int
     {
@@ -314,9 +284,6 @@ class SettingsService
 
     /**
      * Get task archive days threshold.
-     *
-     * @param int|null $dealershipId
-     * @return int
      */
     public function getTaskArchiveDays(?int $dealershipId = null): int
     {
@@ -325,9 +292,6 @@ class SettingsService
 
     /**
      * Get weekly report day (0 = Sunday, 6 = Saturday).
-     *
-     * @param int|null $dealershipId
-     * @return int
      */
     public function getWeeklyReportDay(?int $dealershipId = null): int
     {
@@ -336,13 +300,10 @@ class SettingsService
 
     /**
      * Get all settings for a user with dealership context.
-     *
-     * @param User $user
-     * @return array
      */
     public function getUserSettings(User $user): array
     {
-        if (!$user->dealership_id) {
+        if (! $user->dealership_id) {
             // User not associated with dealership, return global settings only
             return $this->getGlobalSettings();
         }
@@ -357,8 +318,6 @@ class SettingsService
 
     /**
      * Get global settings only.
-     *
-     * @return array
      */
     private function getGlobalSettings(): array
     {
@@ -374,9 +333,6 @@ class SettingsService
 
     /**
      * Get dealership-specific settings.
-     *
-     * @param int $dealershipId
-     * @return array
      */
     private function getDealershipSettings(int $dealershipId): array
     {
@@ -392,15 +348,10 @@ class SettingsService
 
     /**
      * Get setting with smart fallback (dealership -> global).
-     *
-     * @param string $key
-     * @param int|null $dealershipId
-     * @param mixed $default
-     * @return mixed
      */
     public function getSettingWithFallback(string $key, ?int $dealershipId = null, mixed $default = null): mixed
     {
-        $uniqueMarker = '___SETTING_NOT_FOUND___' . uniqid();
+        $uniqueMarker = '___SETTING_NOT_FOUND___'.uniqid();
 
         // First try to get dealership-specific setting
         if ($dealershipId) {
@@ -421,10 +372,6 @@ class SettingsService
 
     /**
      * Get multiple settings at once for efficiency.
-     *
-     * @param array $keys
-     * @param int|null $dealershipId
-     * @return array
      */
     public function getMultipleSettings(array $keys, ?int $dealershipId = null): array
     {
@@ -440,11 +387,9 @@ class SettingsService
     /**
      * Set multiple settings at once for efficiency.
      *
-     * @param array $settings  [key => value]
-     * @param int|null $dealershipId
-     * @param array $types     [key => type]
-     * @param array $descriptions [key => description]
-     * @return array
+     * @param  array  $settings  [key => value]
+     * @param  array  $types  [key => type]
+     * @param  array  $descriptions  [key => description]
      */
     public function setMultipleSettings(array $settings, ?int $dealershipId = null, array $types = [], array $descriptions = []): array
     {
@@ -463,10 +408,6 @@ class SettingsService
 
     /**
      * Get cache key for a setting.
-     *
-     * @param string $key
-     * @param int|null $dealershipId
-     * @return string
      */
     private function getCacheKey(string $key, ?int $dealershipId): string
     {

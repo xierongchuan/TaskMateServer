@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Enums\Role;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
-use App\Enums\Role;
+use Illuminate\Support\Facades\Schema;
 
-return new class () extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -31,15 +32,15 @@ return new class () extends Migration {
         // Skip PostgreSQL specific alterations for SQLite
         if (config('database.default') !== 'sqlite') {
             DB::statement(
-                "ALTER TABLE users ALTER COLUMN role DROP DEFAULT;"
+                'ALTER TABLE users ALTER COLUMN role DROP DEFAULT;'
             );
             DB::statement(
-                "ALTER TABLE users ALTER COLUMN role TYPE user_roles USING role::user_roles;"
+                'ALTER TABLE users ALTER COLUMN role TYPE user_roles USING role::user_roles;'
             );
             DB::statement(
                 "ALTER TABLE users ALTER COLUMN role SET DEFAULT '"
-                . Role::EMPLOYEE->value
-                . "';"
+                .Role::EMPLOYEE->value
+                ."';"
             );
         }
     }

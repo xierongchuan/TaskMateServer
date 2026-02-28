@@ -12,7 +12,6 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Сервис для фильтрации задач.
@@ -27,9 +26,8 @@ class TaskFilterService
     /**
      * Применяет все фильтры и возвращает пагинированный результат.
      *
-     * @param Request $request HTTP-запрос с параметрами фильтрации
-     * @param User $currentUser Текущий пользователь
-     * @return LengthAwarePaginator
+     * @param  Request  $request  HTTP-запрос с параметрами фильтрации
+     * @param  User  $currentUser  Текущий пользователь
      */
     public function getFilteredTasks(Request $request, User $currentUser): LengthAwarePaginator
     {
@@ -60,10 +58,10 @@ class TaskFilterService
         $sortField = $request->get('sort_by', 'created_at');
         $sortDir = $request->get('sort_dir', 'desc');
 
-        if (!in_array($sortField, $allowedSortFields, true)) {
+        if (! in_array($sortField, $allowedSortFields, true)) {
             $sortField = 'created_at';
         }
-        if (!in_array($sortDir, ['asc', 'desc'], true)) {
+        if (! in_array($sortDir, ['asc', 'desc'], true)) {
             $sortDir = 'desc';
         }
 
@@ -78,7 +76,7 @@ class TaskFilterService
         $dateRange = $request->query('date_range');
         $status = $request->query('status');
 
-        if (!$dateRange || $dateRange === 'all') {
+        if (! $dateRange || $dateRange === 'all') {
             return;
         }
 
@@ -88,7 +86,7 @@ class TaskFilterService
             if ($status === 'completed') {
                 $query->whereHas('responses', function ($q) use ($dateStart, $dateEnd) {
                     $q->where('status', 'completed')
-                      ->whereBetween('responded_at', [$dateStart, $dateEnd]);
+                        ->whereBetween('responded_at', [$dateStart, $dateEnd]);
                 });
             } else {
                 $query->whereBetween('deadline', [$dateStart, $dateEnd]);
@@ -99,7 +97,7 @@ class TaskFilterService
     /**
      * Возвращает границы дат для заданного диапазона.
      *
-     * @param string $dateRange Тип диапазона (today, week, month)
+     * @param  string  $dateRange  Тип диапазона (today, week, month)
      * @return array{0: Carbon|null, 1: Carbon|null}
      */
     protected function getDateBoundaries(string $dateRange): array
@@ -119,9 +117,9 @@ class TaskFilterService
     {
         $dealershipId = $request->filled('dealership_id') ? $request->integer('dealership_id') : null;
 
-        if (!$this->isOwner($currentUser)) {
+        if (! $this->isOwner($currentUser)) {
             if ($dealershipId) {
-                if (!$this->hasAccessToDealership($currentUser, $dealershipId)) {
+                if (! $this->hasAccessToDealership($currentUser, $dealershipId)) {
                     // Если фильтрация по недоступному автосалону - возвращаем пустой результат
                     $query->where('dealership_id', -1);
                 } else {
@@ -239,15 +237,15 @@ class TaskFilterService
     protected function applySearchFilter(Builder $query, Request $request): void
     {
         $search = $request->query('search');
-        if (!$search) {
+        if (! $search) {
             return;
         }
 
         $query->where(function ($q) use ($search) {
             $q->where('title', 'ILIKE', "%{$search}%")
-              ->orWhere('description', 'ILIKE', "%{$search}%")
-              ->orWhere('comment', 'ILIKE', "%{$search}%")
-              ->orWhereRaw("tags::text ILIKE ?", ["%{$search}%"]);
+                ->orWhere('description', 'ILIKE', "%{$search}%")
+                ->orWhere('comment', 'ILIKE', "%{$search}%")
+                ->orWhereRaw('tags::text ILIKE ?', ["%{$search}%"]);
         });
     }
 
@@ -257,7 +255,7 @@ class TaskFilterService
     protected function applyStatusFilter(Builder $query, Request $request): void
     {
         $status = $request->query('status');
-        if (!$status) {
+        if (! $status) {
             return;
         }
 
@@ -266,7 +264,7 @@ class TaskFilterService
         switch (strtolower($status)) {
             case 'active':
                 $query->where('is_active', true)
-                      ->whereNull('archived_at');
+                    ->whereNull('archived_at');
                 break;
 
             case 'completed':
@@ -277,15 +275,15 @@ class TaskFilterService
                             ->whereHas('responses', fn ($r) => $r->where('status', 'completed'));
                     })
                     // Групповые задачи: ВСЕ назначенные должны выполнить
-                    ->orWhere(function ($group) {
-                        $group->where('task_type', 'group')
-                            ->whereHas('assignments') // должны быть назначенные
-                            ->whereRaw('(
+                        ->orWhere(function ($group) {
+                            $group->where('task_type', 'group')
+                                ->whereHas('assignments') // должны быть назначенные
+                                ->whereRaw('(
                                 SELECT COUNT(DISTINCT ta.user_id)
                                 FROM task_assignments ta
                                 WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
                             ) > 0')
-                            ->whereRaw('(
+                                ->whereRaw('(
                                 SELECT COUNT(DISTINCT ta.user_id)
                                 FROM task_assignments ta
                                 WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
@@ -294,7 +292,7 @@ class TaskFilterService
                                 FROM task_responses tr
                                 WHERE tr.task_id = tasks.id AND tr.status = ?
                             )', ['completed']);
-                    });
+                        });
                 });
                 break;
 
@@ -304,14 +302,14 @@ class TaskFilterService
 
             case 'overdue':
                 $query->where('is_active', true)
-                      ->whereNotNull('deadline')
-                      ->where('deadline', '<', $nowUtc)
-                      ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'));
+                    ->whereNotNull('deadline')
+                    ->where('deadline', '<', $nowUtc)
+                    ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'));
                 break;
 
             case 'pending':
                 $query->where('is_active', true)
-                      ->whereDoesntHave('responses', fn ($q) => $q->whereIn('status', ['completed', 'acknowledged', 'pending_review']));
+                    ->whereDoesntHave('responses', fn ($q) => $q->whereIn('status', ['completed', 'acknowledged', 'pending_review']));
                 break;
 
             case 'acknowledged':

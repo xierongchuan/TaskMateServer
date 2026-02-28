@@ -45,7 +45,7 @@ trait Auditable
             // Remove updated_at from changes since it's automatic
             unset($changes['updated_at']);
 
-            if (!empty($changes)) {
+            if (! empty($changes)) {
                 self::logAudit($model, 'updated', [
                     'old' => array_intersect_key($model->getOriginal(), $changes),
                     'new' => $changes,
@@ -65,9 +65,6 @@ trait Auditable
      * 1. Если модель - AutoDealership, НЕ записываем dealership_id (чтобы избежать FK constraint при удалении)
      * 2. Если у модели есть dealership_id - возвращает его
      * 3. Если у модели есть связь task с dealership_id - возвращает его (TaskResponse)
-     *
-     * @param Model $model
-     * @return int|null
      */
     protected static function extractDealershipId(Model $model): ?int
     {
@@ -110,7 +107,7 @@ trait Auditable
      * - DateTimeInterface объекты (редко, но на всякий случай)
      * - Строки дат из toArray() в формате "Y-m-d H:i:s" (уже в UTC)
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     protected static function formatPayloadDates(array $payload): array
@@ -133,9 +130,9 @@ trait Auditable
     /**
      * Log an audit entry for the model.
      *
-     * @param Model $model The model instance
-     * @param string $action The action (created, updated, deleted)
-     * @param array<string, mixed> $payload The data to log
+     * @param  Model  $model  The model instance
+     * @param  string  $action  The action (created, updated, deleted)
+     * @param  array<string, mixed>  $payload  The data to log
      */
     protected static function logAudit(Model $model, string $action, array $payload): void
     {
@@ -151,7 +148,7 @@ trait Auditable
             ]);
         } catch (\Throwable $e) {
             // Silent fail - don't break the main operation
-            \Log::warning('Audit log failed: ' . $e->getMessage());
+            \Log::warning('Audit log failed: '.$e->getMessage());
         }
     }
 

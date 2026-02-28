@@ -25,7 +25,7 @@ class MimeTypeResolver
      * поэтому getMimeType() может вернуть application/zip.
      * Эта функция исправляет MIME тип на основе расширения.
      *
-     * @param UploadedFile $file Загружаемый файл
+     * @param  UploadedFile  $file  Загружаемый файл
      * @return string Правильный MIME-тип
      */
     public function resolve(UploadedFile $file): string
@@ -51,7 +51,7 @@ class MimeTypeResolver
     /**
      * Определить категорию файла по MIME-типу.
      *
-     * @param string $mimeType MIME-тип файла
+     * @param  string  $mimeType  MIME-тип файла
      * @return FileTypeCategory|null Категория или null если не найдена
      */
     public function getCategoryForMime(string $mimeType): ?FileTypeCategory
@@ -94,7 +94,7 @@ class MimeTypeResolver
     /**
      * Определить категорию файла по расширению.
      *
-     * @param string $extension Расширение файла (без точки)
+     * @param  string  $extension  Расширение файла (без точки)
      * @return FileTypeCategory|null Категория или null если не найдена
      */
     public function getCategoryForExtension(string $extension): ?FileTypeCategory

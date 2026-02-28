@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Task;
-use App\Models\TaskAssignment;
-use App\Models\AutoDealership;
-use App\Services\TaskService;
 use App\Enums\Role;
 use App\Exceptions\DuplicateTaskException;
+use App\Models\AutoDealership;
+use App\Models\Task;
+use App\Models\TaskAssignment;
+use App\Models\User;
+use App\Services\TaskService;
 use Carbon\Carbon;
 
 describe('TaskService', function () {
@@ -16,16 +16,16 @@ describe('TaskService', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->owner = User::factory()->create([
             'role' => Role::OWNER->value,
         ]);
-        $this->taskService = new TaskService();
+        $this->taskService = new TaskService;
     });
 
     describe('createTask', function () {
@@ -161,7 +161,7 @@ describe('TaskService', function () {
 
             $newEmployee = User::factory()->create([
                 'role' => Role::EMPLOYEE->value,
-                'dealership_id' => $this->dealership->id
+                'dealership_id' => $this->dealership->id,
             ]);
 
             // Act

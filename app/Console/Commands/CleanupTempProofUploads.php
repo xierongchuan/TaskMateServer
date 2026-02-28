@@ -23,7 +23,7 @@ class CleanupTempProofUploads extends Command
     {
         $tempPath = 'temp/proof_uploads';
 
-        if (!Storage::exists($tempPath)) {
+        if (! Storage::exists($tempPath)) {
             $this->info('Директория temp/proof_uploads не существует');
 
             return Command::SUCCESS;

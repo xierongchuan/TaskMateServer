@@ -6,10 +6,10 @@ namespace App\Enums;
 
 enum Role: string
 {
-    case OWNER  = 'owner';
-    case MANAGER  = 'manager';
-    case OBSERVER  = 'observer';
-    case EMPLOYEE  = 'employee';
+    case OWNER = 'owner';
+    case MANAGER = 'manager';
+    case OBSERVER = 'observer';
+    case EMPLOYEE = 'employee';
 
     /** Читабельная метка (Ru) */
     public function label(): string

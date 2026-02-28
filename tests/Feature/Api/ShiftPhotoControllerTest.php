@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\Shift;
-use App\Models\AutoDealership;
 use App\Enums\Role;
-use Carbon\Carbon;
+use App\Models\AutoDealership;
+use App\Models\Shift;
+use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
@@ -17,19 +16,19 @@ describe('Shift Photo API', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->owner = User::factory()->create([
             'role' => Role::OWNER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->observer = User::factory()->create([
             'role' => Role::OBSERVER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
     });
 
@@ -248,7 +247,7 @@ describe('Shift Photo API', function () {
             // Arrange
             $otherEmployee = User::factory()->create([
                 'role' => Role::EMPLOYEE->value,
-                'dealership_id' => $this->dealership->id
+                'dealership_id' => $this->dealership->id,
             ]);
 
             $shift = Shift::factory()->create([

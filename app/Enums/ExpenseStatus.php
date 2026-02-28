@@ -6,21 +6,21 @@ namespace App\Enums;
 
 enum ExpenseStatus: string
 {
-    case PENDING   = 'pending';
-    case APPROVED  = 'approved';
-    case DECLINED  = 'declined';
-    case ISSUED    = 'issued';
+    case PENDING = 'pending';
+    case APPROVED = 'approved';
+    case DECLINED = 'declined';
+    case ISSUED = 'issued';
     case CANCELLED = 'cancelled';
 
     /** Читабельная метка (RU) */
     public function label(): string
     {
         return match ($this) {
-            self::PENDING  => 'Ожидает руководителя',
+            self::PENDING => 'Ожидает руководителя',
             self::APPROVED => 'Одобрено руководителем',
             self::DECLINED => 'Отклонено руководителем',
-            self::ISSUED           => 'Выдано (бухгалтер)',
-            self::CANCELLED        => 'Отменено',
+            self::ISSUED => 'Выдано (бухгалтер)',
+            self::CANCELLED => 'Отменено',
         };
     }
 

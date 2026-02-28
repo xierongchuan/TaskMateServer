@@ -6,7 +6,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class () extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -26,7 +27,7 @@ return new class () extends Migration {
         });
 
         // индекс
-        DB::statement("CREATE INDEX idx_expense_approvals_request ON expense_approvals(expense_request_id);");
+        DB::statement('CREATE INDEX idx_expense_approvals_request ON expense_approvals(expense_request_id);');
     }
 
     /**

@@ -8,7 +8,6 @@ use App\Helpers\TimeHelper;
 use App\Models\Shift;
 use App\Models\Task;
 use App\Services\SettingsService;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -35,7 +34,7 @@ class ArchiveOverdueAfterShift extends Command
         $this->info("Current time UTC: {$now->toIso8601ZuluString()}");
 
         if ($dryRun) {
-            $this->warn("DRY RUN MODE - no changes will be made");
+            $this->warn('DRY RUN MODE - no changes will be made');
         }
 
         $archivedCount = 0;
@@ -44,7 +43,7 @@ class ArchiveOverdueAfterShift extends Command
         $closedShifts = Shift::whereNotNull('shift_end')
             ->where(function ($query) {
                 $query->whereNull('archived_tasks_processed')
-                      ->orWhere('archived_tasks_processed', false);
+                    ->orWhere('archived_tasks_processed', false);
             })
             ->orderBy('shift_end', 'asc')
             ->get();
@@ -63,8 +62,9 @@ class ArchiveOverdueAfterShift extends Command
             $archiveAfter = $shiftEndTime->copy()->addHours($hoursAfter);
 
             // Check if enough time has passed since shift closed
-            if (!$force && $now->lt($archiveAfter)) {
+            if (! $force && $now->lt($archiveAfter)) {
                 $this->line("  Shift #{$shift->id} closed at {$shiftEndTime->format('H:i')} UTC - waiting until {$archiveAfter->format('H:i')} UTC to archive");
+
                 continue;
             }
 
@@ -85,7 +85,7 @@ class ArchiveOverdueAfterShift extends Command
                     foreach ($tasks as $task) {
                         $this->line("    - Archiving task #{$task->id}: {$task->title}");
 
-                        if (!$dryRun) {
+                        if (! $dryRun) {
                             $task->update([
                                 'is_active' => false,
                                 'archived_at' => TimeHelper::nowUtc(),
@@ -99,7 +99,7 @@ class ArchiveOverdueAfterShift extends Command
 
             // Отметить смену как обработанную после проверки (независимо от наличия задач)
             // Это предотвращает повторную проверку смены при следующих запусках команды
-            if (!$dryRun) {
+            if (! $dryRun) {
                 $shift->timestamps = false;
                 $shift->archived_tasks_processed = true;
                 $shift->save();
@@ -110,7 +110,7 @@ class ArchiveOverdueAfterShift extends Command
             $this->info("Archived {$archivedCount} overdue tasks");
             Log::info("ArchiveOverdueAfterShift: Archived {$archivedCount} overdue tasks");
         } else {
-            $this->info("No tasks to archive");
+            $this->info('No tasks to archive');
         }
 
         return Command::SUCCESS;

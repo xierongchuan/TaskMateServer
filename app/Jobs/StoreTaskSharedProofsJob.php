@@ -36,9 +36,8 @@ class StoreTaskSharedProofsJob implements ShouldQueue
     private const VALIDATION_PRESET = 'task_proof';
 
     /**
-     * @param int $taskId ID задачи
-     * @param array<array{path: string, original_name: string, mime: string, size: int}> $filesData
-     * @param int $dealershipId
+     * @param  int  $taskId  ID задачи
+     * @param  array<array{path: string, original_name: string, mime: string, size: int}>  $filesData
      */
     public function __construct(
         public readonly int $taskId,
@@ -52,9 +51,10 @@ class StoreTaskSharedProofsJob implements ShouldQueue
     {
         $task = Task::find($this->taskId);
 
-        if (!$task) {
+        if (! $task) {
             Log::warning('Task not found for shared proofs', ['task_id' => $this->taskId]);
             $this->cleanupTempFiles();
+
             return;
         }
 
@@ -74,6 +74,7 @@ class StoreTaskSharedProofsJob implements ShouldQueue
                 'max' => $limits['max_files_per_response'],
             ]);
             $this->cleanupTempFiles();
+
             return;
         }
 
@@ -131,7 +132,7 @@ class StoreTaskSharedProofsJob implements ShouldQueue
 
         // Получаем содержимое из temp и сохраняем на диск task_proofs
         $content = Storage::get($fileData['path']);
-        if (!Storage::disk(self::STORAGE_DISK)->put($destinationPath, $content)) {
+        if (! Storage::disk(self::STORAGE_DISK)->put($destinationPath, $content)) {
             throw new \RuntimeException("Failed to store file: {$destinationPath}");
         }
 
@@ -160,7 +161,7 @@ class StoreTaskSharedProofsJob implements ShouldQueue
             $existsOnTaskProofs = Storage::disk(self::STORAGE_DISK)->exists($proof->file_path);
             $existsOnLocal = Storage::disk('local')->exists($proof->file_path);
 
-            if (!$existsOnTaskProofs && !$existsOnLocal) {
+            if (! $existsOnTaskProofs && ! $existsOnLocal) {
                 Log::warning('Removing ghost shared proof record', [
                     'proof_id' => $proof->id,
                     'task_id' => $task->id,

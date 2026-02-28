@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
-use App\Models\AutoDealership;
-use App\Http\Middleware\CheckRole;
 use App\Enums\Role;
+use App\Http\Middleware\CheckRole;
+use App\Models\AutoDealership;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 describe('CheckRole Middleware', function () {
@@ -13,21 +13,21 @@ describe('CheckRole Middleware', function () {
         $this->dealership = AutoDealership::factory()->create();
         $this->owner = User::factory()->create([
             'role' => Role::OWNER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->employee = User::factory()->create([
             'role' => Role::EMPLOYEE->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
         $this->observer = User::factory()->create([
             'role' => Role::OBSERVER->value,
-            'dealership_id' => $this->dealership->id
+            'dealership_id' => $this->dealership->id,
         ]);
-        $this->middleware = new CheckRole();
+        $this->middleware = new CheckRole;
     });
 
     describe('handle', function () {

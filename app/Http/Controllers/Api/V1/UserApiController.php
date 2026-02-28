@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\Role;
 use App\Helpers\TimeHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreUserRequest;
@@ -12,9 +13,8 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\EmployeeStatsService;
 use App\Traits\HasDealershipAccess;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use App\Enums\Role;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -29,7 +29,7 @@ class UserApiController extends Controller
     /**
      * Получает список пользователей с фильтрацией и пагинацией.
      *
-     * @param Request $request HTTP-запрос с параметрами фильтрации
+     * @param  Request  $request  HTTP-запрос с параметрами фильтрации
      * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
      */
     public function index(Request $request)
@@ -55,8 +55,8 @@ class UserApiController extends Controller
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('login', 'ILIKE', "%{$search}%")
-                  ->orWhere('full_name', 'ILIKE', "%{$search}%")
-                  ->orWhere('phone', 'ILIKE', "%{$search}%");
+                    ->orWhere('full_name', 'ILIKE', "%{$search}%")
+                    ->orWhere('phone', 'ILIKE', "%{$search}%");
             });
         }
 
@@ -80,14 +80,14 @@ class UserApiController extends Controller
             $query->where(function ($q) use ($dealershipId) {
                 // Change 'dealership_id' to 'users.dealership_id' to avoid any ambiguity
                 $q->where('users.dealership_id', $dealershipId)
-                  ->orWhereHas('dealerships', function ($subQ) use ($dealershipId) {
-                      $subQ->where('auto_dealerships.id', $dealershipId);
-                  });
+                    ->orWhereHas('dealerships', function ($subQ) use ($dealershipId) {
+                        $subQ->where('auto_dealerships.id', $dealershipId);
+                    });
             });
         } elseif ($request->filled('orphan_only') && in_array($request->query('orphan_only'), ['true', '1'], true)) {
             // Режим "orphan users" - пользователи без привязки к автосалонам
             $query->whereNull('users.dealership_id')
-                  ->whereDoesntHave('dealerships');
+                ->whereDoesntHave('dealerships');
         }
 
         // Phone filtering with normalization (existing logic)
@@ -126,22 +126,23 @@ class UserApiController extends Controller
         $sortField = $request->get('sort_by', 'created_at');
         $sortDir = $request->get('sort_dir', 'desc');
 
-        if (!in_array($sortField, $allowedSortFields, true)) {
+        if (! in_array($sortField, $allowedSortFields, true)) {
             $sortField = 'created_at';
         }
-        if (!in_array($sortDir, ['asc', 'desc'], true)) {
+        if (! in_array($sortDir, ['asc', 'desc'], true)) {
             $sortDir = 'desc';
         }
 
         $users = $query->orderBy($sortField, $sortDir)->paginate($perPage);
+
         return UserResource::collection($users);
     }
 
     /**
      * Получает информацию о конкретном пользователе.
      *
-     * @param Request $request HTTP-запрос
-     * @param int|string $id ID пользователя
+     * @param  Request  $request  HTTP-запрос
+     * @param  int|string  $id  ID пользователя
      * @return UserResource|JsonResponse
      */
     public function show(Request $request, $id)
@@ -152,14 +153,14 @@ class UserApiController extends Controller
 
         if (! $user) {
             return response()->json([
-                'message' => 'Пользователь не найден'
+                'message' => 'Пользователь не найден',
             ], 404);
         }
 
         // Проверка доступа к пользователю через общие дилерства
-        if (!$this->hasAccessToUser($currentUser, $user)) {
+        if (! $this->hasAccessToUser($currentUser, $user)) {
             return response()->json([
-                'message' => 'Пользователь не найден'
+                'message' => 'Пользователь не найден',
             ], 404);
         }
 
@@ -169,8 +170,8 @@ class UserApiController extends Controller
     /**
      * Проверяет статус активности пользователя.
      *
-     * @param Request $request HTTP-запрос
-     * @param int|string $id ID пользователя
+     * @param  Request  $request  HTTP-запрос
+     * @param  int|string  $id  ID пользователя
      * @return JsonResponse
      */
     public function status(Request $request, $id)
@@ -180,7 +181,7 @@ class UserApiController extends Controller
         $user = User::find($id);
 
         // Проверка доступа к пользователю через общие дилерства
-        if ($user && !$this->hasAccessToUser($currentUser, $user)) {
+        if ($user && ! $this->hasAccessToUser($currentUser, $user)) {
             $user = null; // Делаем пользователя невидимым
         }
 
@@ -228,9 +229,8 @@ class UserApiController extends Controller
     /**
      * Обновляет данные пользователя.
      *
-     * @param UpdateUserRequest $request Валидированный запрос
-     * @param int|string $id ID пользователя
-     * @return JsonResponse
+     * @param  UpdateUserRequest  $request  Валидированный запрос
+     * @param  int|string  $id  ID пользователя
      */
     public function update(UpdateUserRequest $request, $id): JsonResponse
     {
@@ -239,7 +239,7 @@ class UserApiController extends Controller
         if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Пользователь не найден'
+                'message' => 'Пользователь не найден',
             ], 404);
         }
 
@@ -247,20 +247,20 @@ class UserApiController extends Controller
         $currentUser = $request->user();
 
         // Security check: Non-owners cannot modify Owners
-        if (!$this->isOwner($currentUser) && $user->role === Role::OWNER) {
+        if (! $this->isOwner($currentUser) && $user->role === Role::OWNER) {
             return response()->json([
                 'success' => false,
                 'message' => 'У вас нет прав для редактирования Владельца',
-                'error_type' => 'access_denied'
+                'error_type' => 'access_denied',
             ], 403);
         }
 
         // Security check: Non-owners cannot modify other Managers (but can edit themselves)
-        if (!$this->isOwner($currentUser) && $user->role === Role::MANAGER && $user->id !== $currentUser->id) {
+        if (! $this->isOwner($currentUser) && $user->role === Role::MANAGER && $user->id !== $currentUser->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'У вас нет прав для редактирования Управляющего',
-                'error_type' => 'access_denied'
+                'error_type' => 'access_denied',
             ], 403);
         }
 
@@ -272,11 +272,11 @@ class UserApiController extends Controller
             $restrictedFields = ['login', 'role', 'dealership_id', 'dealership_ids'];
             $attemptedChanges = array_intersect_key($validated, array_flip($restrictedFields));
 
-            if (!empty($attemptedChanges)) {
+            if (! empty($attemptedChanges)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Вы не можете изменять логин, роль или автосалон своего аккаунта',
-                    'error_type' => 'self_edit_restricted'
+                    'error_type' => 'self_edit_restricted',
                 ], 403);
             }
         }
@@ -288,18 +288,18 @@ class UserApiController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'У вас нет прав для редактирования сотрудника другого автосалона',
-                    'error_type' => 'access_denied'
+                    'error_type' => 'access_denied',
                 ], 403);
             }
         }
 
         // Security check: Non-owners cannot promote users to Owner
         if (isset($validated['role']) && $validated['role'] === Role::OWNER->value) {
-            if (!$this->isOwner($currentUser)) {
+            if (! $this->isOwner($currentUser)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Только Владелец может назначать роль Владельца',
-                    'error_type' => 'access_denied'
+                    'error_type' => 'access_denied',
                 ], 403);
             }
         }
@@ -311,7 +311,7 @@ class UserApiController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Вы не можете привязать сотрудника к чужому автосалону',
-                    'error_type' => 'access_denied'
+                    'error_type' => 'access_denied',
                 ], 403);
             }
         }
@@ -323,7 +323,7 @@ class UserApiController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Вы не можете управлять доступом к чужому автосалону',
-                    'error_type' => 'access_denied'
+                    'error_type' => 'access_denied',
                 ], 403);
             }
         }
@@ -335,11 +335,11 @@ class UserApiController extends Controller
             // Security: If user is changing their OWN password, require current_password verification
             // Owners/Managers can reset others' passwords without this check
             if ($user->id === $currentUser->id) {
-                if (!isset($validated['current_password']) || !Hash::check($validated['current_password'], $user->password)) {
+                if (! isset($validated['current_password']) || ! Hash::check($validated['current_password'], $user->password)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Текущий пароль указан неверно',
-                        'errors' => ['current_password' => ['Неверный текущий пароль']]
+                        'errors' => ['current_password' => ['Неверный текущий пароль']],
                     ], 422);
                 }
             }
@@ -374,15 +374,14 @@ class UserApiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Данные пользователя успешно обновлены',
-            'data' => new UserResource($user)
+            'data' => new UserResource($user),
         ], 200);
     }
 
     /**
      * Создаёт нового пользователя.
      *
-     * @param StoreUserRequest $request Валидированный запрос
-     * @return JsonResponse
+     * @param  StoreUserRequest  $request  Валидированный запрос
      */
     public function store(StoreUserRequest $request): JsonResponse
     {
@@ -393,35 +392,35 @@ class UserApiController extends Controller
 
         // Security check: Non-owners cannot create Owners
         if ($validated['role'] === Role::OWNER->value) {
-            if (!$this->isOwner($currentUser)) {
+            if (! $this->isOwner($currentUser)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Только Владелец может создавать пользователей с ролью Владельца',
-                    'error_type' => 'access_denied'
+                    'error_type' => 'access_denied',
                 ], 403);
             }
         }
 
         // Security check: Ensure new dealership is accessible
-        if (!empty($validated['dealership_id'])) {
+        if (! empty($validated['dealership_id'])) {
             $accessError = $this->validateDealershipAccess($currentUser, (int) $validated['dealership_id']);
             if ($accessError) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Вы не можете создать сотрудника в чужом автосалоне',
-                    'error_type' => 'access_denied'
+                    'error_type' => 'access_denied',
                 ], 403);
             }
         }
 
         // Security check: Ensure new dealerships array is accessible
-        if (!empty($validated['dealership_ids'])) {
+        if (! empty($validated['dealership_ids'])) {
             $accessError = $this->validateMultipleDealershipsAccess($currentUser, $validated['dealership_ids']);
             if ($accessError) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Вы не можете дать доступ к чужому автосалону',
-                    'error_type' => 'access_denied'
+                    'error_type' => 'access_denied',
                 ], 403);
             }
         }
@@ -435,31 +434,30 @@ class UserApiController extends Controller
             'dealership_id' => $validated['dealership_id'] ?? null,
         ]);
 
-        if (!empty($validated['dealership_ids'])) {
+        if (! empty($validated['dealership_ids'])) {
             $user->dealerships()->sync($validated['dealership_ids']);
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Сотрудник успешно создан',
-            'data' => new UserResource($user)
+            'data' => new UserResource($user),
         ], 201);
     }
 
     /**
      * Удаляет пользователя.
      *
-     * @param int|string $id ID пользователя
-     * @return JsonResponse
+     * @param  int|string  $id  ID пользователя
      */
     public function destroy($id): JsonResponse
     {
         $user = User::with('dealerships')->find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Пользователь не найден'
+                'message' => 'Пользователь не найден',
             ], 404);
         }
 
@@ -470,23 +468,23 @@ class UserApiController extends Controller
         if ($user->id === $currentUser->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Вы не можете удалить свой собственный аккаунт'
+                'message' => 'Вы не можете удалить свой собственный аккаунт',
             ], 403);
         }
 
         // Security check: Only Owner can delete Owner
-        if ($user->role === Role::OWNER && !$this->isOwner($currentUser)) {
+        if ($user->role === Role::OWNER && ! $this->isOwner($currentUser)) {
             return response()->json([
                 'success' => false,
-                'message' => 'У вас нет прав для удаления Владельца'
+                'message' => 'У вас нет прав для удаления Владельца',
             ], 403);
         }
 
         // Security check: Non-owners cannot delete managers
-        if (!$this->isOwner($currentUser) && $user->role === Role::MANAGER) {
+        if (! $this->isOwner($currentUser) && $user->role === Role::MANAGER) {
             return response()->json([
                 'success' => false,
-                'message' => 'У вас нет прав для удаления Управляющего'
+                'message' => 'У вас нет прав для удаления Управляющего',
             ], 403);
         }
 
@@ -495,7 +493,7 @@ class UserApiController extends Controller
         if ($accessError) {
             return response()->json([
                 'success' => false,
-                'message' => 'У вас нет прав для удаления сотрудника другого автосалона'
+                'message' => 'У вас нет прав для удаления сотрудника другого автосалона',
             ], 403);
         }
 
@@ -522,14 +520,14 @@ class UserApiController extends Controller
             $relatedData['created_links'] = $user->createdLinks()->count();
         }
 
-        if (!empty($relatedData)) {
+        if (! empty($relatedData)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Невозможно удалить пользователя со связанными данными',
                 'related_data' => $relatedData,
                 'errors' => [
-                    'user' => ['Пользователь имеет связанные записи: ' . implode(', ', array_keys($relatedData))]
-                ]
+                    'user' => ['Пользователь имеет связанные записи: '.implode(', ', array_keys($relatedData))],
+                ],
             ], 422);
         }
 
@@ -542,13 +540,13 @@ class UserApiController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "Пользователь '{$userName}' успешно удален"
+                'message' => "Пользователь '{$userName}' успешно удален",
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Ошибка при удалении пользователя',
-                'error' => config('app.debug') ? $e->getMessage() : 'Внутренняя ошибка сервера'
+                'error' => config('app.debug') ? $e->getMessage() : 'Внутренняя ошибка сервера',
             ], 500);
         }
     }

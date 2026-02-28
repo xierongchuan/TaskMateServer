@@ -62,12 +62,13 @@ class TaskSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info("Creating Tasks with " . self::$historyDays . " days history...");
+        $this->command->info('Creating Tasks with '.self::$historyDays.' days history...');
 
         $dealerships = AutoDealership::all();
 
         if ($dealerships->isEmpty()) {
             $this->command->warn('No dealerships found. Skipping task generation.');
+
             return;
         }
 
@@ -76,10 +77,11 @@ class TaskSeeder extends Seeder
                 ->where('role', Role::MANAGER)
                 ->first();
 
-            if (!$manager) {
+            if (! $manager) {
                 // Try finding any manager linked to this dealership potentially?
                 // For now, assume the standard structure where manager has dealership_id
                 $this->command->warn("No manager found for dealership {$dealership->name}. Skipping.");
+
                 continue;
             }
 
@@ -90,6 +92,7 @@ class TaskSeeder extends Seeder
 
             if (empty($employees)) {
                 $this->command->warn("No employees found for dealership {$dealership->name}. Skipping.");
+
                 continue;
             }
 
@@ -228,7 +231,7 @@ class TaskSeeder extends Seeder
             $totalTasks += $tasksCreated;
         }
 
-        $this->command->info(" - Created " . count($generators) . " Task Generators with {$totalTasks} historical tasks for {$dealership->name}");
+        $this->command->info(' - Created '.count($generators)." Task Generators with {$totalTasks} historical tasks for {$dealership->name}");
     }
 
     private function generateHistoricalTasks(TaskGenerator $generator, array $assignedEmployees, int $historyDays): int
@@ -328,7 +331,7 @@ class TaskSeeder extends Seeder
         $isPast = $deadline->lt($now);
         $isRecent = $deadline->diffInDays($now) < 3;
 
-        if (!$isPast || ($isRecent && fake()->boolean(30))) {
+        if (! $isPast || ($isRecent && fake()->boolean(30))) {
             return;
         }
 
@@ -384,7 +387,7 @@ class TaskSeeder extends Seeder
                 'dealership_id' => $dealership->id,
                 'creator_id' => $manager->id,
                 'task_type' => 'individual',
-                'title' => 'Активная задача для ' . $emp->full_name,
+                'title' => 'Активная задача для '.$emp->full_name,
                 'appear_date' => Carbon::now()->subHours(rand(1, 24)),
                 'deadline' => Carbon::now()->addDays(rand(1, 7)),
             ]);
@@ -401,7 +404,7 @@ class TaskSeeder extends Seeder
                 'dealership_id' => $dealership->id,
                 'creator_id' => $manager->id,
                 'task_type' => 'individual',
-                'title' => 'Выполненная задача для ' . $emp->full_name,
+                'title' => 'Выполненная задача для '.$emp->full_name,
                 'appear_date' => Carbon::now()->subDays(rand(5, 30)),
                 'deadline' => Carbon::now()->subDays(rand(1, 4)),
                 'archived_at' => Carbon::now()->subDays(rand(1, 4)),
@@ -703,7 +706,7 @@ class TaskSeeder extends Seeder
 
         for ($i = 0; $i < 2; $i++) {
             $task = Task::create([
-                'title' => 'Групповая задача: ' . fake()->randomElement(['Уборка территории', 'Подготовка к открытию', 'Инвентаризация']),
+                'title' => 'Групповая задача: '.fake()->randomElement(['Уборка территории', 'Подготовка к открытию', 'Инвентаризация']),
                 'description' => 'Групповая задача с общими доказательствами',
                 'creator_id' => $manager->id,
                 'dealership_id' => $dealership->id,
@@ -761,7 +764,7 @@ class TaskSeeder extends Seeder
 
         foreach (array_slice($employees, 0, 2) as $employee) {
             $task = Task::create([
-                'title' => 'Просроченная задача: ' . fake()->sentence(3),
+                'title' => 'Просроченная задача: '.fake()->sentence(3),
                 'description' => 'Эта задача не была выполнена в срок',
                 'creator_id' => $manager->id,
                 'dealership_id' => $dealership->id,
@@ -821,8 +824,8 @@ class TaskSeeder extends Seeder
 
         return TaskProof::create([
             'task_response_id' => $response->id,
-            'file_path' => 'task_proofs/demo/stub_' . Str::uuid() . '.' . $extension,
-            'original_filename' => fake()->randomElement($prefixes) . '_' . fake()->dateTimeBetween('-7 days', 'now')->format('Ymd_His') . '.' . $extension,
+            'file_path' => 'task_proofs/demo/stub_'.Str::uuid().'.'.$extension,
+            'original_filename' => fake()->randomElement($prefixes).'_'.fake()->dateTimeBetween('-7 days', 'now')->format('Ymd_His').'.'.$extension,
             'mime_type' => $mimeType,
             'file_size' => fake()->numberBetween($minSize, $maxSize),
         ]);
@@ -856,8 +859,8 @@ class TaskSeeder extends Seeder
 
         return TaskSharedProof::create([
             'task_id' => $task->id,
-            'file_path' => 'task_shared_proofs/demo/group_' . Str::uuid() . '.' . $extension,
-            'original_filename' => fake()->randomElement($prefixes) . '_' . fake()->dateTimeBetween('-7 days', 'now')->format('Ymd') . '.' . $extension,
+            'file_path' => 'task_shared_proofs/demo/group_'.Str::uuid().'.'.$extension,
+            'original_filename' => fake()->randomElement($prefixes).'_'.fake()->dateTimeBetween('-7 days', 'now')->format('Ymd').'.'.$extension,
             'mime_type' => $mimeType,
             'file_size' => fake()->numberBetween($minSize, $maxSize),
         ]);

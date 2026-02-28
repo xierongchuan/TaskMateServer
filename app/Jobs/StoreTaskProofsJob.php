@@ -35,10 +35,10 @@ class StoreTaskProofsJob implements ShouldQueue
     private const STORAGE_DISK = 'task_proofs';
 
     /**
-     * @param int $taskResponseId ID ответа на задачу
-     * @param array<array{path: string, original_name: string, mime: string, size: int, user_id: int}> $filesData
-     * @param int $dealershipId ID автосалона
-     * @param int $taskId ID задачи
+     * @param  int  $taskResponseId  ID ответа на задачу
+     * @param  array<array{path: string, original_name: string, mime: string, size: int, user_id: int}>  $filesData
+     * @param  int  $dealershipId  ID автосалона
+     * @param  int  $taskId  ID задачи
      */
     public function __construct(
         public readonly int $taskResponseId,
@@ -53,7 +53,7 @@ class StoreTaskProofsJob implements ShouldQueue
     {
         $taskResponse = TaskResponse::find($this->taskResponseId);
 
-        if (!$taskResponse) {
+        if (! $taskResponse) {
             Log::warning('StoreTaskProofsJob: TaskResponse not found', ['id' => $this->taskResponseId]);
             $this->cleanupTempFiles();
 
@@ -83,8 +83,8 @@ class StoreTaskProofsJob implements ShouldQueue
     /**
      * Сохранить файл в постоянное хранилище и создать запись в БД.
      *
-     * @param TaskResponse $taskResponse Ответ на задачу
-     * @param array{path: string, original_name: string, mime: string, size: int, user_id: int} $fileData Данные файла
+     * @param  TaskResponse  $taskResponse  Ответ на задачу
+     * @param  array{path: string, original_name: string, mime: string, size: int, user_id: int}  $fileData  Данные файла
      */
     private function storeFile(TaskResponse $taskResponse, array $fileData): void
     {
@@ -112,7 +112,7 @@ class StoreTaskProofsJob implements ShouldQueue
             throw new \RuntimeException("Temp file not found: {$fileData['path']}");
         }
 
-        if (!Storage::disk(self::STORAGE_DISK)->put($destinationPath, $content)) {
+        if (! Storage::disk(self::STORAGE_DISK)->put($destinationPath, $content)) {
             throw new \RuntimeException("Failed to store file: {$fileData['original_name']}");
         }
 

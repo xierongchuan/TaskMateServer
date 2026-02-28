@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\TaskAssignment;
 use App\Models\Task;
+use App\Models\TaskAssignment;
 use App\Models\User;
 
 describe('TaskAssignment Model', function () {
