@@ -20,6 +20,7 @@
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.94",
+    "knuckleswtf/scribe": "^5.8",
     "laravel/pail": "^1.2.6",
     "laravel/pint": "^1.27",
     "laravel/sail": "^1.53",
