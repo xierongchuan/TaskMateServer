@@ -9,6 +9,7 @@ use App\Models\Task;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use League\Csv\Writer;
 
 class ArchivedTaskController extends Controller
 {
@@ -189,29 +190,24 @@ class ArchivedTaskController extends Controller
 
         $tasks = $query->orderBy('archived_at', 'desc')->get();
 
-        // Generate CSV - dates in UTC ISO format
-        $csvContent = "ID,Title,Status,Archive Reason,Archived At,Dealership,Creator,Assignees\n";
+        // Generate CSV via league/csv (RFC 4180 compliant)
+        $csv = Writer::createFromString();
+        $csv->insertOne(['ID', 'Title', 'Status', 'Archive Reason', 'Archived At', 'Dealership', 'Creator', 'Assignees']);
 
         foreach ($tasks as $task) {
-            $assignees = $task->assignments->pluck('user.full_name')->implode('; ');
-            $archivedAt = $task->archived_at
-                ? $task->archived_at->toIso8601ZuluString()
-                : '';
-
-            $csvContent .= sprintf(
-                "%d,\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+            $csv->insertOne([
                 $task->id,
-                str_replace('"', '""', $task->title),
+                $task->title,
                 $task->status ?? '',
                 $task->archive_reason ?? '',
-                $archivedAt,
+                $task->archived_at?->toIso8601ZuluString() ?? '',
                 $task->dealership?->name ?? '',
                 $task->creator?->full_name ?? '',
-                str_replace('"', '""', $assignees)
-            );
+                $task->assignments->pluck('user.full_name')->implode('; '),
+            ]);
         }
 
-        return response($csvContent, 200, [
+        return response($csv->toString(), 200, [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="archived_tasks_'.date('Y-m-d').'.csv"',
         ]);
