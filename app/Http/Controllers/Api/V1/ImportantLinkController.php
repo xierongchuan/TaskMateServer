@@ -60,8 +60,6 @@ class ImportantLinkController extends Controller
 
     public function show(Request $request, $id)
     {
-        /** @var \App\Models\User $currentUser */
-        $currentUser = $request->user();
         $link = ImportantLink::with(['creator', 'dealership'])->find($id);
 
         if (! $link) {
@@ -70,12 +68,8 @@ class ImportantLinkController extends Controller
             ], 404);
         }
 
-        // Проверка доступа к дилерству ссылки
-        if ($link->dealership_id !== null) {
-            if ($accessError = $this->validateDealershipAccess($currentUser, $link->dealership_id)) {
-                return $accessError;
-            }
-        }
+        // Проверка доступа к дилерству ссылки via Policy
+        $this->authorize('view', $link);
 
         return response()->json($link);
     }
@@ -118,12 +112,8 @@ class ImportantLinkController extends Controller
             ], 404);
         }
 
-        // Проверка доступа к текущему дилерству ссылки
-        if ($link->dealership_id !== null) {
-            if ($accessError = $this->validateDealershipAccess($currentUser, $link->dealership_id)) {
-                return $accessError;
-            }
-        }
+        // Проверка доступа к текущему дилерству ссылки via Policy
+        $this->authorize('update', $link);
 
         $validated = $request->validated();
 
@@ -144,8 +134,6 @@ class ImportantLinkController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        /** @var \App\Models\User $currentUser */
-        $currentUser = $request->user();
         $link = ImportantLink::find($id);
 
         if (! $link) {
@@ -154,12 +142,8 @@ class ImportantLinkController extends Controller
             ], 404);
         }
 
-        // Проверка доступа к дилерству ссылки
-        if ($link->dealership_id !== null) {
-            if ($accessError = $this->validateDealershipAccess($currentUser, $link->dealership_id)) {
-                return $accessError;
-            }
-        }
+        // Проверка доступа к дилерству ссылки via Policy
+        $this->authorize('delete', $link);
 
         try {
             $link->delete();

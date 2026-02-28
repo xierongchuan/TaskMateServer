@@ -46,14 +46,8 @@ class TaskVerificationController extends Controller
         $currentUser = auth()->user();
         $task = $taskResponse->task;
 
-        // Проверка доступа к автосалону
-        if (! $this->isOwner($currentUser)) {
-            if (! $this->hasAccessToDealership($currentUser, $task->dealership_id)) {
-                return response()->json([
-                    'message' => 'У вас нет доступа к этой задаче',
-                ], 403);
-            }
-        }
+        // Проверка доступа к автосалону via Policy
+        $this->authorize('verify', $taskResponse);
 
         // Проверка статуса
         if ($taskResponse->status !== 'pending_review') {
@@ -104,14 +98,8 @@ class TaskVerificationController extends Controller
         $currentUser = auth()->user();
         $task = $taskResponse->task;
 
-        // Проверка доступа к автосалону
-        if (! $this->isOwner($currentUser)) {
-            if (! $this->hasAccessToDealership($currentUser, $task->dealership_id)) {
-                return response()->json([
-                    'message' => 'У вас нет доступа к этой задаче',
-                ], 403);
-            }
-        }
+        // Проверка доступа к автосалону via Policy
+        $this->authorize('verify', $taskResponse);
 
         // Проверка статуса
         if ($taskResponse->status !== 'pending_review') {
@@ -154,14 +142,8 @@ class TaskVerificationController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
 
-        // Проверка доступа к автосалону
-        if (! $this->isOwner($currentUser)) {
-            if (! $this->hasAccessToDealership($currentUser, $task->dealership_id)) {
-                return response()->json([
-                    'message' => 'У вас нет доступа к этой задаче',
-                ], 403);
-            }
-        }
+        // Проверка доступа к автосалону via Policy (reuse updateStatus ability on task)
+        $this->authorize('updateStatus', $task);
 
         // Проверяем наличие pending_review responses
         $pendingCount = $task->responses->where('status', 'pending_review')->count();

@@ -101,19 +101,8 @@ class TaskController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
 
-        // Security check: Access scope
-        if (! $this->isOwner($currentUser)) {
-            // Check visibility: dealership match OR created by me OR assigned to me
-            $isCreator = $task->creator_id === $currentUser->id;
-            $isAssigned = $task->assignments->contains('user_id', $currentUser->id);
-            $hasAccess = $this->hasAccessToDealership($currentUser, $task->dealership_id);
-
-            if (! $hasAccess && ! $isCreator && ! $isAssigned) {
-                return response()->json([
-                    'message' => 'У вас нет доступа к этой задаче',
-                ], 403);
-            }
-        }
+        // Security check: Access scope via Policy
+        $this->authorize('view', $task);
 
         return response()->json($task->toApiArray());
     }
@@ -163,13 +152,8 @@ class TaskController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
 
-        // Security check: Access scope
-        if (! $this->taskService->canEditTask($currentUser, $task)) {
-            return response()->json([
-                'message' => 'У вас нет прав для редактирования этой задачи',
-                'error_type' => 'access_denied',
-            ], 403);
-        }
+        // Security check: Access scope via Policy
+        $this->authorize('update', $task);
 
         // Запрет редактирования выполненных задач
         if (in_array($task->status, ['completed', 'completed_late'])) {
@@ -214,15 +198,8 @@ class TaskController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
 
-        // Security check: Access scope
-        if (! $this->isOwner($currentUser)) {
-            $hasAccess = $this->hasAccessToDealership($currentUser, $task->dealership_id);
-            if (! $hasAccess && $task->creator_id !== $currentUser->id) {
-                return response()->json([
-                    'message' => 'У вас нет прав для удаления этой задачи',
-                ], 403);
-            }
-        }
+        // Security check: Access scope via Policy
+        $this->authorize('delete', $task);
 
         // Delete task assignments (they will be automatically deleted due to foreign key constraints)
         TaskAssignment::where('task_id', $task->id)->delete();
@@ -257,13 +234,8 @@ class TaskController extends Controller
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
-        // Проверка доступа к dealership задачи
-        if ($task->dealership_id !== null) {
-            $accessError = $this->validateDealershipAccess($user, $task->dealership_id);
-            if ($accessError) {
-                return $accessError;
-            }
-        }
+        // Проверка доступа к dealership задачи via Policy
+        $this->authorize('updateStatus', $task);
 
         $validated = $request->validated();
 

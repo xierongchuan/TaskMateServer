@@ -20,18 +20,11 @@ class TaskGeneratorController extends Controller
     use HasDealershipAccess;
 
     /**
-     * Проверяет доступ к генератору задач.
+     * Проверяет доступ к генератору задач через Policy.
      */
     private function validateGeneratorAccess(Request $request, TaskGenerator $generator): ?JsonResponse
     {
-        /** @var \App\Models\User $user */
-        $user = $request->user();
-        if (! $this->hasAccessToDealership($user, $generator->dealership_id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Нет доступа к этому генератору задач',
-            ], 403);
-        }
+        $this->authorize('view', $generator);
 
         return null;
     }

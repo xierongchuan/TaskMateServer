@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Contracts\FileValidatorInterface;
+use App\Models\AutoDealership;
+use App\Models\TaskResponse;
+use App\Policies\DealershipPolicy;
+use App\Policies\TaskResponsePolicy;
 use App\Services\FileValidation\FileValidationConfig;
 use App\Services\FileValidation\FileValidator;
 use App\Services\FileValidation\MimeTypeResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -48,6 +53,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+        $this->registerPolicies();
+    }
+
+    /**
+     * Register model policies that don't follow default naming convention.
+     */
+    protected function registerPolicies(): void
+    {
+        Gate::policy(AutoDealership::class, DealershipPolicy::class);
+        Gate::policy(TaskResponse::class, TaskResponsePolicy::class);
     }
 
     /**

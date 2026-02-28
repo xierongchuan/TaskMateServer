@@ -68,14 +68,6 @@ class DealershipController extends Controller
      */
     public function show(Request $request, $id)
     {
-        /** @var \App\Models\User $currentUser */
-        $currentUser = $request->user();
-
-        // Проверка доступа к дилерству
-        if ($accessError = $this->validateDealershipAccess($currentUser, (int) $id)) {
-            return $accessError;
-        }
-
         $dealership = AutoDealership::with(['users', 'shifts', 'tasks'])
             ->find($id);
 
@@ -84,6 +76,9 @@ class DealershipController extends Controller
                 'message' => 'Автосалон не найден',
             ], 404);
         }
+
+        // Проверка доступа к дилерству via Policy
+        $this->authorize('view', $dealership);
 
         return response()->json($dealership);
     }
