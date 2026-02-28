@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\LoginRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -22,14 +23,9 @@ class SessionController extends Controller
      */
     private const LOCKOUT_MINUTES = 15;
 
-    public function store(Request $req)
+    public function store(LoginRequest $req)
     {
         Log::info('Login attempt', ['login' => $req->login]);
-
-        $req->validate([
-            'login' => ['required', 'min:4', 'max:64', 'regex:/^(?!.*\..*\.)(?!.*_.*_)[a-zA-Z0-9._]+$/'],
-            'password' => 'required|min:6|max:255',
-        ]);
 
         try {
             $user = User::where('login', $req->login)->first();

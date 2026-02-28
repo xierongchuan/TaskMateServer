@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StoreTaskGeneratorRequest;
+use App\Http\Requests\Api\V1\UpdateTaskGeneratorRequest;
 use App\Models\TaskGenerator;
 use App\Models\TaskGeneratorAssignment;
 use App\Traits\HasDealershipAccess;
@@ -103,36 +105,12 @@ class TaskGeneratorController extends Controller
     /**
      * Create a new task generator.
      */
-    public function store(Request $request)
+    public function store(StoreTaskGeneratorRequest $request)
     {
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
 
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'comment' => 'nullable|string',
-            'dealership_id' => 'required|exists:auto_dealerships,id',
-            'recurrence' => 'required|in:daily,weekly,monthly',
-            'recurrence_time' => 'required|date_format:H:i',
-            'deadline_time' => 'required|date_format:H:i',
-            // Support both old (single int) and new (array) formats for backwards compatibility
-            'recurrence_day_of_week' => 'nullable|integer|min:1|max:7',
-            'recurrence_day_of_month' => 'nullable|integer|min:-2|max:31',
-            'recurrence_days_of_week' => 'nullable|array|max:7',
-            'recurrence_days_of_week.*' => 'integer|min:1|max:7',
-            'recurrence_days_of_month' => 'nullable|array|max:31',
-            'recurrence_days_of_month.*' => 'integer|min:-2|max:31|not_in:0',
-            'start_date' => 'required|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
-            'task_type' => 'nullable|in:individual,group',
-            'response_type' => 'nullable|in:notification,completion,completion_with_proof',
-            'priority' => 'nullable|in:low,medium,high',
-            'tags' => 'nullable|array',
-            'notification_settings' => 'nullable|array',
-            'assignments' => 'required|array|min:1',
-            'assignments.*' => 'exists:users,id',
-        ]);
+        $validated = $request->validated();
 
         // Проверка доступа к дилерству
         if ($accessError = $this->validateDealershipAccess($currentUser, (int) $validated['dealership_id'])) {
@@ -149,41 +127,6 @@ class TaskGeneratorController extends Controller
         }
         if (empty($daysOfMonth) && ! empty($validated['recurrence_day_of_month'])) {
             $daysOfMonth = [$validated['recurrence_day_of_month']];
-        }
-
-        // Validate recurrence requirements
-        if ($validated['recurrence'] === 'weekly' && empty($daysOfWeek)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'recurrence_days_of_week is required for weekly recurrence',
-            ], 422);
-        }
-
-        if ($validated['recurrence'] === 'monthly' && empty($daysOfMonth)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'recurrence_days_of_month is required for monthly recurrence',
-            ], 422);
-        }
-
-        // Валидация типа задачи и количества исполнителей
-        $taskType = $validated['task_type'] ?? 'individual';
-        $assignmentCount = count($validated['assignments']);
-
-        if ($taskType === 'group' && $assignmentCount === 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Для групповой задачи необходимо указать хотя бы одного исполнителя',
-                'errors' => ['assignments' => ['Для групповой задачи необходимо указать хотя бы одного исполнителя']],
-            ], 422);
-        }
-
-        if ($taskType === 'individual' && $assignmentCount > 1) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Индивидуальная задача не может иметь более одного исполнителя',
-                'errors' => ['task_type' => ['Индивидуальная задача не может иметь более одного исполнителя. Используйте групповую задачу для нескольких исполнителей.']],
-            ], 422);
         }
 
         $user = $request->user();
@@ -231,7 +174,7 @@ class TaskGeneratorController extends Controller
     /**
      * Update a task generator.
      */
-    public function update(Request $request, $id)
+    public function update(UpdateTaskGeneratorRequest $request, $id)
     {
         $generator = TaskGenerator::findOrFail($id);
 
@@ -240,30 +183,7 @@ class TaskGeneratorController extends Controller
             return $accessError;
         }
 
-        $validated = $request->validate([
-            'title' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
-            'comment' => 'nullable|string',
-            'recurrence' => 'sometimes|in:daily,weekly,monthly',
-            'recurrence_time' => 'sometimes|date_format:H:i',
-            'deadline_time' => 'sometimes|date_format:H:i',
-            // Support both old (single int) and new (array) formats for backwards compatibility
-            'recurrence_day_of_week' => 'nullable|integer|min:1|max:7',
-            'recurrence_day_of_month' => 'nullable|integer|min:-2|max:31',
-            'recurrence_days_of_week' => 'nullable|array|max:7',
-            'recurrence_days_of_week.*' => 'integer|min:1|max:7',
-            'recurrence_days_of_month' => 'nullable|array|max:31',
-            'recurrence_days_of_month.*' => 'integer|min:-2|max:31|not_in:0',
-            'start_date' => 'sometimes|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
-            'task_type' => 'nullable|in:individual,group',
-            'response_type' => 'nullable|in:notification,completion,completion_with_proof',
-            'priority' => 'nullable|in:low,medium,high',
-            'tags' => 'nullable|array',
-            'notification_settings' => 'nullable|array',
-            'assignments' => 'sometimes|array|min:1',
-            'assignments.*' => 'exists:users,id',
-        ]);
+        $validated = $request->validated();
 
         // Валидация типа задачи и количества исполнителей
         $taskType = $validated['task_type'] ?? $generator->task_type;

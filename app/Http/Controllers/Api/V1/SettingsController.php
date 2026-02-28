@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\UpdateArchiveConfigRequest;
+use App\Http\Requests\Api\V1\UpdateNotificationConfigRequest;
+use App\Http\Requests\Api\V1\UpdateSettingRequest;
+use App\Http\Requests\Api\V1\UpdateShiftConfigRequest;
+use App\Http\Requests\Api\V1\UpdateTaskConfigRequest;
 use App\Models\Setting;
 use App\Services\SettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 /**
  * RESTful Settings management API
@@ -61,24 +65,10 @@ class SettingsController extends Controller
      *
      * PUT /api/v1/settings/{key}
      */
-    public function update(Request $request, string $key): JsonResponse
+    public function update(UpdateSettingRequest $request, string $key): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'value' => 'required',
-            'type' => 'nullable|in:string,integer,boolean,json,time',
-            'description' => 'nullable|string|max:255',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
         try {
-            $data = $validator->validated();
+            $data = $request->validated();
 
             $setting = $this->settingsService->set(
                 $key,
@@ -150,22 +140,10 @@ class SettingsController extends Controller
      *
      * Расписания смен теперь управляются через /api/v1/shift-schedules.
      */
-    public function updateShiftConfig(Request $request): JsonResponse
+    public function updateShiftConfig(UpdateShiftConfigRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'late_tolerance_minutes' => ['nullable', 'integer', 'min:0', 'max:120'],
-            'dealership_id' => ['nullable', 'integer'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
         try {
-            $data = $validator->validated();
+            $data = $request->validated();
             $dealershipId = $data['dealership_id'] ?? null;
 
             $updatedSettings = [];
@@ -220,27 +198,10 @@ class SettingsController extends Controller
      *
      * PUT /api/v1/settings/notification-config
      */
-    public function updateNotificationConfig(Request $request): JsonResponse
+    public function updateNotificationConfig(UpdateNotificationConfigRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'notification_enabled' => ['nullable', 'boolean'],
-            'auto_close_shifts' => ['nullable', 'boolean'],
-            'shift_reminder_minutes' => ['nullable', 'integer', 'min:1', 'max:60'],
-            'rows_per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
-            'notification_types' => ['nullable', 'array'],
-            'dealership_id' => ['nullable', 'integer'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
         try {
-            $data = $validator->validated();
+            $data = $request->validated();
             $dealershipId = $data['dealership_id'] ?? null;
             unset($data['dealership_id']);
 
@@ -300,25 +261,10 @@ class SettingsController extends Controller
      *
      * PUT /api/v1/settings/archive-config
      */
-    public function updateArchiveConfig(Request $request): JsonResponse
+    public function updateArchiveConfig(UpdateArchiveConfigRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'archive_completed_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'archive_overdue_day_of_week' => ['nullable', 'integer', 'min:0', 'max:7'],
-            'archive_overdue_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'dealership_id' => ['nullable', 'integer'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
         try {
-            $data = $validator->validated();
+            $data = $request->validated();
             $dealershipId = $data['dealership_id'] ?? null;
             unset($data['dealership_id']);
 
@@ -381,24 +327,10 @@ class SettingsController extends Controller
      *
      * PUT /api/v1/settings/task-config
      */
-    public function updateTaskConfig(Request $request): JsonResponse
+    public function updateTaskConfig(UpdateTaskConfigRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'task_requires_open_shift' => ['nullable', 'boolean'],
-            'archive_overdue_hours_after_shift' => ['nullable', 'integer', 'min:1', 'max:48'],
-            'dealership_id' => ['nullable', 'integer'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
         try {
-            $data = $validator->validated();
+            $data = $request->validated();
             $dealershipId = $data['dealership_id'] ?? null;
             unset($data['dealership_id']);
 

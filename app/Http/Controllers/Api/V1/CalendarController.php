@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\BulkUpdateCalendarRequest;
+use App\Http\Requests\Api\V1\UpdateCalendarDayRequest;
 use App\Models\CalendarDay;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 /**
  * API для управления календарём выходных/рабочих дней.
@@ -90,30 +91,12 @@ class CalendarController extends Controller
      * При первом изменении для автосалона автоматически копируются
      * все глобальные записи за год.
      */
-    public function update(Request $request, string $date): JsonResponse
+    public function update(UpdateCalendarDayRequest $request, string $date): JsonResponse
     {
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
 
-        $validator = Validator::make(
-            array_merge($request->all(), ['date' => $date]),
-            [
-                'date' => 'required|date_format:Y-m-d',
-                'type' => 'required|in:holiday,workday',
-                'description' => 'nullable|string|max:255',
-                'dealership_id' => 'nullable|integer|exists:auto_dealerships,id',
-            ]
-        );
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $validator->validated();
+        $data = $request->validated();
         $carbonDate = Carbon::parse($data['date']);
         $dealershipId = $data['dealership_id'] ?? null;
         $year = (int) $carbonDate->format('Y');
@@ -201,37 +184,12 @@ class CalendarController extends Controller
      * При первом изменении для автосалона автоматически копируются
      * все глобальные записи за год (кроме операции clear_year).
      */
-    public function bulkUpdate(Request $request): JsonResponse
+    public function bulkUpdate(BulkUpdateCalendarRequest $request): JsonResponse
     {
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
 
-        $validator = Validator::make($request->all(), [
-            'operation' => 'required|in:set_weekdays,set_dates,clear_year',
-            'year' => 'required|integer|min:2020|max:2100',
-            'dealership_id' => 'nullable|integer|exists:auto_dealerships,id',
-
-            // Для set_weekdays
-            'weekdays' => 'required_if:operation,set_weekdays|array',
-            'weekdays.*' => 'integer|min:1|max:7',
-
-            // Для set_dates
-            'dates' => 'required_if:operation,set_dates|array',
-            'dates.*' => 'date_format:Y-m-d',
-
-            // Общие параметры
-            'type' => 'required_if:operation,set_weekdays,set_dates|in:holiday,workday',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $validator->validated();
+        $data = $request->validated();
         $dealershipId = $data['dealership_id'] ?? null;
         $year = (int) $data['year'];
 

@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\BulkUpdateNotificationSettingRequest;
+use App\Http\Requests\Api\V1\UpdateNotificationSettingRequest;
 use App\Models\NotificationSetting;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
@@ -100,20 +102,12 @@ class NotificationSettingController extends Controller
     /**
      * Update a specific notification setting
      */
-    public function update(Request $request, string $channelType): JsonResponse
+    public function update(UpdateNotificationSettingRequest $request, string $channelType): JsonResponse
     {
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        $validated = $request->validate([
-            'dealership_id' => 'sometimes|exists:auto_dealerships,id',
-            'is_enabled' => 'sometimes|boolean',
-            'notification_time' => 'nullable|date_format:H:i',
-            'notification_day' => 'nullable|string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
-            'notification_offset' => 'nullable|integer|min:1|max:1440', // 1 minute to 24 hours
-            'recipient_roles' => 'nullable|array',
-            'recipient_roles.*' => 'string|in:employee,manager,owner,observer',
-        ]);
+        $validated = $request->validated();
 
         $dealershipId = $validated['dealership_id'] ?? $user->dealership_id;
 
@@ -164,19 +158,12 @@ class NotificationSettingController extends Controller
     /**
      * Bulk update notification settings
      */
-    public function bulkUpdate(Request $request): JsonResponse
+    public function bulkUpdate(BulkUpdateNotificationSettingRequest $request): JsonResponse
     {
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        $validated = $request->validate([
-            'dealership_id' => 'sometimes|exists:auto_dealerships,id',
-            'settings' => 'required|array',
-            'settings.*.channel_type' => 'required|string',
-            'settings.*.is_enabled' => 'sometimes|boolean',
-            'settings.*.notification_time' => 'nullable|date_format:H:i',
-            'settings.*.notification_day' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $dealershipId = $validated['dealership_id'] ?? $user->dealership_id;
 

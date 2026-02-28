@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\Role;
 use App\Enums\ShiftStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StoreShiftRequest;
+use App\Http\Requests\Api\V1\UpdateShiftRequest;
 use App\Http\Resources\ShiftResource;
 use App\Models\Shift;
 use App\Models\User;
@@ -15,7 +17,6 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 
 class ShiftController extends Controller
 {
@@ -87,28 +88,14 @@ class ShiftController extends Controller
      *
      * POST /api/v1/shifts
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreShiftRequest $request): JsonResponse
     {
         $currentUser = $request->user();
         if (! $currentUser) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id',
-            'dealership_id' => 'required|exists:auto_dealerships,id',
-            'opening_photo' => 'required|file|image|mimes:jpeg,png,jpg|max:5120',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $validator->validated();
+        $data = $request->validated();
 
         // SECURITY CHECK: Opening shift for another user
         if ((int) $data['user_id'] !== $currentUser->id) {
@@ -211,7 +198,7 @@ class ShiftController extends Controller
      *
      * PUT /api/v1/shifts/{id}
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(UpdateShiftRequest $request, int $id): JsonResponse
     {
         $shift = Shift::findOrFail($id);
         $currentUser = $request->user();
@@ -241,20 +228,7 @@ class ShiftController extends Controller
             ], 403);
         }
 
-        $validator = Validator::make($request->all(), [
-            'closing_photo' => 'sometimes|required|file|image|mimes:jpeg,png,jpg|max:5120',
-            'status' => 'sometimes|in:open,closed',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $validator->validated();
+        $data = $request->validated();
 
         try {
             // If closing photo is provided, close the shift

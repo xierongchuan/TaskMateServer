@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StoreShiftScheduleRequest;
+use App\Http\Requests\Api\V1\UpdateShiftScheduleRequest;
 use App\Http\Resources\ShiftScheduleResource;
 use App\Models\Shift;
 use App\Models\ShiftSchedule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class ShiftScheduleController extends Controller
 {
@@ -53,26 +54,9 @@ class ShiftScheduleController extends Controller
     /**
      * POST /api/v1/shift-schedules
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreShiftScheduleRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'dealership_id' => ['required', 'integer', 'exists:auto_dealerships,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'start_time' => ['required', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'end_time' => ['required', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка валидации',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $validator->validated();
+        $data = $request->validated();
 
         // Проверка уникальности имени в рамках автосалона
         $exists = ShiftSchedule::where('dealership_id', $data['dealership_id'])
@@ -109,27 +93,11 @@ class ShiftScheduleController extends Controller
     /**
      * PUT /api/v1/shift-schedules/{id}
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(UpdateShiftScheduleRequest $request, int $id): JsonResponse
     {
         $schedule = ShiftSchedule::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
-            'name' => ['nullable', 'string', 'max:255'],
-            'start_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'end_time' => ['nullable', 'string', 'regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка валидации',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $validator->validated();
+        $data = $request->validated();
 
         // Проверка уникальности имени
         if (isset($data['name']) && $data['name'] !== $schedule->name) {

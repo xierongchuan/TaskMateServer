@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StoreImportantLinkRequest;
+use App\Http\Requests\Api\V1\UpdateImportantLinkRequest;
 use App\Models\ImportantLink;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\Request;
@@ -78,21 +80,13 @@ class ImportantLinkController extends Controller
         return response()->json($link);
     }
 
-    public function store(Request $request)
+    public function store(StoreImportantLinkRequest $request)
     {
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
 
         Log::info('Request ImportantLink Store: '.json_encode($request->all()));
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'url' => 'required|string|max:1000|url',
-            'description' => 'nullable|string',
-            'category' => 'nullable|string|max:50',
-            'dealership_id' => 'nullable|integer|exists:auto_dealerships,id',
-            'sort_order' => 'integer',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         // Проверка доступа к дилерству, если указан
         if (! empty($validated['dealership_id'])) {
@@ -112,7 +106,7 @@ class ImportantLinkController extends Controller
         return response()->json($link, 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateImportantLinkRequest $request, $id)
     {
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
@@ -131,15 +125,7 @@ class ImportantLinkController extends Controller
             }
         }
 
-        $validated = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'url' => 'sometimes|required|string|max:1000|url',
-            'description' => 'nullable|string',
-            'category' => 'nullable|string|max:50',
-            'dealership_id' => 'nullable|integer|exists:auto_dealerships,id',
-            'sort_order' => 'integer',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         // Проверка доступа к новому дилерству, если меняется
         if (isset($validated['dealership_id']) && $validated['dealership_id'] !== $link->dealership_id) {

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StoreDealershipRequest;
+use App\Http\Requests\Api\V1\UpdateDealershipRequest;
 use App\Models\AutoDealership;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\Request;
@@ -92,16 +94,10 @@ class DealershipController extends Controller
      * @param  Request  $request  HTTP-запрос с данными автосалона
      * @return \Illuminate\Http\JsonResponse
      */
-    public function store(Request $request)
+    public function store(StoreDealershipRequest $request)
     {
         Log::info('Request Dealership Store: '.json_encode($request->all()));
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'address' => 'nullable|string|max:500',
-            'phone' => 'nullable|string|max:50',
-            'description' => 'nullable|string',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $dealership = AutoDealership::create($validated);
 
@@ -115,7 +111,7 @@ class DealershipController extends Controller
      * @param  int|string  $id  ID автосалона
      * @return \Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, $id)
+    public function update(UpdateDealershipRequest $request, $id)
     {
         $dealership = AutoDealership::find($id);
 
@@ -125,13 +121,7 @@ class DealershipController extends Controller
             ], 404);
         }
 
-        $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'address' => 'nullable|string|max:500',
-            'phone' => 'nullable|string|max:50',
-            'description' => 'nullable|string',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $dealership->update($validated);
 

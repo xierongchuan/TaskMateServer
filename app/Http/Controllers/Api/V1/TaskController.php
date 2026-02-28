@@ -6,11 +6,11 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\Role;
 use App\Enums\ShiftStatus;
-use App\Enums\TaskResponseStatus;
 use App\Helpers\TimeHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreTaskRequest;
 use App\Http\Requests\Api\V1\UpdateTaskRequest;
+use App\Http\Requests\Api\V1\UpdateTaskStatusRequest;
 use App\Jobs\StoreTaskSharedProofsJob;
 use App\Models\Shift;
 use App\Models\Task;
@@ -244,7 +244,7 @@ class TaskController extends Controller
      * @param  int|string  $id  ID задачи
      * @return \Illuminate\Http\JsonResponse
      */
-    public function updateStatus(Request $request, $id)
+    public function updateStatus(UpdateTaskStatusRequest $request, $id)
     {
         $task = Task::with(['assignments'])->find($id);
 
@@ -265,12 +265,7 @@ class TaskController extends Controller
             }
         }
 
-        $validated = $request->validate([
-            'status' => 'required|string|in:'.implode(',', TaskResponseStatus::allowedForUpdateStatus()),
-            'complete_for_all' => 'sometimes|boolean',
-            'proof_files' => 'sometimes|array|max:'.TaskProofService::MAX_FILES_PER_RESPONSE,
-            'proof_files.*' => 'file|max:102400', // 100 MB max per file
-        ]);
+        $validated = $request->validated();
 
         $status = $validated['status'];
         $completeForAll = $validated['complete_for_all'] ?? false;

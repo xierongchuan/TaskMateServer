@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\RejectTaskResponseRequest;
 use App\Models\Task;
 use App\Models\TaskResponse;
 use App\Services\TaskVerificationService;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * Контроллер для верификации доказательств выполнения задач.
@@ -88,11 +88,9 @@ class TaskVerificationController extends Controller
      *
      * @param  int|string  $id  ID ответа на задачу (task_response)
      */
-    public function reject(Request $request, $id): JsonResponse
+    public function reject(RejectTaskResponseRequest $request, $id): JsonResponse
     {
-        $validated = $request->validate([
-            'reason' => 'required|string|max:1000',
-        ]);
+        $validated = $request->validated();
 
         $taskResponse = TaskResponse::with(['task', 'proofs'])->find($id);
 
@@ -141,11 +139,9 @@ class TaskVerificationController extends Controller
      *
      * @param  int|string  $taskId  ID задачи
      */
-    public function rejectAll(Request $request, $taskId): JsonResponse
+    public function rejectAll(RejectTaskResponseRequest $request, $taskId): JsonResponse
     {
-        $validated = $request->validate([
-            'reason' => 'required|string|max:1000',
-        ]);
+        $validated = $request->validated();
 
         $task = Task::with(['responses.proofs', 'sharedProofs'])->find($taskId);
 
