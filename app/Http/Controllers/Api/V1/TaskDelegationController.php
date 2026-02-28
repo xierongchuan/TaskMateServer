@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\Role;
+use App\Events\DelegationAccepted;
+use App\Events\DelegationRejected;
+use App\Events\DelegationRequested;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreDelegationRequest;
 use App\Http\Resources\TaskDelegationResource;
@@ -12,7 +15,6 @@ use App\Models\Task;
 use App\Models\TaskDelegation;
 use App\Models\User;
 use App\Services\TaskDelegationService;
-use App\Services\TaskEventPublisher;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,7 +51,7 @@ class TaskDelegationController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        TaskEventPublisher::publishDelegationRequested($delegation);
+        event(new DelegationRequested($delegation));
 
         return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
             ->additional(['message' => 'Запрос на делегирование создан'])
@@ -166,7 +168,7 @@ class TaskDelegationController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        TaskEventPublisher::publishDelegationAccepted($delegation);
+        event(new DelegationAccepted($delegation));
 
         return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
             ->additional(['message' => 'Делегирование принято'])->response();
@@ -203,7 +205,7 @@ class TaskDelegationController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        TaskEventPublisher::publishDelegationRejected($delegation);
+        event(new DelegationRejected($delegation));
 
         return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
             ->additional(['message' => 'Делегирование отклонено'])->response();

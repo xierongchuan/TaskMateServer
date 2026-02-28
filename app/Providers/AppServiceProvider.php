@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Contracts\FileValidatorInterface;
+use App\Listeners\PublishTaskEventSubscriber;
 use App\Models\AutoDealership;
 use App\Models\TaskResponse;
 use App\Policies\DealershipPolicy;
@@ -14,6 +15,7 @@ use App\Services\FileValidation\FileValidator;
 use App\Services\FileValidation\MimeTypeResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -54,6 +56,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureRateLimiting();
         $this->registerPolicies();
+
+        Event::subscribe(PublishTaskEventSubscriber::class);
     }
 
     /**

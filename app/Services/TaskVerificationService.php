@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Events\TaskApproved;
+use App\Events\TaskRejected;
+use App\Events\TaskRejectedBulk;
 use App\Helpers\TimeHelper;
 use App\Models\Task;
 use App\Models\TaskResponse;
@@ -55,7 +58,7 @@ class TaskVerificationService
             return $response->fresh();
         });
 
-        TaskEventPublisher::publishTaskApproved($result);
+        event(new TaskApproved($result));
 
         return $result;
     }
@@ -111,7 +114,7 @@ class TaskVerificationService
             return $response->fresh();
         });
 
-        TaskEventPublisher::publishTaskRejected($result, $reason);
+        event(new TaskRejected($result, $reason));
 
         return $result;
     }
@@ -186,7 +189,7 @@ class TaskVerificationService
         });
 
         if (! empty($rejectedUserIds)) {
-            TaskEventPublisher::publishTaskRejectedBulk($task, $rejectedUserIds, $reason);
+            event(new TaskRejectedBulk($task, $rejectedUserIds, $reason));
         }
     }
 

@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\Role;
 use App\Enums\ShiftStatus;
+use App\Events\TaskAssigned;
+use App\Events\TaskPendingReview;
 use App\Helpers\TimeHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreTaskRequest;
@@ -18,7 +20,6 @@ use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskDelegation;
 use App\Services\SettingsService;
-use App\Services\TaskEventPublisher;
 use App\Services\TaskFilterService;
 use App\Services\TaskProofService;
 use App\Services\TaskService;
@@ -450,12 +451,12 @@ class TaskController extends Controller
         // Публикуем событие в RabbitMQ для Telegram Bot
         if ($status === 'pending') {
             $assignedUserIds = $task->assignments->pluck('user_id')->toArray();
-            TaskEventPublisher::publishTaskAssigned($task, $assignedUserIds);
+            event(new TaskAssigned($task, $assignedUserIds));
         }
 
         // Уведомляем менеджеров о новой задаче на проверку
         if ($status === 'pending_review' && $taskResponse !== null) {
-            TaskEventPublisher::publishTaskPendingReview($taskResponse);
+            event(new TaskPendingReview($taskResponse));
         }
 
         // Асинхронные операции выполняются ПОСЛЕ успешного коммита транзакции

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Events\TaskAssigned;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\User;
@@ -62,7 +63,7 @@ class TaskService
 
         // Публикуем событие после коммита транзакции
         if (! empty($data['assignments'])) {
-            TaskEventPublisher::publishTaskAssigned($task, $data['assignments']);
+            event(new TaskAssigned($task, $data['assignments']));
         }
 
         return $task;

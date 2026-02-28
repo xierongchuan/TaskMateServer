@@ -3,20 +3,23 @@
 declare(strict_types=1);
 
 use App\Enums\Role;
+use App\Events\DelegationAccepted;
+use App\Events\DelegationRejected;
+use App\Events\DelegationRequested;
+use App\Events\TaskApproved;
+use App\Events\TaskAssigned;
+use App\Events\TaskPendingReview;
+use App\Events\TaskRejected;
+use App\Events\TaskRejectedBulk;
 use App\Models\AutoDealership;
 use App\Models\NotificationSetting;
 use App\Models\Task;
+use App\Models\TaskDelegation;
 use App\Models\TaskResponse;
 use App\Models\User;
-use App\Services\TaskEventPublisher;
-use Illuminate\Support\Facades\Log;
 
-describe('TaskEventPublisher', function () {
+describe('Task Events', function () {
     beforeEach(function () {
-        // Переключаем RabbitMQ на несуществующий хост, чтобы publish() всегда падал
-        config()->set('queue.connections.rabbitmq.hosts.0.host', 'invalid-host-for-test');
-        config()->set('queue.connections.rabbitmq.hosts.0.port', 59999);
-
         $this->dealership = AutoDealership::factory()->create();
         $this->manager = User::factory()->create([
             'role' => Role::MANAGER->value,
@@ -28,33 +31,19 @@ describe('TaskEventPublisher', function () {
         ]);
     });
 
-    afterEach(function () {
-        // Сброс статического соединения между тестами
-        $ref = new ReflectionClass(TaskEventPublisher::class);
-        $prop = $ref->getProperty('connection');
-        $prop->setAccessible(true);
-        $prop->setValue(null, null);
-    });
-
-    describe('publishTaskAssigned', function () {
-        it('не публикует если канал отключён', function () {
-            // Arrange — канал не создан (по умолчанию disabled)
+    describe('TaskAssigned', function () {
+        it('возвращает null если канал отключён', function () {
             $task = Task::factory()->create([
                 'dealership_id' => $this->dealership->id,
                 'creator_id' => $this->manager->id,
             ]);
 
-            Log::spy();
+            $event = new TaskAssigned($task, [$this->employee->id]);
 
-            // Act
-            TaskEventPublisher::publishTaskAssigned($task, [$this->employee->id]);
-
-            // Assert — не дошло до publish, поэтому Log::warning не вызван
-            Log::shouldNotHaveReceived('warning');
+            expect($event->rabbitPayload())->toBeNull();
         });
 
-        it('не публикует если после фильтрации по ролям список пуст', function () {
-            // Arrange — канал включён, но recipient_roles = ['manager']
+        it('возвращает null если после фильтрации по ролям список пуст', function () {
             NotificationSetting::create([
                 'dealership_id' => $this->dealership->id,
                 'channel_type' => NotificationSetting::CHANNEL_TASK_ASSIGNED,
@@ -67,17 +56,12 @@ describe('TaskEventPublisher', function () {
                 'creator_id' => $this->manager->id,
             ]);
 
-            Log::spy();
+            $event = new TaskAssigned($task, [$this->employee->id]);
 
-            // Act — передаём только employee, а фильтр требует manager
-            TaskEventPublisher::publishTaskAssigned($task, [$this->employee->id]);
-
-            // Assert — filteredUserIds пуст, early return
-            Log::shouldNotHaveReceived('warning');
+            expect($event->rabbitPayload())->toBeNull();
         });
 
-        it('пытается опубликовать при включённом канале', function () {
-            // Arrange
+        it('возвращает payload при включённом канале', function () {
             NotificationSetting::create([
                 'dealership_id' => $this->dealership->id,
                 'channel_type' => NotificationSetting::CHANNEL_TASK_ASSIGNED,
@@ -90,19 +74,19 @@ describe('TaskEventPublisher', function () {
                 'creator_id' => $this->manager->id,
             ]);
 
-            Log::spy();
+            $event = new TaskAssigned($task, [$this->employee->id]);
+            $payload = $event->rabbitPayload();
 
-            // Act
-            TaskEventPublisher::publishTaskAssigned($task, [$this->employee->id]);
-
-            // Assert — доходит до publish(), но AMQP недоступен → Log::warning
-            Log::shouldHaveReceived('warning')->once();
+            expect($payload)->not->toBeNull()
+                ->and($payload['event'])->toBe('task.assigned')
+                ->and($payload['task']['id'])->toBe($task->id)
+                ->and($payload['user_ids'])->toBe([$this->employee->id])
+                ->and($payload)->toHaveKey('timestamp');
         });
     });
 
-    describe('publishTaskApproved', function () {
-        it('всегда пытается опубликовать (критическое уведомление)', function () {
-            // Arrange — без NotificationSetting
+    describe('TaskApproved', function () {
+        it('всегда возвращает payload (критическое уведомление)', function () {
             $task = Task::factory()->create([
                 'dealership_id' => $this->dealership->id,
                 'creator_id' => $this->manager->id,
@@ -114,19 +98,18 @@ describe('TaskEventPublisher', function () {
                 'responded_at' => now(),
             ]);
 
-            Log::spy();
+            $event = new TaskApproved($response);
+            $payload = $event->rabbitPayload();
 
-            // Act
-            TaskEventPublisher::publishTaskApproved($response);
-
-            // Assert
-            Log::shouldHaveReceived('warning')->once();
+            expect($payload)->not->toBeNull()
+                ->and($payload['event'])->toBe('task.approved')
+                ->and($payload['task']['id'])->toBe($task->id)
+                ->and($payload['user_ids'])->toBe([$this->employee->id]);
         });
     });
 
-    describe('publishTaskRejected', function () {
-        it('всегда пытается опубликовать с причиной', function () {
-            // Arrange
+    describe('TaskRejected', function () {
+        it('всегда возвращает payload с причиной', function () {
             $task = Task::factory()->create([
                 'dealership_id' => $this->dealership->id,
                 'creator_id' => $this->manager->id,
@@ -138,19 +121,18 @@ describe('TaskEventPublisher', function () {
                 'responded_at' => now(),
             ]);
 
-            Log::spy();
+            $event = new TaskRejected($response, 'Некачественное фото');
+            $payload = $event->rabbitPayload();
 
-            // Act
-            TaskEventPublisher::publishTaskRejected($response, 'Некачественное фото');
-
-            // Assert
-            Log::shouldHaveReceived('warning')->once();
+            expect($payload)->not->toBeNull()
+                ->and($payload['event'])->toBe('task.rejected')
+                ->and($payload['reason'])->toBe('Некачественное фото')
+                ->and($payload['user_ids'])->toBe([$this->employee->id]);
         });
     });
 
-    describe('publishTaskPendingReview', function () {
+    describe('TaskPendingReview', function () {
         it('отправляет менеджерам и владельцам, исключая автора ответа', function () {
-            // Arrange
             $task = Task::factory()->create([
                 'dealership_id' => $this->dealership->id,
                 'creator_id' => $this->manager->id,
@@ -162,17 +144,18 @@ describe('TaskEventPublisher', function () {
                 'responded_at' => now(),
             ]);
 
-            Log::spy();
+            $event = new TaskPendingReview($response);
+            $payload = $event->rabbitPayload();
 
-            // Act
-            TaskEventPublisher::publishTaskPendingReview($response);
-
-            // Assert — manager есть в dealership, поэтому дойдёт до publish
-            Log::shouldHaveReceived('warning')->once();
+            expect($payload)->not->toBeNull()
+                ->and($payload['event'])->toBe('task.pending_review')
+                ->and($payload['user_ids'])->toContain($this->manager->id)
+                ->and($payload['user_ids'])->not->toContain($this->employee->id)
+                ->and($payload)->toHaveKey('submitted_by')
+                ->and($payload)->toHaveKey('response_id');
         });
 
-        it('не публикует если нет менеджеров в автосалоне', function () {
-            // Arrange — создаём dealership без менеджеров
+        it('возвращает null если нет менеджеров в автосалоне', function () {
             $dealership2 = AutoDealership::factory()->create();
             $employee2 = User::factory()->create([
                 'role' => Role::EMPLOYEE->value,
@@ -190,35 +173,109 @@ describe('TaskEventPublisher', function () {
                 'responded_at' => now(),
             ]);
 
-            Log::spy();
+            $event = new TaskPendingReview($response);
 
-            // Act
-            TaskEventPublisher::publishTaskPendingReview($response);
-
-            // Assert — нет менеджеров → early return
-            Log::shouldNotHaveReceived('warning');
+            expect($event->rabbitPayload())->toBeNull();
         });
     });
 
-    describe('publishTaskRejectedBulk', function () {
-        it('пытается опубликовать для всех пользователей', function () {
-            // Arrange
+    describe('TaskRejectedBulk', function () {
+        it('возвращает payload для всех пользователей', function () {
             $task = Task::factory()->create([
                 'dealership_id' => $this->dealership->id,
                 'creator_id' => $this->manager->id,
             ]);
 
-            Log::spy();
+            $event = new TaskRejectedBulk($task, [$this->employee->id], 'Массовое отклонение');
+            $payload = $event->rabbitPayload();
 
-            // Act
-            TaskEventPublisher::publishTaskRejectedBulk(
-                $task,
-                [$this->employee->id],
-                'Массовое отклонение'
-            );
+            expect($payload)->not->toBeNull()
+                ->and($payload['event'])->toBe('task.rejected')
+                ->and($payload['user_ids'])->toBe([$this->employee->id])
+                ->and($payload['reason'])->toBe('Массовое отклонение');
+        });
+    });
 
-            // Assert
-            Log::shouldHaveReceived('warning')->once();
+    describe('DelegationRequested', function () {
+        it('возвращает payload для целевого сотрудника', function () {
+            $task = Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'creator_id' => $this->manager->id,
+            ]);
+            $delegation = TaskDelegation::create([
+                'task_id' => $task->id,
+                'from_user_id' => $this->employee->id,
+                'to_user_id' => $this->manager->id,
+                'reason' => 'Не могу выполнить',
+                'status' => 'pending',
+            ]);
+
+            $event = new DelegationRequested($delegation);
+            $payload = $event->rabbitPayload();
+
+            expect($payload)->not->toBeNull()
+                ->and($payload['event'])->toBe('task.delegation_requested')
+                ->and($payload['user_ids'])->toBe([$this->manager->id])
+                ->and($payload['delegation_id'])->toBe($delegation->id)
+                ->and($payload)->toHaveKey('from_user')
+                ->and($payload)->toHaveKey('reason');
+        });
+    });
+
+    describe('DelegationAccepted', function () {
+        it('возвращает payload для инициатора и менеджеров', function () {
+            $task = Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'creator_id' => $this->manager->id,
+            ]);
+
+            $employee2 = User::factory()->create([
+                'role' => Role::EMPLOYEE->value,
+                'dealership_id' => $this->dealership->id,
+            ]);
+
+            $delegation = TaskDelegation::create([
+                'task_id' => $task->id,
+                'from_user_id' => $this->employee->id,
+                'to_user_id' => $employee2->id,
+                'reason' => 'Не могу выполнить',
+                'status' => 'accepted',
+            ]);
+
+            $event = new DelegationAccepted($delegation);
+            $payload = $event->rabbitPayload();
+
+            expect($payload)->not->toBeNull()
+                ->and($payload['event'])->toBe('task.delegation_accepted')
+                ->and($payload['user_ids'])->toContain($this->employee->id)
+                ->and($payload['user_ids'])->toContain($this->manager->id)
+                ->and($payload['delegation_id'])->toBe($delegation->id);
+        });
+    });
+
+    describe('DelegationRejected', function () {
+        it('возвращает payload для инициатора', function () {
+            $task = Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'creator_id' => $this->manager->id,
+            ]);
+            $delegation = TaskDelegation::create([
+                'task_id' => $task->id,
+                'from_user_id' => $this->employee->id,
+                'to_user_id' => $this->manager->id,
+                'reason' => 'Не могу выполнить',
+                'rejection_reason' => 'Занят другой задачей',
+                'status' => 'rejected',
+            ]);
+
+            $event = new DelegationRejected($delegation);
+            $payload = $event->rabbitPayload();
+
+            expect($payload)->not->toBeNull()
+                ->and($payload['event'])->toBe('task.delegation_rejected')
+                ->and($payload['user_ids'])->toBe([$this->employee->id])
+                ->and($payload['reason'])->toBe('Занят другой задачей')
+                ->and($payload['delegation_id'])->toBe($delegation->id);
         });
     });
 });
