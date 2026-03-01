@@ -29,6 +29,9 @@ class PublishTaskEventSubscriber
 
     private static ?AMQPStreamConnection $connection = null;
 
+    /** @var \PhpAmqpLib\Channel\AMQPChannel|null */
+    private static $channel = null;
+
     public function handle(HasRabbitMQPayload $event): void
     {
         $payload = $event->rabbitPayload();
@@ -60,9 +63,7 @@ class PublishTaskEventSubscriber
     private function publishToRabbitMQ(array $payload): void
     {
         try {
-            $connection = self::getConnection();
-            $channel = $connection->channel();
-            $channel->exchange_declare(self::EXCHANGE_NAME, 'fanout', false, true, false);
+            $channel = self::getChannel();
 
             $message = new AMQPMessage(
                 json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
@@ -70,15 +71,28 @@ class PublishTaskEventSubscriber
             );
 
             $channel->basic_publish($message, self::EXCHANGE_NAME);
-            $channel->close();
         } catch (\Throwable $e) {
             self::$connection = null;
+            self::$channel = null;
 
             Log::warning('PublishTaskEventSubscriber: не удалось опубликовать событие', [
                 'error' => $e->getMessage(),
                 'event' => $payload['event'] ?? 'unknown',
             ]);
         }
+    }
+
+    private static function getChannel()
+    {
+        if (self::$channel !== null && self::$channel->is_open()) {
+            return self::$channel;
+        }
+
+        $connection = self::getConnection();
+        self::$channel = $connection->channel();
+        self::$channel->exchange_declare(self::EXCHANGE_NAME, 'fanout', false, true, false);
+
+        return self::$channel;
     }
 
     private static function getConnection(): AMQPStreamConnection

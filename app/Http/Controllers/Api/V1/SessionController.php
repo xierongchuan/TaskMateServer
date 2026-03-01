@@ -83,26 +83,9 @@ class SessionController extends Controller
 
         $user->load(['dealership', 'dealerships']);
 
-        $userData = [
-            'id' => $user->id,
-            'login' => $user->login,
-            'full_name' => $user->full_name,
-            'role' => $user->role,
-            'dealership_id' => $user->dealership_id,
-            'phone' => $user->phone,
-            'dealerships' => $user->dealerships,
-        ];
-
-        if ($user->dealership) {
-            $userData['dealership'] = [
-                'id' => $user->dealership->id,
-                'name' => $user->dealership->name,
-            ];
-        }
-
         return response()->json([
             'token' => $token,
-            'user' => $userData,
+            'user' => $this->serializeUser($user),
         ]);
     }
 
@@ -128,6 +111,11 @@ class SessionController extends Controller
 
         Log::info('Session check successful', ['user_id' => $user->id]);
 
+        return response()->json(['user' => $this->serializeUser($user)]);
+    }
+
+    private function serializeUser(User $user): array
+    {
         $data = [
             'id' => $user->id,
             'login' => $user->login,
@@ -145,6 +133,6 @@ class SessionController extends Controller
             ];
         }
 
-        return response()->json(['user' => $data]);
+        return $data;
     }
 }

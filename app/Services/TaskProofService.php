@@ -97,8 +97,12 @@ class TaskProofService
     ): array {
         $limits = $this->config->getLimits();
 
-        // Проверяем количество файлов
-        $existingCount = $response->proofs()->count();
+        // Одним запросом получаем количество и общий размер
+        $existing = $response->proofs()
+            ->selectRaw('COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size')
+            ->first();
+        $existingCount = (int) $existing->count;
+        $existingSize = (int) $existing->total_size;
         $newCount = count($files);
 
         if ($existingCount + $newCount > $limits['max_files_per_response']) {
@@ -112,8 +116,6 @@ class TaskProofService
             );
         }
 
-        // Проверяем общий размер
-        $existingSize = $response->proofs()->sum('file_size');
         $newSize = array_reduce($files, fn ($carry, $file) => $carry + $file->getSize(), 0);
 
         if ($existingSize + $newSize > $limits['max_total_size']) {
@@ -194,8 +196,12 @@ class TaskProofService
     ): void {
         $limits = $this->config->getLimits();
 
-        // Проверяем количество файлов
-        $existingCount = $response->proofs()->count();
+        // Одним запросом получаем количество и общий размер
+        $existing = $response->proofs()
+            ->selectRaw('COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size')
+            ->first();
+        $existingCount = (int) $existing->count;
+        $existingSize = (int) $existing->total_size;
         $newCount = count($files);
 
         if ($existingCount + $newCount > $limits['max_files_per_response']) {
@@ -209,8 +215,6 @@ class TaskProofService
             );
         }
 
-        // Проверяем общий размер
-        $existingSize = $response->proofs()->sum('file_size');
         $newSize = array_reduce($files, fn ($carry, $file) => $carry + $file->getSize(), 0);
 
         if ($existingSize + $newSize > $limits['max_total_size']) {

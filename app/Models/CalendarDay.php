@@ -312,5 +312,4 @@ class CalendarDay extends Model
             ->where('dealership_id', $dealershipId)
             ->delete() > 0;
     }
-
 }

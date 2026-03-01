@@ -53,8 +53,11 @@ class TaskGeneratorController extends Controller
         }
 
         // Sorting
-        $sortField = $request->get('sort_by', 'created_at');
-        $sortDir = $request->get('sort_dir', 'desc');
+        $allowedSortFields = ['created_at', 'title', 'recurrence', 'is_active', 'start_date'];
+        $sortField = in_array($request->get('sort_by'), $allowedSortFields, true)
+            ? $request->get('sort_by')
+            : 'created_at';
+        $sortDir = $request->get('sort_dir') === 'asc' ? 'asc' : 'desc';
         $query->orderBy($sortField, $sortDir);
 
         // Pagination
@@ -423,13 +426,24 @@ class TaskGeneratorController extends Controller
 
         $this->authorize('view', $generator);
 
-        $allTime = $this->getStatsForPeriod($generator, null);
-        $week = $this->getStatsForPeriod($generator, 7);
-        $month = $this->getStatsForPeriod($generator, 30);
-        $year = $this->getStatsForPeriod($generator, 365);
+        // Загружаем все задачи один раз вместо 4 отдельных запросов
+        $allTasks = $generator->generatedTasks()
+            ->with(['responses', 'assignments'])
+            ->get();
 
-        // Calculate average completion time (in minutes)
-        $avgCompletionTime = $this->calculateAverageCompletionTime($generator);
+        $periods = [7, 30, 365];
+        $cutoffs = [];
+        foreach ($periods as $days) {
+            $cutoffs[$days] = Carbon::now()->subDays($days)->startOfDay();
+        }
+
+        $allTime = $this->computeStatsForTasks($allTasks);
+        $week = $this->computeStatsForTasks($allTasks->filter(fn ($t) => $t->scheduled_date >= $cutoffs[7]));
+        $month = $this->computeStatsForTasks($allTasks->filter(fn ($t) => $t->scheduled_date >= $cutoffs[30]));
+        $year = $this->computeStatsForTasks($allTasks->filter(fn ($t) => $t->scheduled_date >= $cutoffs[365]));
+
+        // Calculate average completion time (in minutes) from already loaded tasks
+        $avgCompletionTime = $this->computeAverageCompletionTime($allTasks);
 
         return response()->json([
             'success' => true,
@@ -445,54 +459,39 @@ class TaskGeneratorController extends Controller
     }
 
     /**
-     * Get statistics for a specific period.
+     * Compute statistics for a collection of tasks.
      *
      * Counts tasks based on their actual status:
      * - Completed: archived with reason 'completed' OR active with 'completed' response status
      * - Expired: archived with reason 'expired' OR active but past deadline without completion
      * - Pending: active tasks not yet completed or expired
      */
-    private function getStatsForPeriod(TaskGenerator $generator, ?int $days): array
+    private function computeStatsForTasks($tasks): array
     {
-        $query = $generator->generatedTasks()->with(['responses', 'assignments']);
-
-        if ($days !== null) {
-            $startDate = Carbon::now()->subDays($days)->startOfDay();
-            $query = $query->where('scheduled_date', '>=', $startDate);
-        }
-
-        $tasksInPeriod = (clone $query)->get();
-
-        $totalGenerated = $tasksInPeriod->count();
+        $totalGenerated = $tasks->count();
 
         $completedCount = 0;
         $expiredCount = 0;
         $pendingCount = 0;
         $onTimeCount = 0;
 
-        foreach ($tasksInPeriod as $task) {
-            // Get the calculated status from the Task model (uses responses)
+        foreach ($tasks as $task) {
             $status = $task->status;
 
             if ($task->archived_at !== null) {
-                // For archived tasks, use archive_reason
                 if ($task->archive_reason === 'completed') {
                     $completedCount++;
-                    // Check if completed on time
                     if ($task->deadline && Carbon::parse($task->archived_at)->lte(Carbon::parse($task->deadline))) {
                         $onTimeCount++;
                     }
                 } elseif ($task->archive_reason === 'expired') {
                     $expiredCount++;
                 } else {
-                    // Other archive reasons (manual, etc.) - count as pending for statistics
                     $pendingCount++;
                 }
             } else {
-                // For active tasks, use the calculated status
                 if ($status === 'completed') {
                     $completedCount++;
-                    // Check if completed on time - find the completion response time
                     $completedResponse = $task->responses->where('status', 'completed')->sortByDesc('responded_at')->first();
                     if ($completedResponse && $task->deadline) {
                         if (Carbon::parse($completedResponse->responded_at)->lte(Carbon::parse($task->deadline))) {
@@ -502,7 +501,6 @@ class TaskGeneratorController extends Controller
                 } elseif ($status === 'overdue') {
                     $expiredCount++;
                 } else {
-                    // pending, acknowledged, pending_review - all count as pending
                     $pendingCount++;
                 }
             }
@@ -528,33 +526,24 @@ class TaskGeneratorController extends Controller
     }
 
     /**
-     * Calculate average completion time in minutes.
-     *
-     * Considers both archived completed tasks and active tasks with completed responses.
+     * Compute average completion time in minutes from a pre-loaded collection.
      */
-    private function calculateAverageCompletionTime(TaskGenerator $generator): ?float
+    private function computeAverageCompletionTime($tasks): ?float
     {
-        $tasks = $generator->generatedTasks()
-            ->with(['responses'])
-            ->whereNotNull('appear_date')
-            ->get();
-
-        if ($tasks->isEmpty()) {
-            return null;
-        }
-
         $totalMinutes = 0;
         $count = 0;
 
         foreach ($tasks as $task) {
+            if (! $task->appear_date) {
+                continue;
+            }
+
             $appearDate = Carbon::parse($task->appear_date);
             $completedAt = null;
 
-            // Check if archived with completed reason
             if ($task->archived_at !== null && $task->archive_reason === 'completed') {
                 $completedAt = Carbon::parse($task->archived_at);
             } else {
-                // Check for completed response
                 $completedResponse = $task->responses->where('status', 'completed')->sortByDesc('responded_at')->first();
                 if ($completedResponse) {
                     $completedAt = Carbon::parse($completedResponse->responded_at);
@@ -564,8 +553,7 @@ class TaskGeneratorController extends Controller
             if ($completedAt) {
                 $minutes = $appearDate->diffInMinutes($completedAt);
 
-                // Sanity check - if completion time is negative or extremely long, skip
-                if ($minutes > 0 && $minutes < 60 * 24 * 7) { // Less than a week
+                if ($minutes > 0 && $minutes < 60 * 24 * 7) {
                     $totalMinutes += $minutes;
                     $count++;
                 }

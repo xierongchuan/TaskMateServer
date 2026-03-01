@@ -8,10 +8,9 @@ use App\Enums\Role;
 use App\Enums\ShiftStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\URL;
 
 /**
- * Resource для смены с подписанными URL для фото.
+ * Resource для смены с Bearer-авторизованными URL для фото.
  *
  * Контроль доступа к фото:
  * - Owner/Manager: видят все фото
@@ -20,11 +19,6 @@ use Illuminate\Support\Facades\URL;
  */
 class ShiftResource extends JsonResource
 {
-    /**
-     * Время жизни подписанного URL для фото смены (в минутах).
-     */
-    private const PHOTO_URL_EXPIRATION_MINUTES = 60;
-
     /**
      * Transform the resource into an array.
      *
@@ -122,28 +116,5 @@ class ShiftResource extends JsonResource
 
         // URL без /api/v1 prefix - axios baseURL уже содержит этот prefix
         return "/shift-photos/{$this->id}/{$type}";
-    }
-
-    /**
-     * Generate signed URL for photo download.
-     *
-     * @deprecated Используйте generateStablePhotoUrl() для стабильных URLs с Bearer auth.
-     */
-    private function generatePhotoUrl(string $type): ?string
-    {
-        $path = $type === 'opening' ? $this->opening_photo_path : $this->closing_photo_path;
-
-        if (! $path) {
-            return null;
-        }
-
-        return URL::temporarySignedRoute(
-            'shift-photos.download',
-            now()->addMinutes(self::PHOTO_URL_EXPIRATION_MINUTES),
-            [
-                'id' => $this->id,
-                'type' => $type,
-            ]
-        );
     }
 }

@@ -59,10 +59,12 @@ class DashboardService
 
         // Получаем активные смены с eager loading
         $activeShifts = $this->getActiveShifts($dealershipId);
+        $userCount = $this->getUserCount($dealershipId);
+        $generatorStats = $this->getGeneratorStats($dealershipId);
 
         return [
-            'total_users' => $this->getUserCount($dealershipId),
-            'active_users' => $this->getUserCount($dealershipId),
+            'total_users' => $userCount,
+            'active_users' => $userCount,
             'total_tasks' => $taskStats['total_active'],
             'active_tasks' => $taskStats['total_active'],
             'completed_tasks' => $taskStats['completed_today'],
@@ -75,10 +77,10 @@ class DashboardService
             'active_shifts' => $activeShifts,
             'dealership_shift_stats' => $this->getDealershipShiftStats($dealershipId),
             'today_tasks_list' => $this->getTodayTasksList($dealershipId),
-            'active_generators' => $this->getGeneratorStats($dealershipId)['active'],
-            'total_generators' => $this->getGeneratorStats($dealershipId)['total'],
-            'tasks_generated_today' => $this->getGeneratorStats($dealershipId)['generated_today'],
-            'timestamp' => Carbon::now()->toIso8601String(),
+            'active_generators' => $generatorStats['active'],
+            'total_generators' => $generatorStats['total'],
+            'tasks_generated_today' => $generatorStats['generated_today'],
+            'timestamp' => TimeHelper::toIsoZulu(TimeHelper::nowUtc()),
         ];
     }
 
@@ -190,69 +192,74 @@ class DashboardService
      */
     protected function getDealershipShiftStats(?int $dealershipId): Collection
     {
-        $settingsService = app(SettingsService::class);
-
-        return AutoDealership::query()
+        $dealerships = AutoDealership::query()
             ->when($dealershipId, fn ($q) => $q->where('id', $dealershipId))
-            ->get()
-            ->map(function ($dealership) {
-                $totalEmployees = User::where('dealership_id', $dealership->id)
-                    ->where('role', 'employee')
-                    ->count();
+            ->get();
 
-                $onShiftCount = Shift::where('dealership_id', $dealership->id)
-                    ->whereIn('status', ShiftStatus::activeStatusValues())
-                    ->whereNull('shift_end')
-                    ->count();
+        if ($dealerships->isEmpty()) {
+            return collect();
+        }
 
-                $schedules = \App\Models\ShiftSchedule::where('dealership_id', $dealership->id)
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')
-                    ->get(['id', 'name', 'start_time', 'end_time']);
+        $dealershipIds = $dealerships->pluck('id')->toArray();
 
-                // Определяем текущее или ближайшее расписание по локальному времени автосалона
-                $currentOrNextSchedule = null;
-                $isCurrentSchedule = false;
-                if ($schedules->isNotEmpty()) {
-                    $timezone = $dealership->timezone ?? '+05:00';
-                    $localNow = Carbon::now($timezone)->format('H:i');
+        // Batch: количество сотрудников по автосалонам
+        $employeeCounts = User::whereIn('dealership_id', $dealershipIds)
+            ->where('role', 'employee')
+            ->selectRaw('dealership_id, COUNT(*) as count')
+            ->groupBy('dealership_id')
+            ->pluck('count', 'dealership_id');
 
-                    // Сначала ищем расписание, в которое попадает текущее время
+        // Batch: количество активных смен по автосалонам
+        $shiftCounts = Shift::whereIn('dealership_id', $dealershipIds)
+            ->whereIn('status', ShiftStatus::activeStatusValues())
+            ->whereNull('shift_end')
+            ->selectRaw('dealership_id, COUNT(*) as count')
+            ->groupBy('dealership_id')
+            ->pluck('count', 'dealership_id');
+
+        // Batch: расписания смен по автосалонам
+        $allSchedules = \App\Models\ShiftSchedule::whereIn('dealership_id', $dealershipIds)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get(['id', 'dealership_id', 'name', 'start_time', 'end_time'])
+            ->groupBy('dealership_id');
+
+        return $dealerships->map(function ($dealership) use ($employeeCounts, $shiftCounts, $allSchedules) {
+            $schedules = $allSchedules->get($dealership->id, collect());
+
+            $currentOrNextSchedule = null;
+            $isCurrentSchedule = false;
+            if ($schedules->isNotEmpty()) {
+                $timezone = $dealership->timezone ?? '+05:00';
+                $localNow = Carbon::now($timezone)->format('H:i');
+
+                $currentOrNextSchedule = $schedules->first(fn ($s) => $s->containsTime($localNow));
+
+                if ($currentOrNextSchedule) {
+                    $isCurrentSchedule = true;
+                } else {
                     $currentOrNextSchedule = $schedules->first(function ($s) use ($localNow) {
-                        return $s->containsTime($localNow);
-                    });
-
-                    if ($currentOrNextSchedule) {
-                        $isCurrentSchedule = true;
-                    } else {
-                        // Ищем первое расписание, start_time которого ещё не наступил
-                        $currentOrNextSchedule = $schedules->first(function ($s) use ($localNow) {
-                            $start = substr($s->start_time, 0, 5);
-
-                            return $start > $localNow;
-                        });
-
-                        // Если все смены уже прошли — берём первую (на завтра)
-                        $currentOrNextSchedule = $currentOrNextSchedule ?? $schedules->first();
-                    }
+                        return substr($s->start_time, 0, 5) > $localNow;
+                    }) ?? $schedules->first();
                 }
+            }
 
-                return [
-                    'dealership_id' => $dealership->id,
-                    'dealership_name' => $dealership->name,
-                    'total_employees' => $totalEmployees,
-                    'on_shift_count' => $onShiftCount,
-                    'shift_schedules' => $schedules->toArray(),
-                    'current_or_next_schedule' => $currentOrNextSchedule ? [
-                        'id' => $currentOrNextSchedule->id,
-                        'name' => $currentOrNextSchedule->name,
-                        'start_time' => $currentOrNextSchedule->start_time,
-                        'end_time' => $currentOrNextSchedule->end_time,
-                        'is_current' => $isCurrentSchedule,
-                    ] : null,
-                    'is_today_holiday' => CalendarDay::isHoliday(TimeHelper::nowUtc(), $dealership->id),
-                ];
-            });
+            return [
+                'dealership_id' => $dealership->id,
+                'dealership_name' => $dealership->name,
+                'total_employees' => $employeeCounts->get($dealership->id, 0),
+                'on_shift_count' => $shiftCounts->get($dealership->id, 0),
+                'shift_schedules' => $schedules->toArray(),
+                'current_or_next_schedule' => $currentOrNextSchedule ? [
+                    'id' => $currentOrNextSchedule->id,
+                    'name' => $currentOrNextSchedule->name,
+                    'start_time' => $currentOrNextSchedule->start_time,
+                    'end_time' => $currentOrNextSchedule->end_time,
+                    'is_current' => $isCurrentSchedule,
+                ] : null,
+                'is_today_holiday' => CalendarDay::isHoliday(TimeHelper::nowUtc(), $dealership->id),
+            ];
+        });
     }
 
     /**
@@ -265,31 +272,6 @@ class DashboardService
             ->where('late_minutes', '>', 0)
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
             ->count();
-    }
-
-    /**
-     * Получает последние задачи.
-     */
-    protected function getRecentTasks(?int $dealershipId): Collection
-    {
-        return Task::with('creator:id,full_name')
-            ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
-            ->orderByDesc('created_at')
-            ->limit(5)
-            ->get()
-            ->map(function ($task) {
-                $data = TaskResource::make($task)->resolve();
-
-                return [
-                    'id' => $data['id'],
-                    'title' => $data['title'],
-                    'status' => $data['status'],
-                    'created_at' => $data['created_at'],
-                    'creator' => $task->creator ? [
-                        'full_name' => $task->creator->full_name,
-                    ] : null,
-                ];
-            });
     }
 
     /**

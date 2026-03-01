@@ -235,20 +235,10 @@ class ArchiveCompletedTasks extends Command
             $query->whereNull('dealership_id');
         }
 
-        $archivedCount = 0;
-
-        // Используем chunk() для предотвращения memory leak при большом количестве задач
-        $query->chunk(500, function ($tasks) use (&$archivedCount) {
-            foreach ($tasks as $task) {
-                $task->update([
-                    'is_active' => false,
-                    'archived_at' => TimeHelper::nowUtc(),
-                    'archive_reason' => 'expired',
-                ]);
-                $archivedCount++;
-            }
-        });
-
-        return $archivedCount;
+        return $query->update([
+            'is_active' => false,
+            'archived_at' => TimeHelper::nowUtc(),
+            'archive_reason' => 'expired',
+        ]);
     }
 }

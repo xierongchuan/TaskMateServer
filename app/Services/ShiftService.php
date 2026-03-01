@@ -250,8 +250,8 @@ class ShiftService
         }
 
         $totalShifts = $query->count();
-        $lateShifts = $query->where('status', ShiftStatus::LATE->value)->count();
-        $avgLateMinutes = $query->whereNotNull('late_minutes')->avg('late_minutes') ?? 0;
+        $lateShifts = (clone $query)->where('status', ShiftStatus::LATE->value)->count();
+        $avgLateMinutes = (clone $query)->whereNotNull('late_minutes')->avg('late_minutes') ?? 0;
 
         return [
             'total_shifts' => $totalShifts,
@@ -447,8 +447,8 @@ class ShiftService
             return true;
         }
 
-        // Allow admins and owners to operate in any dealership
-        if (in_array($user->role, ['admin', 'owner'])) {
+        // Allow owners to operate in any dealership
+        if ($user->role === \App\Enums\Role::OWNER) {
             return true;
         }
 

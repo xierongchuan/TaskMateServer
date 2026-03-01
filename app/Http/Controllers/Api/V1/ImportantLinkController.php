@@ -79,8 +79,8 @@ class ImportantLinkController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
 
-        Log::info('Request ImportantLink Store: '.json_encode($request->all()));
         $validated = $request->validated();
+        Log::info('ImportantLink store request', ['title' => $validated['title'] ?? null]);
 
         // Проверка доступа к дилерству, если указан
         if (! empty($validated['dealership_id'])) {

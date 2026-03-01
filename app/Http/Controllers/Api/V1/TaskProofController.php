@@ -76,53 +76,18 @@ class TaskProofController extends Controller
      */
     public function download(Request $request, $id): StreamedResponse|JsonResponse
     {
-        // Проверка подписи URL (единственная проверка безопасности)
         if (! $request->hasValidSignature()) {
-            return response()->json([
-                'message' => 'Ссылка недействительна или истекла',
-            ], 403);
+            return response()->json(['message' => 'Ссылка недействительна или истекла'], 403);
         }
 
         $proof = TaskProof::with(['taskResponse.task'])->find($id);
-
         if (! $proof) {
-            return response()->json([
-                'message' => 'Доказательство не найдено',
-            ], 404);
+            return response()->json(['message' => 'Доказательство не найдено'], 404);
         }
 
-        // Проверяем существование файла
         $filePath = $this->taskProofService->getFilePath($proof);
 
-        if (! $filePath || ! file_exists($filePath)) {
-            return response()->json([
-                'message' => 'Файл не найден на сервере',
-            ], 404);
-        }
-
-        // Определяем Content-Type и Content-Disposition
-        $mimeType = $proof->mime_type ?: 'application/octet-stream';
-        $filename = $proof->original_filename;
-
-        // Для изображений и PDF отдаём inline, для остальных — attachment
-        $disposition = $this->getContentDisposition($mimeType);
-
-        return response()->streamDownload(
-            function () use ($filePath) {
-                $stream = fopen($filePath, 'rb');
-                if ($stream) {
-                    fpassthru($stream);
-                    fclose($stream);
-                }
-            },
-            $filename,
-            [
-                'Content-Type' => $mimeType,
-                'Content-Disposition' => $disposition.'; filename="'.$this->sanitizeFilename($filename).'"',
-                'Content-Length' => $proof->file_size,
-                'Cache-Control' => 'private, max-age=3600',
-            ]
-        );
+        return $this->streamFile($filePath, $proof->mime_type, $proof->original_filename, $proof->file_size);
     }
 
     /**
@@ -132,61 +97,23 @@ class TaskProofController extends Controller
      */
     public function downloadShared(Request $request, $id): StreamedResponse|JsonResponse
     {
-        // Проверка подписи URL (единственная проверка безопасности)
-        // Доступ контролируется при генерации подписанного URL, а не при скачивании
         if (! $request->hasValidSignature()) {
-            return response()->json([
-                'message' => 'Ссылка недействительна или истекла',
-            ], 403);
+            return response()->json(['message' => 'Ссылка недействительна или истекла'], 403);
         }
 
         $proof = TaskSharedProof::find($id);
-
         if (! $proof) {
-            return response()->json([
-                'message' => 'Доказательство не найдено',
-            ], 404);
+            return response()->json(['message' => 'Доказательство не найдено'], 404);
         }
 
-        // Проверяем существование файла на диске task_proofs (новая структура)
-        // или на диске local (старая структура для обратной совместимости)
         $filePath = null;
-
         if (Storage::disk('task_proofs')->exists($proof->file_path)) {
             $filePath = Storage::disk('task_proofs')->path($proof->file_path);
         } elseif (Storage::disk('local')->exists($proof->file_path)) {
             $filePath = Storage::disk('local')->path($proof->file_path);
         }
 
-        if (! $filePath || ! file_exists($filePath)) {
-            return response()->json([
-                'message' => 'Файл не найден на сервере',
-            ], 404);
-        }
-
-        // Определяем Content-Type и Content-Disposition
-        $mimeType = $proof->mime_type ?: 'application/octet-stream';
-        $filename = $proof->original_filename;
-
-        // Для изображений и PDF отдаём inline, для остальных — attachment
-        $disposition = $this->getContentDisposition($mimeType);
-
-        return response()->streamDownload(
-            function () use ($filePath) {
-                $stream = fopen($filePath, 'rb');
-                if ($stream) {
-                    fpassthru($stream);
-                    fclose($stream);
-                }
-            },
-            $filename,
-            [
-                'Content-Type' => $mimeType,
-                'Content-Disposition' => $disposition.'; filename="'.$this->sanitizeFilename($filename).'"',
-                'Content-Length' => $proof->file_size,
-                'Cache-Control' => 'private, max-age=3600',
-            ]
-        );
+        return $this->streamFile($filePath, $proof->mime_type, $proof->original_filename, $proof->file_size);
     }
 
     /**
@@ -278,6 +205,36 @@ class TaskProofController extends Controller
         return response()->json([
             'message' => 'Файл успешно удалён',
         ]);
+    }
+
+    /**
+     * Стримить файл пользователю.
+     */
+    private function streamFile(?string $filePath, ?string $mimeType, string $filename, int $fileSize): StreamedResponse|JsonResponse
+    {
+        if (! $filePath || ! file_exists($filePath)) {
+            return response()->json(['message' => 'Файл не найден на сервере'], 404);
+        }
+
+        $mimeType = $mimeType ?: 'application/octet-stream';
+        $disposition = $this->getContentDisposition($mimeType);
+
+        return response()->streamDownload(
+            function () use ($filePath) {
+                $stream = fopen($filePath, 'rb');
+                if ($stream) {
+                    fpassthru($stream);
+                    fclose($stream);
+                }
+            },
+            $filename,
+            [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => $disposition.'; filename="'.$this->sanitizeFilename($filename).'"',
+                'Content-Length' => $fileSize,
+                'Cache-Control' => 'private, max-age=3600',
+            ]
+        );
     }
 
     /**

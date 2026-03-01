@@ -285,7 +285,7 @@ class Task extends Model
     {
         $this->update([
             'is_active' => false,
-            'archived_at' => now(),
+            'archived_at' => TimeHelper::nowUtc(),
             'archive_reason' => $reason,
         ]);
     }
@@ -303,14 +303,6 @@ class Task extends Model
             'archived_at' => null,
             'archive_reason' => null,
         ]);
-    }
-
-    /**
-     * Auto-dealership relationship (alias for dealership)
-     */
-    public function autoDealership()
-    {
-        return $this->belongsTo(AutoDealership::class, 'dealership_id');
     }
 
     /**

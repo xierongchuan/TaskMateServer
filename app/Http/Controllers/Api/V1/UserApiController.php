@@ -497,27 +497,22 @@ class UserApiController extends Controller
             ], 403);
         }
 
-        // Проверяем наличие связанных данных
+        // Проверяем наличие связанных данных (одним запросом вместо 5)
+        $user->loadCount(['shifts', 'taskAssignments', 'taskResponses', 'createdTasks', 'createdLinks']);
+
         $relatedData = [];
+        $countMap = [
+            'shifts' => $user->shifts_count,
+            'task_assignments' => $user->task_assignments_count,
+            'task_responses' => $user->task_responses_count,
+            'created_tasks' => $user->created_tasks_count,
+            'created_links' => $user->created_links_count,
+        ];
 
-        if ($user->shifts()->count() > 0) {
-            $relatedData['shifts'] = $user->shifts()->count();
-        }
-
-        if ($user->taskAssignments()->count() > 0) {
-            $relatedData['task_assignments'] = $user->taskAssignments()->count();
-        }
-
-        if ($user->taskResponses()->count() > 0) {
-            $relatedData['task_responses'] = $user->taskResponses()->count();
-        }
-
-        if ($user->createdTasks()->count() > 0) {
-            $relatedData['created_tasks'] = $user->createdTasks()->count();
-        }
-
-        if ($user->createdLinks()->count() > 0) {
-            $relatedData['created_links'] = $user->createdLinks()->count();
+        foreach ($countMap as $key => $count) {
+            if ($count > 0) {
+                $relatedData[$key] = $count;
+            }
         }
 
         if (! empty($relatedData)) {

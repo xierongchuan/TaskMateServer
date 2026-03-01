@@ -200,39 +200,7 @@ class SettingsController extends Controller
      */
     public function updateNotificationConfig(UpdateNotificationConfigRequest $request): JsonResponse
     {
-        try {
-            $data = $request->validated();
-            $dealershipId = $data['dealership_id'] ?? null;
-            unset($data['dealership_id']);
-
-            $updatedSettings = [];
-            foreach ($data as $key => $value) {
-                if ($value !== null) {
-                    $type = 'string';
-                    if (is_bool($value)) {
-                        $type = 'boolean';
-                    } elseif (is_int($value)) {
-                        $type = 'integer';
-                    } elseif (is_array($value)) {
-                        $type = 'json';
-                    }
-
-                    $this->settingsService->set($key, $value, $dealershipId, $type);
-                    $updatedSettings[$key] = $value;
-                }
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Notification configuration updated successfully',
-                'data' => $updatedSettings,
-            ]);
-        } catch (\InvalidArgumentException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
-        }
+        return $this->updateConfigSettings($request, 'Notification configuration updated successfully');
     }
 
     /**
@@ -263,31 +231,7 @@ class SettingsController extends Controller
      */
     public function updateArchiveConfig(UpdateArchiveConfigRequest $request): JsonResponse
     {
-        try {
-            $data = $request->validated();
-            $dealershipId = $data['dealership_id'] ?? null;
-            unset($data['dealership_id']);
-
-            $updatedSettings = [];
-            foreach ($data as $key => $value) {
-                if ($value !== null) {
-                    $type = is_int($value) ? 'integer' : 'time';
-                    $this->settingsService->set($key, $value, $dealershipId, $type);
-                    $updatedSettings[$key] = $value;
-                }
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Archive configuration updated successfully',
-                'data' => $updatedSettings,
-            ]);
-        } catch (\InvalidArgumentException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
-        }
+        return $this->updateConfigSettings($request, 'Archive configuration updated successfully');
     }
 
     /**
@@ -329,15 +273,25 @@ class SettingsController extends Controller
      */
     public function updateTaskConfig(UpdateTaskConfigRequest $request): JsonResponse
     {
+        return $this->updateConfigSettings($request, 'Task configuration updated successfully');
+    }
+
+    /**
+     * Общий метод обновления настроек конфигурации.
+     *
+     * Извлекает dealership_id, определяет тип каждого значения и сохраняет.
+     */
+    private function updateConfigSettings(Request $request, string $successMessage): JsonResponse
+    {
         try {
-            $data = $request->validated();
+            $data = method_exists($request, 'validated') ? $request->validated() : $request->all();
             $dealershipId = $data['dealership_id'] ?? null;
             unset($data['dealership_id']);
 
             $updatedSettings = [];
             foreach ($data as $key => $value) {
                 if ($value !== null) {
-                    $type = is_bool($value) ? 'boolean' : 'integer';
+                    $type = $this->resolveSettingType($value);
                     $this->settingsService->set($key, $value, $dealershipId, $type);
                     $updatedSettings[$key] = $value;
                 }
@@ -345,7 +299,7 @@ class SettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Task configuration updated successfully',
+                'message' => $successMessage,
                 'data' => $updatedSettings,
             ]);
         } catch (\InvalidArgumentException $e) {
@@ -354,5 +308,23 @@ class SettingsController extends Controller
                 'message' => $e->getMessage(),
             ], 400);
         }
+    }
+
+    /**
+     * Определить тип настройки по значению.
+     */
+    private function resolveSettingType(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return 'boolean';
+        }
+        if (is_int($value)) {
+            return 'integer';
+        }
+        if (is_array($value)) {
+            return 'json';
+        }
+
+        return 'string';
     }
 }

@@ -11,6 +11,7 @@ use App\Models\Task;
 use App\Models\User;
 use App\Services\EmployeeStatsService;
 use App\Traits\HasDealershipAccess;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
@@ -36,63 +37,37 @@ class ReportController extends Controller
         $to = TimeHelper::endOfDayUtc($dateTo);
         $nowUtc = TimeHelper::nowUtc();
 
-        // Фильтр по автосалону
-        $dealershipId = null;
-        if ($user->role === 'manager' && $user->dealership_id) {
-            // Для менеджера - только его автосалон
-            $dealershipId = $user->dealership_id;
-        } elseif ($request->filled('dealership_id')) {
-            // Для других ролей - проверяем доступ к выбранному автосалону
-            $requestedDealershipId = $request->integer('dealership_id');
-            if ($accessError = $this->validateDealershipAccess($user, $requestedDealershipId)) {
-                return $accessError;
-            }
-            $dealershipId = $requestedDealershipId;
+        $dealershipResult = $this->resolveDealershipFilter($request, $user);
+        if ($dealershipResult instanceof JsonResponse) {
+            return $dealershipResult;
         }
-
-        // Helper для применения фильтра по автосалону
-        $applyTaskFilter = function ($query) use ($dealershipId) {
-            if ($dealershipId) {
-                $query->where('dealership_id', $dealershipId);
-            }
-        };
-
-        $applyShiftFilter = function ($query) use ($dealershipId) {
-            if ($dealershipId) {
-                $query->where('dealership_id', $dealershipId);
-            }
-        };
+        $dealershipId = $dealershipResult;
 
         // === SUMMARY STATISTICS ===
 
         // Всего задач в периоде
         $totalTasksQuery = Task::whereBetween('created_at', [$from, $to]);
-        $applyTaskFilter($totalTasksQuery);
+        $this->scopeByDealership($totalTasksQuery, $dealershipId);
         $totalTasks = $totalTasksQuery->count();
 
         // Переносы
         $postponedTasksQuery = Task::whereBetween('created_at', [$from, $to])
             ->where('postpone_count', '>', 0);
-        $applyTaskFilter($postponedTasksQuery);
+        $this->scopeByDealership($postponedTasksQuery, $dealershipId);
         $postponedTasks = $postponedTasksQuery->count();
 
         // Смены
         $totalShiftsQuery = Shift::whereBetween('shift_start', [$from, $to]);
-        $applyShiftFilter($totalShiftsQuery);
+        $this->scopeByDealership($totalShiftsQuery, $dealershipId);
         $totalShifts = $totalShiftsQuery->count();
 
         $lateShiftsQuery = Shift::whereBetween('shift_start', [$from, $to])
             ->where('late_minutes', '>', 0);
-        $applyShiftFilter($lateShiftsQuery);
+        $this->scopeByDealership($lateShiftsQuery, $dealershipId);
         $lateShifts = $lateShiftsQuery->count();
 
         // === ПОДСЧЁТ СТАТУСОВ БЕЗ ДВОЙНОГО СЧЁТА ===
         // Используем взаимоисключающую логику как в Task::getStatusAttribute()
-
-        // Получаем все задачи периода с responses для расчёта статусов
-        $tasksQuery = Task::with(['responses', 'assignments'])->whereBetween('created_at', [$from, $to]);
-        $applyTaskFilter($tasksQuery);
-        $allTasks = $tasksQuery->get();
 
         // Считаем статусы по каждой задаче индивидуально
         $statusCounts = [
@@ -104,12 +79,16 @@ class ReportController extends Controller
             'pending' => 0,
         ];
 
-        foreach ($allTasks as $task) {
-            $status = $this->calculateTaskStatus($task, $nowUtc);
-            if (isset($statusCounts[$status])) {
-                $statusCounts[$status]++;
+        $tasksQuery = Task::with(['responses', 'assignments'])->whereBetween('created_at', [$from, $to]);
+        $this->scopeByDealership($tasksQuery, $dealershipId);
+        $tasksQuery->chunk(500, function ($tasks) use (&$statusCounts) {
+            foreach ($tasks as $task) {
+                $status = $task->status;
+                if (isset($statusCounts[$status])) {
+                    $statusCounts[$status]++;
+                }
             }
-        }
+        });
 
         // Формируем массив для API (сумма должна равняться totalTasks)
         $tasksByStatus = [];
@@ -148,7 +127,7 @@ class ReportController extends Controller
                 $q->where('status', 'completed')
                     ->whereBetween('responded_at', [$dayStart, $dayEnd]);
             });
-            $applyTaskFilter($dayCompletedQuery);
+            $this->scopeByDealership($dayCompletedQuery, $dealershipId);
             $dayCompleted = $dayCompletedQuery->count();
 
             // Задачи, просроченные в этот день (дедлайн попал в этот день и уже прошёл)
@@ -158,13 +137,13 @@ class ReportController extends Controller
                 ->whereDoesntHave('responses', function ($q) {
                     $q->where('status', 'completed');
                 });
-            $applyTaskFilter($dayOverdueQuery);
+            $this->scopeByDealership($dayOverdueQuery, $dealershipId);
             $dayOverdue = $dayOverdueQuery->count();
 
             // Опоздания на смены в этот день
             $dayLateShiftsQuery = Shift::whereBetween('shift_start', [$dayStart, $dayEnd])
                 ->where('late_minutes', '>', 0);
-            $applyShiftFilter($dayLateShiftsQuery);
+            $this->scopeByDealership($dayLateShiftsQuery, $dealershipId);
             $dayLateShifts = $dayLateShiftsQuery->count();
 
             $dailyStats[] = [
@@ -189,14 +168,14 @@ class ReportController extends Controller
             ->whereBetween('created_at', [$from, $to])
             ->where('created_at', '<', $nowUtc->copy()->subDays(3))
             ->whereDoesntHave('responses', fn ($q) => $q->whereIn('status', ['completed', 'pending_review']));
-        $applyTaskFilter($stalePendingQuery);
+        $this->scopeByDealership($stalePendingQuery, $dealershipId);
         $stalePendingCount = $stalePendingQuery->count();
 
         // Неявки - запланированные смены без фактического начала
         $missedShiftsQuery = Shift::whereBetween('scheduled_start', [$from, $to])
             ->whereNull('shift_start')
             ->where('scheduled_start', '<', $nowUtc);
-        $applyShiftFilter($missedShiftsQuery);
+        $this->scopeByDealership($missedShiftsQuery, $dealershipId);
         $missedShiftsCount = $missedShiftsQuery->count();
 
         $topIssues = [];
@@ -271,78 +250,6 @@ class ReportController extends Controller
     }
 
     /**
-     * Вычисляет статус задачи (копия логики из Task::getStatusAttribute для консистентности)
-     */
-    private function calculateTaskStatus(Task $task, $nowUtc): string
-    {
-        $responses = $task->responses;
-        $assignments = $task->assignments;
-        $hasDeadline = $task->deadline !== null;
-        $deadlinePassed = $hasDeadline && $task->deadline->lt($nowUtc);
-
-        $isCompleted = false;
-        $completedLate = false;
-
-        if ($task->task_type === 'group') {
-            $assignedUserIds = $assignments->pluck('user_id')->unique()->values()->toArray();
-            $completedResponses = $responses->where('status', 'completed');
-            $completedUserIds = $completedResponses->pluck('user_id')->unique()->values()->toArray();
-
-            if (count($assignedUserIds) > 0 && count(array_diff($assignedUserIds, $completedUserIds)) === 0) {
-                $isCompleted = true;
-
-                if ($hasDeadline) {
-                    foreach ($completedResponses as $response) {
-                        if ($response->responded_at && $response->responded_at->gt($task->deadline)) {
-                            $completedLate = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        } else {
-            $completedResponse = $responses->firstWhere('status', 'completed');
-            if ($completedResponse) {
-                $isCompleted = true;
-
-                if ($hasDeadline && $completedResponse->responded_at && $completedResponse->responded_at->gt($task->deadline)) {
-                    $completedLate = true;
-                }
-            }
-        }
-
-        if ($isCompleted) {
-            return $completedLate ? 'completed_late' : 'completed';
-        }
-
-        if ($task->task_type === 'group') {
-            $pendingReviewUserIds = $responses->where('status', 'pending_review')->pluck('user_id')->unique()->values()->toArray();
-            if (count($pendingReviewUserIds) > 0) {
-                return 'pending_review';
-            }
-
-            $acknowledgedUserIds = $responses->where('status', 'acknowledged')->pluck('user_id')->unique()->values()->toArray();
-            if (count($acknowledgedUserIds) > 0) {
-                return 'acknowledged';
-            }
-        } else {
-            if ($responses->contains('status', 'pending_review')) {
-                return 'pending_review';
-            }
-
-            if ($responses->contains('status', 'acknowledged')) {
-                return 'acknowledged';
-            }
-        }
-
-        if ($task->is_active && $deadlinePassed) {
-            return 'overdue';
-        }
-
-        return 'pending';
-    }
-
-    /**
      * Возвращает детали проблемы по типу.
      */
     public function issueDetails(Request $request, string $issueType)
@@ -359,31 +266,11 @@ class ReportController extends Controller
         $to = TimeHelper::endOfDayUtc($dateTo);
         $nowUtc = TimeHelper::nowUtc();
 
-        // Фильтр по автосалону
-        $dealershipId = null;
-        if ($user->role === 'manager' && $user->dealership_id) {
-            // Для менеджера - только его автосалон
-            $dealershipId = $user->dealership_id;
-        } elseif ($request->filled('dealership_id')) {
-            // Для других ролей - проверяем доступ к выбранному автосалону
-            $requestedDealershipId = $request->integer('dealership_id');
-            if ($accessError = $this->validateDealershipAccess($user, $requestedDealershipId)) {
-                return $accessError;
-            }
-            $dealershipId = $requestedDealershipId;
+        $dealershipResult = $this->resolveDealershipFilter($request, $user);
+        if ($dealershipResult instanceof JsonResponse) {
+            return $dealershipResult;
         }
-
-        $applyTaskFilter = function ($query) use ($dealershipId) {
-            if ($dealershipId) {
-                $query->where('dealership_id', $dealershipId);
-            }
-        };
-
-        $applyShiftFilter = function ($query) use ($dealershipId) {
-            if ($dealershipId) {
-                $query->where('dealership_id', $dealershipId);
-            }
-        };
+        $dealershipId = $dealershipResult;
 
         $items = [];
 
@@ -395,7 +282,7 @@ class ReportController extends Controller
                     ->whereNotNull('deadline')
                     ->where('deadline', '<', $nowUtc)
                     ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'));
-                $applyTaskFilter($query);
+                $this->scopeByDealership($query, $dealershipId);
                 $items = $query->orderBy('deadline')->get()->map(fn ($task) => [
                     'id' => $task->id,
                     'title' => $task->title,
@@ -410,7 +297,7 @@ class ReportController extends Controller
                 $query = Shift::with(['user', 'dealership'])
                     ->whereBetween('shift_start', [$from, $to])
                     ->where('late_minutes', '>', 0);
-                $applyShiftFilter($query);
+                $this->scopeByDealership($query, $dealershipId);
                 $items = $query->orderByDesc('late_minutes')->get()->map(fn ($shift) => [
                     'id' => $shift->id,
                     'title' => $shift->user?->full_name ?? 'Неизвестный',
@@ -426,7 +313,7 @@ class ReportController extends Controller
                 $query = Task::with(['creator', 'dealership'])
                     ->whereBetween('created_at', [$from, $to])
                     ->where('postpone_count', '>', 0);
-                $applyTaskFilter($query);
+                $this->scopeByDealership($query, $dealershipId);
                 $items = $query->orderByDesc('postpone_count')->get()->map(fn ($task) => [
                     'id' => $task->id,
                     'title' => $task->title,
@@ -441,7 +328,7 @@ class ReportController extends Controller
                 $query = Task::with(['creator', 'dealership'])
                     ->whereBetween('created_at', [$from, $to])
                     ->whereHas('responses', fn ($q) => $q->where('status', 'pending_review'));
-                $applyTaskFilter($query);
+                $this->scopeByDealership($query, $dealershipId);
                 $items = $query->orderBy('created_at')->get()->map(fn ($task) => [
                     'id' => $task->id,
                     'title' => $task->title,
@@ -453,42 +340,19 @@ class ReportController extends Controller
                 break;
 
             case 'low_performers':
-                // Пересчитываем для получения списка
                 $employeesQuery = User::where('role', 'employee');
                 if ($dealershipId) {
                     $employeesQuery->where('dealership_id', $dealershipId);
                 }
-                $employees = $employeesQuery->get();
 
-                $items = $employees->map(function ($employee) use ($from, $to, $nowUtc) {
-                    $userTasksQuery = Task::whereHas('assignedUsers', fn ($q) => $q->where('user_id', $employee->id))
-                        ->whereBetween('created_at', [$from, $to]);
-
-                    $userTasks = (clone $userTasksQuery)->count();
-                    $userOverdue = (clone $userTasksQuery)
-                        ->where('is_active', true)
-                        ->whereNotNull('deadline')
-                        ->where('deadline', '<', $nowUtc)
-                        ->whereDoesntHave('responses', fn ($q) => $q->where('user_id', $employee->id)->where('status', 'completed'))
-                        ->count();
-
-                    $userLateShifts = Shift::where('user_id', $employee->id)
-                        ->whereBetween('shift_start', [$from, $to])
-                        ->where('late_minutes', '>', 0)
-                        ->count();
-
-                    $score = 100;
-                    if ($userTasks > 0) {
-                        $score -= ($userOverdue * 5);
-                    }
-                    $score -= ($userLateShifts * 10);
-                    $score = max(0, min(100, $score));
+                $items = $employeesQuery->get()->map(function ($employee) use ($from, $to) {
+                    $stats = $this->employeeStatsService->getStats($employee, $from, $to);
 
                     return [
                         'id' => $employee->id,
                         'title' => $employee->full_name,
-                        'subtitle' => "Рейтинг: {$score}/100",
-                        'score' => $score,
+                        'subtitle' => "Рейтинг: {$stats['performance_score']}/100",
+                        'score' => $stats['performance_score'],
                         'type' => 'user',
                         'dealership_id' => $employee->dealership_id,
                     ];
@@ -501,7 +365,7 @@ class ReportController extends Controller
                     ->whereBetween('created_at', [$from, $to])
                     ->where('created_at', '<', $nowUtc->copy()->subDays(3))
                     ->whereDoesntHave('responses', fn ($q) => $q->whereIn('status', ['completed', 'pending_review']));
-                $applyTaskFilter($query);
+                $this->scopeByDealership($query, $dealershipId);
                 $items = $query->orderBy('created_at')->get()->map(fn ($task) => [
                     'id' => $task->id,
                     'title' => $task->title,
@@ -517,7 +381,7 @@ class ReportController extends Controller
                     ->whereBetween('scheduled_start', [$from, $to])
                     ->whereNull('shift_start')
                     ->where('scheduled_start', '<', $nowUtc);
-                $applyShiftFilter($query);
+                $this->scopeByDealership($query, $dealershipId);
                 $items = $query->orderBy('scheduled_start')->get()->map(fn ($shift) => [
                     'id' => $shift->id,
                     'title' => $shift->user?->full_name ?? 'Неизвестный',
@@ -537,5 +401,38 @@ class ReportController extends Controller
             'issue_type' => $issueType,
             'items' => $items,
         ]);
+    }
+
+    /**
+     * Определить dealership_id для фильтрации отчётов.
+     *
+     * @return int|null|JsonResponse ID дилерства или ответ с ошибкой доступа
+     */
+    private function resolveDealershipFilter(Request $request, User $user): int|null|JsonResponse
+    {
+        if ($user->role === 'manager' && $user->dealership_id) {
+            return $user->dealership_id;
+        }
+
+        if ($request->filled('dealership_id')) {
+            $requestedDealershipId = $request->integer('dealership_id');
+            if ($accessError = $this->validateDealershipAccess($user, $requestedDealershipId)) {
+                return $accessError;
+            }
+
+            return $requestedDealershipId;
+        }
+
+        return null;
+    }
+
+    /**
+     * Применить фильтр по автосалону к запросу.
+     */
+    private function scopeByDealership($query, ?int $dealershipId): void
+    {
+        if ($dealershipId) {
+            $query->where('dealership_id', $dealershipId);
+        }
     }
 }

@@ -33,7 +33,10 @@ describe('ProcessTaskGeneratorsJob', function () {
     });
 
     it('processes active generators', function () {
-        // Arrange - use a time that has already passed in UTC
+        // Замораживаем время на полдень UTC для исключения edge case
+        // при запуске теста в 00:00-01:59 UTC, когда subHours(2) пересекает полночь
+        Carbon::setTestNow(Carbon::create(null, null, null, 12, 0, 0, 'UTC'));
+
         $nowUtc = Carbon::now('UTC');
         $pastTime = $nowUtc->copy()->subHours(2)->format('H:i');
 
@@ -60,6 +63,8 @@ describe('ProcessTaskGeneratorsJob', function () {
 
         // Assert
         expect(Task::where('generator_id', $generator->id)->count())->toBeGreaterThanOrEqual(1);
+
+        Carbon::setTestNow(); // Сброс замороженного времени
     });
 
     it('skips inactive generators', function () {
@@ -117,7 +122,9 @@ describe('ProcessTaskGeneratorsJob', function () {
     });
 
     it('copies assignments from generator to task', function () {
-        // Arrange
+        // Замораживаем на полдень чтобы recurrence_time='09:00' гарантированно в прошлом
+        Carbon::setTestNow(Carbon::create(null, null, null, 12, 0, 0, 'UTC'));
+
         $generator = TaskGenerator::factory()->create([
             'dealership_id' => $this->dealership->id,
             'creator_id' => $this->manager->id,
@@ -143,14 +150,17 @@ describe('ProcessTaskGeneratorsJob', function () {
 
         // Assert
         $task = Task::where('generator_id', $generator->id)->first();
-        if ($task) {
-            expect($task->assignments->count())->toBeGreaterThanOrEqual(1);
-            expect($task->assignments->pluck('user_id'))->toContain($this->employee->id);
-        }
+        expect($task)->not->toBeNull();
+        expect($task->assignments->count())->toBeGreaterThanOrEqual(1);
+        expect($task->assignments->pluck('user_id'))->toContain($this->employee->id);
+
+        Carbon::setTestNow();
     });
 
     it('updates last_generated_at timestamp', function () {
-        // Arrange
+        // Замораживаем на полдень чтобы recurrence_time='09:00' гарантированно в прошлом
+        Carbon::setTestNow(Carbon::create(null, null, null, 12, 0, 0, 'UTC'));
+
         $generator = TaskGenerator::factory()->create([
             'dealership_id' => $this->dealership->id,
             'creator_id' => $this->manager->id,
@@ -170,8 +180,9 @@ describe('ProcessTaskGeneratorsJob', function () {
 
         // Assert
         $generator->refresh();
-        if (Task::where('generator_id', $generator->id)->exists()) {
-            expect($generator->last_generated_at)->not->toBe($originalLastGenerated);
-        }
+        expect(Task::where('generator_id', $generator->id)->exists())->toBeTrue();
+        expect($generator->last_generated_at)->not->toBe($originalLastGenerated);
+
+        Carbon::setTestNow();
     });
 });

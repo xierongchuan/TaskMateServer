@@ -17,6 +17,38 @@ class ArchivedTaskController extends Controller
     use HasDealershipAccess;
 
     /**
+     * Применить общие фильтры архивных задач (dealership access, archive_reason, date range).
+     */
+    private function applyArchiveFilters(Request $request, $query, \App\Models\User $user): ?\Illuminate\Http\JsonResponse
+    {
+        if ($request->has('dealership_id')) {
+            $dealershipId = (int) $request->dealership_id;
+            if ($accessError = $this->validateDealershipAccess($user, $dealershipId)) {
+                return $accessError;
+            }
+            $query->where('dealership_id', $dealershipId);
+        } else {
+            $this->scopeByAccessibleDealerships($query, $user);
+        }
+
+        if ($request->has('archive_reason')) {
+            $query->where('archive_reason', $request->archive_reason);
+        }
+
+        if ($request->has('date_from')) {
+            $dateFrom = Carbon::parse($request->date_from)->setTimezone('UTC')->startOfDay();
+            $query->where('archived_at', '>=', $dateFrom);
+        }
+
+        if ($request->has('date_to')) {
+            $dateTo = Carbon::parse($request->date_to)->setTimezone('UTC')->endOfDay();
+            $query->where('archived_at', '<=', $dateTo);
+        }
+
+        return null;
+    }
+
+    /**
      * List archived tasks with filtering.
      */
     public function index(Request $request)
@@ -35,21 +67,8 @@ class ArchivedTaskController extends Controller
         ])
             ->whereNotNull('archived_at');
 
-        // Filter by dealership with access validation
-        if ($request->has('dealership_id')) {
-            $dealershipId = (int) $request->dealership_id;
-            if ($accessError = $this->validateDealershipAccess($user, $dealershipId)) {
-                return $accessError;
-            }
-            $query->where('dealership_id', $dealershipId);
-        } else {
-            // Scope by accessible dealerships
-            $this->scopeByAccessibleDealerships($query, $user);
-        }
-
-        // Filter by archive reason (completed, expired)
-        if ($request->has('archive_reason')) {
-            $query->where('archive_reason', $request->archive_reason);
+        if ($accessError = $this->applyArchiveFilters($request, $query, $user)) {
+            return $accessError;
         }
 
         // Filter by priority
@@ -70,17 +89,6 @@ class ArchivedTaskController extends Controller
         // Filter by generator
         if ($request->has('generator_id')) {
             $query->where('generator_id', $request->generator_id);
-        }
-
-        // Filter by date range (dates come as ISO 8601 strings)
-        if ($request->has('date_from')) {
-            $dateFrom = Carbon::parse($request->date_from)->setTimezone('UTC')->startOfDay();
-            $query->where('archived_at', '>=', $dateFrom);
-        }
-
-        if ($request->has('date_to')) {
-            $dateTo = Carbon::parse($request->date_to)->setTimezone('UTC')->endOfDay();
-            $query->where('archived_at', '<=', $dateTo);
         }
 
         // Filter by assignee
@@ -108,8 +116,11 @@ class ArchivedTaskController extends Controller
         }
 
         // Sorting
-        $sortField = $request->get('sort_by', 'archived_at');
-        $sortDir = $request->get('sort_dir', 'desc');
+        $allowedSortFields = ['archived_at', 'created_at', 'deadline', 'title', 'priority', 'task_type'];
+        $sortField = in_array($request->get('sort_by'), $allowedSortFields, true)
+            ? $request->get('sort_by')
+            : 'archived_at';
+        $sortDir = $request->get('sort_dir') === 'asc' ? 'asc' : 'desc';
         $query->orderBy($sortField, $sortDir);
 
         // Pagination
@@ -163,54 +174,33 @@ class ArchivedTaskController extends Controller
         $query = Task::with(['creator', 'dealership', 'assignments.user'])
             ->whereNotNull('archived_at');
 
-        // Apply same filters as index with access validation
-        if ($request->has('dealership_id')) {
-            $dealershipId = (int) $request->dealership_id;
-            if ($accessError = $this->validateDealershipAccess($user, $dealershipId)) {
-                return $accessError;
-            }
-            $query->where('dealership_id', $dealershipId);
-        } else {
-            // Scope by accessible dealerships
-            $this->scopeByAccessibleDealerships($query, $user);
+        if ($accessError = $this->applyArchiveFilters($request, $query, $user)) {
+            return $accessError;
         }
 
-        if ($request->has('archive_reason')) {
-            $query->where('archive_reason', $request->archive_reason);
-        }
+        $query->orderBy('archived_at', 'desc');
 
-        if ($request->has('date_from')) {
-            $dateFrom = Carbon::parse($request->date_from)->setTimezone('UTC')->startOfDay();
-            $query->where('archived_at', '>=', $dateFrom);
-        }
+        // Streaming CSV для экономии памяти при больших объёмах
+        return response()->streamDownload(function () use ($query) {
+            $csv = Writer::createFromStream(fopen('php://output', 'wb'));
+            $csv->insertOne(['ID', 'Title', 'Status', 'Archive Reason', 'Archived At', 'Dealership', 'Creator', 'Assignees']);
 
-        if ($request->has('date_to')) {
-            $dateTo = Carbon::parse($request->date_to)->setTimezone('UTC')->endOfDay();
-            $query->where('archived_at', '<=', $dateTo);
-        }
-
-        $tasks = $query->orderBy('archived_at', 'desc')->get();
-
-        // Generate CSV via league/csv (RFC 4180 compliant)
-        $csv = Writer::createFromString();
-        $csv->insertOne(['ID', 'Title', 'Status', 'Archive Reason', 'Archived At', 'Dealership', 'Creator', 'Assignees']);
-
-        foreach ($tasks as $task) {
-            $csv->insertOne([
-                $task->id,
-                $task->title,
-                $task->status ?? '',
-                $task->archive_reason ?? '',
-                $task->archived_at?->toIso8601ZuluString() ?? '',
-                $task->dealership?->name ?? '',
-                $task->creator?->full_name ?? '',
-                $task->assignments->pluck('user.full_name')->implode('; '),
-            ]);
-        }
-
-        return response($csv->toString(), 200, [
+            $query->chunk(500, function ($tasks) use ($csv) {
+                foreach ($tasks as $task) {
+                    $csv->insertOne([
+                        $task->id,
+                        $task->title,
+                        $task->status ?? '',
+                        $task->archive_reason ?? '',
+                        $task->archived_at?->toIso8601ZuluString() ?? '',
+                        $task->dealership?->name ?? '',
+                        $task->creator?->full_name ?? '',
+                        $task->assignments->pluck('user.full_name')->implode('; '),
+                    ]);
+                }
+            });
+        }, 'archived_tasks_'.date('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="archived_tasks_'.date('Y-m-d').'.csv"',
         ]);
     }
 
@@ -224,28 +214,22 @@ class ArchivedTaskController extends Controller
 
         $query = Task::whereNotNull('archived_at');
 
-        // Filter by dealership with access validation
-        if ($request->has('dealership_id')) {
-            $dealershipId = (int) $request->dealership_id;
-            if ($accessError = $this->validateDealershipAccess($user, $dealershipId)) {
-                return $accessError;
-            }
-            $query->where('dealership_id', $dealershipId);
-        } else {
-            // Scope by accessible dealerships
-            $this->scopeByAccessibleDealerships($query, $user);
+        if ($accessError = $this->applyArchiveFilters($request, $query, $user)) {
+            return $accessError;
         }
 
-        $total = $query->count();
-        $completed = (clone $query)->where('archive_reason', 'completed')->count();
-        $completedLate = (clone $query)->where('archive_reason', 'completed_late')->count();
-        $expired = (clone $query)->whereIn('archive_reason', ['expired', 'expired_after_shift'])->count();
+        $stats = (clone $query)->selectRaw("
+            COUNT(*) as total,
+            SUM(CASE WHEN archive_reason = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN archive_reason = 'completed_late' THEN 1 ELSE 0 END) as completed_late,
+            SUM(CASE WHEN archive_reason IN ('expired', 'expired_after_shift') THEN 1 ELSE 0 END) as expired
+        ")->first();
 
         return response()->json([
-            'total' => $total,
-            'completed' => $completed,
-            'completed_late' => $completedLate,
-            'expired' => $expired,
+            'total' => (int) ($stats->total ?? 0),
+            'completed' => (int) ($stats->completed ?? 0),
+            'completed_late' => (int) ($stats->completed_late ?? 0),
+            'expired' => (int) ($stats->expired ?? 0),
         ]);
     }
 }

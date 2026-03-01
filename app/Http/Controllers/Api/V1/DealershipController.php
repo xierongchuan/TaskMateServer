@@ -91,8 +91,8 @@ class DealershipController extends Controller
      */
     public function store(StoreDealershipRequest $request)
     {
-        Log::info('Request Dealership Store: '.json_encode($request->all()));
         $validated = $request->validated();
+        Log::info('Dealership store request', ['dealership_name' => $validated['name'] ?? null]);
 
         $dealership = AutoDealership::create($validated);
 
