@@ -49,7 +49,8 @@ class TaskGeneratorController extends Controller
 
         // Search by title
         if ($request->has('search')) {
-            $query->where('title', 'ilike', '%'.$request->search.'%');
+            $escapedSearch = str_replace(['%', '_'], ['\%', '\_'], $request->search);
+            $query->where('title', 'ilike', '%'.$escapedSearch.'%');
         }
 
         // Sorting
@@ -138,13 +139,11 @@ class TaskGeneratorController extends Controller
             'is_active' => true,
         ]);
 
-        // Create assignments
-        foreach ($validated['assignments'] as $userId) {
-            TaskGeneratorAssignment::create([
-                'generator_id' => $generator->id,
-                'user_id' => $userId,
-            ]);
-        }
+        // Create assignments in bulk
+        TaskGeneratorAssignment::insert(array_map(fn ($userId) => [
+            'generator_id' => $generator->id,
+            'user_id' => $userId,
+        ], $validated['assignments']));
 
         $generator->load(['creator', 'dealership', 'assignments.user']);
 
@@ -263,13 +262,11 @@ class TaskGeneratorController extends Controller
             // Remove old assignments
             TaskGeneratorAssignment::where('generator_id', $generator->id)->delete();
 
-            // Create new assignments
-            foreach ($validated['assignments'] as $userId) {
-                TaskGeneratorAssignment::create([
-                    'generator_id' => $generator->id,
-                    'user_id' => $userId,
-                ]);
-            }
+            // Create new assignments in bulk
+            TaskGeneratorAssignment::insert(array_map(fn ($userId) => [
+                'generator_id' => $generator->id,
+                'user_id' => $userId,
+            ], $validated['assignments']));
         }
 
         $generator->load(['creator', 'dealership', 'assignments.user']);

@@ -7,10 +7,11 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreDealershipRequest;
 use App\Http\Requests\Api\V1\UpdateDealershipRequest;
+use App\Http\Resources\DealershipResource;
 use App\Models\AutoDealership;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\Request;
-use Log;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Контроллер для управления автосалонами.
@@ -29,7 +30,7 @@ class DealershipController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = (int) $request->query('per_page', '15');
+        $perPage = min((int) $request->query('per_page', '15'), 100);
         $isActive = $request->query('is_active');
         $search = $request->query('search');
 
@@ -41,11 +42,12 @@ class DealershipController extends Controller
 
         // Search by name, address, description, and phone
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'ILIKE', "%{$search}%")
-                    ->orWhere('address', 'ILIKE', "%{$search}%")
-                    ->orWhere('description', 'ILIKE', "%{$search}%")
-                    ->orWhere('phone', 'ILIKE', "%{$search}%");
+            $escapedSearch = str_replace(['%', '_'], ['\%', '\_'], $search);
+            $query->where(function ($q) use ($escapedSearch) {
+                $q->where('name', 'ILIKE', "%{$escapedSearch}%")
+                    ->orWhere('address', 'ILIKE', "%{$escapedSearch}%")
+                    ->orWhere('description', 'ILIKE', "%{$escapedSearch}%")
+                    ->orWhere('phone', 'ILIKE', "%{$escapedSearch}%");
             });
         }
 
@@ -80,7 +82,7 @@ class DealershipController extends Controller
         // Проверка доступа к дилерству via Policy
         $this->authorize('view', $dealership);
 
-        return response()->json($dealership);
+        return response()->json(DealershipResource::make($dealership)->resolve());
     }
 
     /**
@@ -96,7 +98,7 @@ class DealershipController extends Controller
 
         $dealership = AutoDealership::create($validated);
 
-        return response()->json($dealership, 201);
+        return response()->json(DealershipResource::make($dealership)->resolve(), 201);
     }
 
     /**
@@ -120,7 +122,7 @@ class DealershipController extends Controller
 
         $dealership->update($validated);
 
-        return response()->json($dealership);
+        return response()->json(DealershipResource::make($dealership)->resolve());
     }
 
     /**
@@ -139,19 +141,21 @@ class DealershipController extends Controller
             ], 404);
         }
 
-        // Проверяем наличие связанных данных
+        // Проверяем наличие связанных данных (одним запросом вместо 6)
+        $dealership->loadCount(['users', 'shifts', 'tasks']);
+
         $relatedData = [];
 
-        if ($dealership->users()->count() > 0) {
-            $relatedData['users'] = $dealership->users()->count();
+        if ($dealership->users_count > 0) {
+            $relatedData['users'] = $dealership->users_count;
         }
 
-        if ($dealership->shifts()->count() > 0) {
-            $relatedData['shifts'] = $dealership->shifts()->count();
+        if ($dealership->shifts_count > 0) {
+            $relatedData['shifts'] = $dealership->shifts_count;
         }
 
-        if ($dealership->tasks()->count() > 0) {
-            $relatedData['tasks'] = $dealership->tasks()->count();
+        if ($dealership->tasks_count > 0) {
+            $relatedData['tasks'] = $dealership->tasks_count;
         }
 
         if (! empty($relatedData)) {
@@ -172,10 +176,15 @@ class DealershipController extends Controller
                 'message' => 'Автосалон успешно удален',
             ], 200);
         } catch (\Exception $e) {
+            Log::error('Dealership deletion failed', [
+                'dealership_id' => $dealership->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Ошибка при удалении автосалона',
-                'error' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : 'Внутренняя ошибка сервера',
             ], 500);
         }
     }

@@ -241,11 +241,13 @@ class TaskFilterService
             return;
         }
 
-        $query->where(function ($q) use ($search) {
-            $q->where('title', 'ILIKE', "%{$search}%")
-                ->orWhere('description', 'ILIKE', "%{$search}%")
-                ->orWhere('comment', 'ILIKE', "%{$search}%")
-                ->orWhereRaw('tags::text ILIKE ?', ["%{$search}%"]);
+        $escapedSearch = str_replace(['%', '_'], ['\%', '\_'], $search);
+
+        $query->where(function ($q) use ($escapedSearch) {
+            $q->where('title', 'ILIKE', "%{$escapedSearch}%")
+                ->orWhere('description', 'ILIKE', "%{$escapedSearch}%")
+                ->orWhere('comment', 'ILIKE', "%{$escapedSearch}%")
+                ->orWhereRaw('tags::text ILIKE ?', ["%{$escapedSearch}%"]);
         });
     }
 

@@ -26,6 +26,10 @@ class UserApiController extends Controller
 {
     use HasDealershipAccess;
 
+    public function __construct(
+        private readonly EmployeeStatsService $statsService
+    ) {}
+
     /**
      * Получает список пользователей с фильтрацией и пагинацией.
      *
@@ -34,7 +38,7 @@ class UserApiController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = (int) $request->query('per_page', '15');
+        $perPage = min((int) $request->query('per_page', '15'), 100);
 
         // Get filter parameters
         $search = (string) $request->query('search', '');
@@ -53,10 +57,11 @@ class UserApiController extends Controller
 
         // Search by login or name (OR logic)
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('login', 'ILIKE', "%{$search}%")
-                    ->orWhere('full_name', 'ILIKE', "%{$search}%")
-                    ->orWhere('phone', 'ILIKE', "%{$search}%");
+            $escapedSearch = str_replace(['%', '_'], ['\%', '\_'], $search);
+            $query->where(function ($q) use ($escapedSearch) {
+                $q->where('login', 'ILIKE', "%{$escapedSearch}%")
+                    ->orWhere('full_name', 'ILIKE', "%{$escapedSearch}%")
+                    ->orWhere('phone', 'ILIKE', "%{$escapedSearch}%");
             });
         }
 
@@ -66,7 +71,8 @@ class UserApiController extends Controller
         }
 
         if ($name !== '') {
-            $query->where('full_name', 'LIKE', "%{$name}%");
+            $escapedName = str_replace(['%', '_'], ['\%', '\_'], $name);
+            $query->where('full_name', 'LIKE', "%{$escapedName}%");
         }
 
         if ($role !== '') {
@@ -221,9 +227,7 @@ class UserApiController extends Controller
             ? TimeHelper::endOfDayUtc($dateTo)
             : TimeHelper::endOfDayUtc(TimeHelper::nowUtc()->format('Y-m-d'));
 
-        $statsService = app(EmployeeStatsService::class);
-
-        return response()->json($statsService->getStats($user, $from, $to));
+        return response()->json($this->statsService->getStats($user, $from, $to));
     }
 
     /**

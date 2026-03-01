@@ -175,13 +175,17 @@ class TaskService
                 ->restore();
         }
 
-        // Создание новых назначений для пользователей, которых ранее не было
+        // Создание новых назначений для пользователей, которых ранее не было (bulk insert)
         $toCreate = array_diff($toAdd, $restoredIds);
-        foreach ($toCreate as $userId) {
-            TaskAssignment::create([
+        if (! empty($toCreate)) {
+            $now = now();
+            $bulkData = array_map(fn (int $userId) => [
                 'task_id' => $task->id,
                 'user_id' => $userId,
-            ]);
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], array_values($toCreate));
+            TaskAssignment::insert($bulkData);
         }
     }
 

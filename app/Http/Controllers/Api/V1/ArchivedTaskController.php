@@ -108,10 +108,10 @@ class ArchivedTaskController extends Controller
 
         // Search by title/description
         if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'ilike', '%'.$search.'%')
-                    ->orWhere('description', 'ilike', '%'.$search.'%');
+            $escapedSearch = str_replace(['%', '_'], ['\%', '\_'], $request->search);
+            $query->where(function ($q) use ($escapedSearch) {
+                $q->where('title', 'ilike', '%'.$escapedSearch.'%')
+                    ->orWhere('description', 'ilike', '%'.$escapedSearch.'%');
             });
         }
 
@@ -171,7 +171,7 @@ class ArchivedTaskController extends Controller
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        $query = Task::with(['creator', 'dealership', 'assignments.user'])
+        $query = Task::with(['creator', 'dealership', 'assignments.user', 'responses'])
             ->whereNotNull('archived_at');
 
         if ($accessError = $this->applyArchiveFilters($request, $query, $user)) {

@@ -42,7 +42,8 @@ class DashboardService
         // Определяем границы дня по timezone автосалона
         $timezone = null;
         if ($dealershipId) {
-            $timezone = AutoDealership::where('id', $dealershipId)->value('timezone');
+            $dealership = AutoDealership::find($dealershipId);
+            $timezone = $dealership?->timezone;
         }
 
         if ($timezone) {
@@ -57,6 +58,9 @@ class DashboardService
         // Получаем статистику задач одним оптимизированным запросом
         $taskStats = $this->getTaskStatistics($dealershipId);
 
+        // Получаем список просроченных задач (reuse overdue count from taskStats)
+        $overdueTasksList = $this->getOverdueTasksList($dealershipId);
+
         // Получаем активные смены с eager loading
         $activeShifts = $this->getActiveShifts($dealershipId);
         $userCount = $this->getUserCount($dealershipId);
@@ -69,7 +73,7 @@ class DashboardService
             'active_tasks' => $taskStats['total_active'],
             'completed_tasks' => $taskStats['completed_today'],
             'overdue_tasks' => $taskStats['overdue'],
-            'overdue_tasks_list' => $this->getOverdueTasksList($dealershipId),
+            'overdue_tasks_list' => $overdueTasksList,
             'pending_review_count' => $this->getPendingReviewCount($dealershipId),
             'pending_review_tasks' => $this->getPendingReviewTasks($dealershipId, 5),
             'open_shifts' => count($activeShifts),

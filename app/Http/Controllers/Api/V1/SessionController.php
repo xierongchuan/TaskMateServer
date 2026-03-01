@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\LoginRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -85,7 +86,7 @@ class SessionController extends Controller
 
         return response()->json([
             'token' => $token,
-            'user' => $this->serializeUser($user),
+            'user' => UserResource::make($user)->resolve(),
         ]);
     }
 
@@ -111,28 +112,6 @@ class SessionController extends Controller
 
         Log::info('Session check successful', ['user_id' => $user->id]);
 
-        return response()->json(['user' => $this->serializeUser($user)]);
-    }
-
-    private function serializeUser(User $user): array
-    {
-        $data = [
-            'id' => $user->id,
-            'login' => $user->login,
-            'full_name' => $user->full_name,
-            'role' => $user->role,
-            'dealership_id' => $user->dealership_id,
-            'phone' => $user->phone,
-            'dealerships' => $user->dealerships,
-        ];
-
-        if ($user->dealership) {
-            $data['dealership'] = [
-                'id' => $user->dealership->id,
-                'name' => $user->dealership->name,
-            ];
-        }
-
-        return $data;
+        return response()->json(['user' => UserResource::make($user)->resolve()]);
     }
 }

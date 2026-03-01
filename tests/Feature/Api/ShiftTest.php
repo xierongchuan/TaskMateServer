@@ -10,10 +10,10 @@ use Carbon\Carbon;
 
 describe('Shift API', function () {
     beforeEach(function () {
-        $this->manager = User::factory()->create(['role' => Role::MANAGER->value]);
-        $this->owner = User::factory()->create(['role' => Role::OWNER->value]);
-        $this->employee = User::factory()->create(['role' => Role::EMPLOYEE->value]);
         $this->dealership = AutoDealership::factory()->create(['timezone' => '+00:00']);
+        $this->manager = User::factory()->create(['role' => Role::MANAGER->value, 'dealership_id' => $this->dealership->id]);
+        $this->owner = User::factory()->create(['role' => Role::OWNER->value]);
+        $this->employee = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
         \App\Models\ShiftSchedule::create([
             'dealership_id' => $this->dealership->id,
             'name' => 'Смена 1',

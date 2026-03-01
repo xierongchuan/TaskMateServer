@@ -39,7 +39,8 @@ class ProcessTaskGeneratorsJob implements ShouldQueue
         $now = TimeHelper::nowUtc();
         Log::info('ProcessTaskGeneratorsJob started', ['time_utc' => $now->toIso8601ZuluString()]);
 
-        $generators = TaskGenerator::where('is_active', true)
+        $generators = TaskGenerator::with(['assignments'])
+            ->where('is_active', true)
             ->whereDate('start_date', '<=', $now->toDateString())
             ->where(function ($q) use ($now) {
                 $q->whereNull('end_date')
@@ -123,13 +124,17 @@ class ProcessTaskGeneratorsJob implements ShouldQueue
             'recurrence' => 'none', // Individual task instances are not recurring
         ]);
 
-        // Copy assignments from generator
+        // Copy assignments from generator (bulk insert)
         $assignments = $generator->assignments;
-        foreach ($assignments as $assignment) {
-            TaskAssignment::create([
+        if ($assignments->isNotEmpty()) {
+            $now = Carbon::now();
+            $bulkData = $assignments->map(fn ($assignment) => [
                 'task_id' => $task->id,
                 'user_id' => $assignment->user_id,
-            ]);
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all();
+            TaskAssignment::insert($bulkData);
         }
 
         // Update generator's last_generated_at (in UTC)

@@ -28,6 +28,7 @@ use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
@@ -39,7 +40,8 @@ class TaskController extends Controller
         private readonly TaskService $taskService,
         private readonly TaskFilterService $taskFilterService,
         private readonly TaskProofService $taskProofService,
-        private readonly TaskVerificationService $taskVerificationService
+        private readonly TaskVerificationService $taskVerificationService,
+        private readonly SettingsService $settingsService
     ) {}
 
     /**
@@ -267,7 +269,6 @@ class TaskController extends Controller
                     }
                 } else {
                     // Для обычных пользователей: проверяем только свои proofs
-                    $existingResponse = $task->responses()->where('user_id', $user->id)->first();
                     $hasExistingProofs = $existingResponse && $existingResponse->proofs()->exists();
 
                     if (! $hasExistingProofs) {
@@ -289,8 +290,7 @@ class TaskController extends Controller
         $completedDuringShift = false;
 
         if (in_array($status, ['pending_review', 'completed'])) {
-            $settingsService = app(SettingsService::class);
-            $requiresShift = (bool) $settingsService->getSettingWithFallback(
+            $requiresShift = (bool) $this->settingsService->getSettingWithFallback(
                 'task_requires_open_shift',
                 $task->dealership_id,
                 false
@@ -324,7 +324,7 @@ class TaskController extends Controller
         $isResubmission = false;
 
         try {
-            DB::transaction(function () use ($task, $user, $status, $request, $shiftId, $completedDuringShift, $completeForAll, &$taskResponse, &$filesData, &$isResubmission) {
+            DB::transaction(function () use ($task, $user, $status, $request, $shiftId, $completedDuringShift, $completeForAll, $existingResponse, &$taskResponse, &$filesData, &$isResubmission) {
                 // Блокируем задачу для предотвращения параллельных обновлений
                 $task->lockForUpdate()->first();
 
@@ -407,7 +407,7 @@ class TaskController extends Controller
                             }
                         } else {
                             // Проверяем, это повторная отправка после отклонения
-                            $existingResponse = $task->responses()->where('user_id', $user->id)->first();
+                            // (используем $existingResponse, полученный до транзакции)
                             $isResubmission = $existingResponse && $existingResponse->status === 'rejected';
 
                             // Update or create response for current user only
@@ -431,8 +431,17 @@ class TaskController extends Controller
                 }
             });
         } catch (\Throwable $e) {
+            Log::error('Task status update failed', [
+                'task_id' => $id,
+                'user_id' => $user->id,
+                'status' => $status,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
-                'message' => 'Ошибка при обновлении статуса задачи: '.$e->getMessage(),
+                'message' => config('app.debug')
+                    ? 'Ошибка при обновлении статуса задачи: '.$e->getMessage()
+                    : 'Ошибка при обновлении статуса задачи',
             ], 500);
         }
 
@@ -548,8 +557,8 @@ class TaskController extends Controller
         $query->orderByDesc('updated_at');
 
         // Пагинация
-        $perPage = $request->input('per_page', 15);
-        $tasks = $query->paginate((int) $perPage);
+        $perPage = min((int) $request->input('per_page', 15), 100);
+        $tasks = $query->paginate($perPage);
 
         $tasksData = $tasks->getCollection()->map(fn ($task) => TaskResource::make($task)->resolve());
 

@@ -10,11 +10,14 @@ use App\Http\Requests\Api\V1\UpdateShiftScheduleRequest;
 use App\Http\Resources\ShiftScheduleResource;
 use App\Models\Shift;
 use App\Models\ShiftSchedule;
+use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ShiftScheduleController extends Controller
 {
+    use HasDealershipAccess;
+
     /**
      * GET /api/v1/shift-schedules
      */
@@ -41,9 +44,20 @@ class ShiftScheduleController extends Controller
     /**
      * GET /api/v1/shift-schedules/{id}
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
+        $currentUser = $request->user();
+        if (! $currentUser) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
         $schedule = ShiftSchedule::findOrFail($id);
+
+        // Проверка доступа к дилерству расписания
+        $accessError = $this->validateDealershipAccess($currentUser, $schedule->dealership_id);
+        if ($accessError) {
+            return $accessError;
+        }
 
         return response()->json([
             'success' => true,
@@ -95,7 +109,18 @@ class ShiftScheduleController extends Controller
      */
     public function update(UpdateShiftScheduleRequest $request, int $id): JsonResponse
     {
+        $currentUser = $request->user();
+        if (! $currentUser) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
         $schedule = ShiftSchedule::findOrFail($id);
+
+        // Проверка доступа к дилерству расписания
+        $accessError = $this->validateDealershipAccess($currentUser, $schedule->dealership_id);
+        if ($accessError) {
+            return $accessError;
+        }
 
         $data = $request->validated();
 
@@ -156,9 +181,20 @@ class ShiftScheduleController extends Controller
     /**
      * DELETE /api/v1/shift-schedules/{id}
      */
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
+        $currentUser = $request->user();
+        if (! $currentUser) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
         $schedule = ShiftSchedule::findOrFail($id);
+
+        // Проверка доступа к дилерству расписания
+        $accessError = $this->validateDealershipAccess($currentUser, $schedule->dealership_id);
+        if ($accessError) {
+            return $accessError;
+        }
 
         // Не разрешаем удалить единственную смену автосалона
         $totalCount = ShiftSchedule::where('dealership_id', $schedule->dealership_id)->count();

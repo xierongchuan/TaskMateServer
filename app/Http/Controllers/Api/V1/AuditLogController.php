@@ -114,6 +114,7 @@ class AuditLogController extends Controller
         $logs = AuditLog::where('table_name', $tableName)
             ->where('record_id', $recordId)
             ->orderByDesc('created_at')
+            ->limit(200)
             ->get();
 
         // Enrich данными: actors и dealerships

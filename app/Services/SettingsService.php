@@ -12,6 +12,8 @@ class SettingsService
 {
     private const int CACHE_TTL = 3600; // 1 hour
 
+    private const string SETTING_NOT_FOUND = '___SETTING_NOT_FOUND___';
+
     /**
      * Get a setting value with caching.
      */
@@ -236,9 +238,18 @@ class SettingsService
 
         // If dealership is specified, check its timezone first
         if ($dealershipId !== null) {
-            $dealership = \App\Models\AutoDealership::find($dealershipId);
-            if ($dealership && ! empty($dealership->timezone)) {
-                return $dealership->timezone;
+            $timezone = Cache::remember(
+                "dealership_timezone:{$dealershipId}",
+                self::CACHE_TTL,
+                function () use ($dealershipId) {
+                    $dealership = \App\Models\AutoDealership::find($dealershipId);
+
+                    return ($dealership && ! empty($dealership->timezone)) ? $dealership->timezone : null;
+                }
+            );
+
+            if ($timezone !== null) {
+                return $timezone;
             }
         }
 
@@ -351,19 +362,17 @@ class SettingsService
      */
     public function getSettingWithFallback(string $key, ?int $dealershipId = null, mixed $default = null): mixed
     {
-        $uniqueMarker = '___SETTING_NOT_FOUND___'.uniqid();
-
         // First try to get dealership-specific setting
         if ($dealershipId) {
-            $dealershipValue = $this->get($key, $dealershipId, $uniqueMarker);
-            if ($dealershipValue !== $uniqueMarker) {
+            $dealershipValue = $this->get($key, $dealershipId, self::SETTING_NOT_FOUND);
+            if ($dealershipValue !== self::SETTING_NOT_FOUND) {
                 return $dealershipValue;
             }
         }
 
         // Fallback to global setting
-        $globalValue = $this->get($key, null, $uniqueMarker);
-        if ($globalValue !== $uniqueMarker) {
+        $globalValue = $this->get($key, null, self::SETTING_NOT_FOUND);
+        if ($globalValue !== self::SETTING_NOT_FOUND) {
             return $globalValue;
         }
 
@@ -372,13 +381,73 @@ class SettingsService
 
     /**
      * Get multiple settings at once for efficiency.
+     *
+     * Batch-fetches uncached keys in a single query to avoid N+1 problem.
      */
     public function getMultipleSettings(array $keys, ?int $dealershipId = null): array
     {
         $result = [];
+        $uncachedKeys = [];
 
+        // Check cache first for each key
         foreach ($keys as $key) {
-            $result[$key] = $this->getSettingWithFallback($key, $dealershipId);
+            if ($dealershipId) {
+                $cacheKey = $this->getCacheKey($key, $dealershipId);
+                if (Cache::has($cacheKey)) {
+                    $result[$key] = Cache::get($cacheKey);
+
+                    continue;
+                }
+            }
+
+            $globalCacheKey = $this->getCacheKey($key, null);
+            if (Cache::has($globalCacheKey)) {
+                $result[$key] = Cache::get($globalCacheKey);
+
+                continue;
+            }
+
+            $uncachedKeys[] = $key;
+        }
+
+        if (empty($uncachedKeys)) {
+            return $result;
+        }
+
+        // Batch-fetch dealership-specific settings
+        $dealershipSettings = [];
+        if ($dealershipId) {
+            $settings = Setting::where('dealership_id', $dealershipId)
+                ->whereIn('key', $uncachedKeys)
+                ->get();
+
+            foreach ($settings as $setting) {
+                $value = $setting->getTypedValue();
+                Cache::put($this->getCacheKey($setting->key, $dealershipId), $value, self::CACHE_TTL);
+                $dealershipSettings[$setting->key] = $value;
+            }
+        }
+
+        // Find keys still missing after dealership lookup
+        $stillMissing = array_diff($uncachedKeys, array_keys($dealershipSettings));
+
+        // Batch-fetch global settings for remaining keys
+        $globalSettings = [];
+        if (! empty($stillMissing)) {
+            $settings = Setting::whereNull('dealership_id')
+                ->whereIn('key', $stillMissing)
+                ->get();
+
+            foreach ($settings as $setting) {
+                $value = $setting->getTypedValue();
+                Cache::put($this->getCacheKey($setting->key, null), $value, self::CACHE_TTL);
+                $globalSettings[$setting->key] = $value;
+            }
+        }
+
+        // Merge results: dealership settings take priority over global
+        foreach ($uncachedKeys as $key) {
+            $result[$key] = $dealershipSettings[$key] ?? $globalSettings[$key] ?? null;
         }
 
         return $result;
@@ -419,6 +488,9 @@ class SettingsService
      */
     public function clearCache(): void
     {
-        Cache::flush();
+        $settings = Setting::all();
+        foreach ($settings as $setting) {
+            Cache::forget($this->getCacheKey($setting->key, $setting->dealership_id));
+        }
     }
 }

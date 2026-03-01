@@ -37,7 +37,7 @@ class TaskVerificationService
     {
         $result = DB::transaction(function () use ($response, $verifier) {
             $previousStatus = $response->status;
-            $proofCount = $response->proofs()->count();
+            $proofCount = $response->relationLoaded('proofs') ? $response->proofs->count() : $response->proofs()->count();
 
             $response->update([
                 'status' => 'completed',
@@ -81,7 +81,7 @@ class TaskVerificationService
 
             // Удаляем файлы доказательств
             if (! $response->uses_shared_proofs) {
-                $proofCount = $response->proofs()->count();
+                $proofCount = $response->relationLoaded('proofs') ? $response->proofs->count() : $response->proofs()->count();
                 $this->taskProofService->deleteAllProofs($response);
             } else {
                 // Удаляем shared_proofs задачи чтобы сотрудник загрузил новые файлы
@@ -132,7 +132,7 @@ class TaskVerificationService
 
         // Удаляем только индивидуальные файлы (НЕ shared_proofs!)
         if (! $response->uses_shared_proofs) {
-            $proofCount = $response->proofs()->count();
+            $proofCount = $response->relationLoaded('proofs') ? $response->proofs->count() : $response->proofs()->count();
             $this->taskProofService->deleteAllProofs($response);
         } else {
             $proofCount = 0;
@@ -201,13 +201,15 @@ class TaskVerificationService
      */
     public function recordResubmission(TaskResponse $response, User $employee): void
     {
+        $proofCount = $response->relationLoaded('proofs') ? $response->proofs->count() : $response->proofs()->count();
+
         $this->recordHistory(
             $response,
             TaskVerificationHistory::ACTION_RESUBMITTED,
             $employee,
             'rejected',
             'pending_review',
-            $response->proofs()->count()
+            $proofCount
         );
     }
 
@@ -219,13 +221,15 @@ class TaskVerificationService
      */
     public function recordSubmission(TaskResponse $response, User $employee): void
     {
+        $proofCount = $response->relationLoaded('proofs') ? $response->proofs->count() : $response->proofs()->count();
+
         $this->recordHistory(
             $response,
             TaskVerificationHistory::ACTION_SUBMITTED,
             $employee,
             'pending',
             'pending_review',
-            $response->proofs()->count()
+            $proofCount
         );
     }
 

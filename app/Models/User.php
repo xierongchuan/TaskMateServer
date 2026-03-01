@@ -21,6 +21,13 @@ class User extends Authenticatable
 
     protected $table = 'users';
 
+    /**
+     * Per-request cache for accessible dealership IDs.
+     *
+     * @var array<int>|null
+     */
+    private ?array $_cachedAccessibleDealershipIds = null;
+
     protected $fillable = [
         'login',
         'full_name',
@@ -99,6 +106,10 @@ class User extends Authenticatable
      */
     public function getAccessibleDealershipIds(): array
     {
+        if ($this->_cachedAccessibleDealershipIds !== null) {
+            return $this->_cachedAccessibleDealershipIds;
+        }
+
         $ids = [];
 
         if ($this->dealership_id) {
@@ -108,7 +119,9 @@ class User extends Authenticatable
         $attachedIds = $this->dealerships()->pluck('auto_dealerships.id')->toArray();
         $ids = array_merge($ids, $attachedIds);
 
-        return array_unique($ids);
+        $this->_cachedAccessibleDealershipIds = array_unique($ids);
+
+        return $this->_cachedAccessibleDealershipIds;
     }
 
     /**
