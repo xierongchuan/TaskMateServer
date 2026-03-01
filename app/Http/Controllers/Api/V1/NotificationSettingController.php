@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BulkUpdateNotificationSettingRequest;
 use App\Http\Requests\Api\V1\UpdateNotificationSettingRequest;
 use App\Models\NotificationSetting;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Log;
 
 class NotificationSettingController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     /**
      * Get all notification settings for the user's dealership
@@ -54,6 +55,7 @@ class NotificationSettingController extends Controller
             });
 
         return response()->json([
+            'success' => true,
             'data' => $settings,
         ]);
     }
@@ -121,9 +123,7 @@ class NotificationSettingController extends Controller
             ->first();
 
         if (! $setting) {
-            return response()->json([
-                'message' => 'Настройка уведомления не найдена',
-            ], 404);
+            return $this->errorResponse('Настройка уведомления не найдена', 404);
         }
 
         $setting->update([
@@ -142,6 +142,7 @@ class NotificationSettingController extends Controller
         ]);
 
         return response()->json([
+            'success' => true,
             'data' => [
                 'id' => $setting->id,
                 'channel_type' => $setting->channel_type,
@@ -195,8 +196,9 @@ class NotificationSettingController extends Controller
         ]);
 
         return response()->json([
+            'success' => true,
             'message' => 'Настройки успешно обновлены',
-            'updated_count' => $updatedCount,
+            'data' => ['updated_count' => $updatedCount],
         ]);
     }
 
@@ -239,6 +241,7 @@ class NotificationSettingController extends Controller
         ]);
 
         return response()->json([
+            'success' => true,
             'message' => 'Настройки успешно сброшены к значениям по умолчанию',
         ]);
     }

@@ -41,8 +41,11 @@ describe('Dealership API', function () {
         // Assert
         $response->assertStatus(200)
             ->assertJson([
-                'id' => $dealership->id,
-                'name' => $dealership->name,
+                'success' => true,
+                'data' => [
+                    'id' => $dealership->id,
+                    'name' => $dealership->name,
+                ],
             ]);
     });
 

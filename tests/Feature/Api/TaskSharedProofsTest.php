@@ -125,7 +125,7 @@ describe('Task Shared Proofs', function () {
             ->assertOk();
 
         // Проверяем наличие shared_proofs в ответе
-        $json = $response->json();
+        $json = $response->json('data');
         expect($json)->toHaveKey('shared_proofs');
         expect($json['shared_proofs'])->toHaveCount(1);
         expect($json['shared_proofs'][0]['original_filename'])->toBe('shared.jpg');

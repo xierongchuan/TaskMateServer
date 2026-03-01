@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\DashboardService;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ use Illuminate\Http\Request;
  */
 class DashboardController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function __construct(
         private readonly DashboardService $dashboardService
@@ -32,7 +33,7 @@ class DashboardController extends Controller
     {
         $currentUser = $request->user();
         if (! $currentUser) {
-            return response()->json(['message' => 'Не авторизован'], 401);
+            return $this->errorResponse('Не авторизован', 401);
         }
 
         $dealershipId = $request->filled('dealership_id')
@@ -49,6 +50,6 @@ class DashboardController extends Controller
 
         $data = $this->dashboardService->getDashboardData($dealershipId);
 
-        return response()->json($data);
+        return $this->successResponse($data);
     }
 }

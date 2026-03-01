@@ -32,7 +32,7 @@ describe('Report API', function () {
 
         // Assert
         $response->assertStatus(200);
-        expect($response->json('summary'))->toBeArray();
+        expect($response->json('data.summary'))->toBeArray();
     });
 
     it('shows all users with history in performance section', function () {
@@ -79,7 +79,7 @@ describe('Report API', function () {
 
         // Assert
         $response->assertStatus(200);
-        $employeesPerformance = $response->json('employees_performance');
+        $employeesPerformance = $response->json('data.employees_performance');
 
         expect($employeesPerformance)->toBeArray();
 
@@ -130,7 +130,7 @@ describe('Report API', function () {
             ->getJson("/api/v1/reports?date_from={$dateFrom}&date_to={$dateTo}");
 
         $response->assertStatus(200);
-        $perf = collect($response->json('employees_performance'))
+        $perf = collect($response->json('data.employees_performance'))
             ->firstWhere('employee_id', $employee->id);
 
         expect($perf['total_tasks'])->toBe(1);
@@ -148,6 +148,6 @@ describe('Report API', function () {
             ->getJson("/api/v1/reports?dealership_id={$this->dealership->id}&date_from={$dateFrom}&date_to={$dateTo}");
 
         $response->assertStatus(200);
-        expect($response->json('summary'))->not->toHaveKey('total_replacements');
+        expect($response->json('data.summary'))->not->toHaveKey('total_replacements');
     });
 });

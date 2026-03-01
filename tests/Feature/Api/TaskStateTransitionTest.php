@@ -115,7 +115,7 @@ describe('Task State Transitions', function () {
             // Assert: Задача всё ещё доступна для просмотра
             // (архивация не удаляет, а только помечает is_active=false)
             $response->assertStatus(200);
-            expect($response->json('is_active'))->toBeFalse();
+            expect($response->json('data.is_active'))->toBeFalse();
         });
 
         it('rejects editing of completed task', function () {
@@ -168,7 +168,7 @@ describe('Task State Transitions', function () {
 
             // Assert
             $response->assertStatus(200);
-            expect($response->json('status'))->toBe('pending_review');
+            expect($response->json('data.status'))->toBe('pending_review');
         });
 
         it('allows pending_review -> completed transition via approval', function () {
@@ -245,7 +245,7 @@ describe('Task State Transitions', function () {
 
             // Assert
             $response->assertStatus(200);
-            expect($response->json('status'))->toBe('pending_review');
+            expect($response->json('data.status'))->toBe('pending_review');
         });
     });
 

@@ -9,13 +9,14 @@ use App\Http\Requests\Api\V1\StoreImportantLinkRequest;
 use App\Http\Requests\Api\V1\UpdateImportantLinkRequest;
 use App\Http\Resources\ImportantLinkResource;
 use App\Models\ImportantLink;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class ImportantLinkController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function index(Request $request)
     {
@@ -57,7 +58,22 @@ class ImportantLinkController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
-        return response()->json($links);
+        $linksData = $links->getCollection()->map(fn ($link) => ImportantLinkResource::make($link)->resolve());
+
+        return response()->json([
+            'success' => true,
+            'data' => $linksData,
+            'current_page' => $links->currentPage(),
+            'last_page' => $links->lastPage(),
+            'per_page' => $links->perPage(),
+            'total' => $links->total(),
+            'links' => [
+                'first' => $links->url(1),
+                'last' => $links->url($links->lastPage()),
+                'prev' => $links->previousPageUrl(),
+                'next' => $links->nextPageUrl(),
+            ],
+        ]);
     }
 
     public function show(Request $request, $id)
@@ -67,7 +83,7 @@ class ImportantLinkController extends Controller
         // Проверка доступа к дилерству ссылки via Policy
         $this->authorize('view', $link);
 
-        return response()->json(ImportantLinkResource::make($link)->resolve());
+        return $this->successResponse(ImportantLinkResource::make($link)->resolve());
     }
 
     public function store(StoreImportantLinkRequest $request)
@@ -93,7 +109,7 @@ class ImportantLinkController extends Controller
         // Загружаем связи для ответа
         $link->load(['creator', 'dealership']);
 
-        return response()->json(ImportantLinkResource::make($link)->resolve(), 201);
+        return $this->createdResponse(ImportantLinkResource::make($link)->resolve(), 'Ссылка создана');
     }
 
     public function update(UpdateImportantLinkRequest $request, $id)
@@ -119,7 +135,7 @@ class ImportantLinkController extends Controller
         // Загружаем связи для ответа
         $link->load(['creator', 'dealership']);
 
-        return response()->json(ImportantLinkResource::make($link)->resolve());
+        return $this->successResponse(ImportantLinkResource::make($link)->resolve());
     }
 
     public function destroy(Request $request, $id)
@@ -132,21 +148,14 @@ class ImportantLinkController extends Controller
         try {
             $link->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Ссылка успешно удалена',
-            ], 200);
+            return $this->deletedResponse('Ссылка успешно удалена');
         } catch (\Exception $e) {
             Log::error('ImportantLink deletion failed', [
                 'link_id' => $link->id,
                 'error' => $e->getMessage(),
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка при удалении ссылки',
-                'error' => config('app.debug') ? $e->getMessage() : 'Внутренняя ошибка сервера',
-            ], 500);
+            return $this->serverErrorResponse('Ошибка при удалении ссылки', $e);
         }
     }
 }

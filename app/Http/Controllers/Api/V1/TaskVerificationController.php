@@ -10,6 +10,7 @@ use App\Http\Resources\TaskResource;
 use App\Models\Task;
 use App\Models\TaskResponse;
 use App\Services\TaskVerificationService;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 
@@ -20,7 +21,7 @@ use Illuminate\Http\JsonResponse;
  */
 class TaskVerificationController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function __construct(
         private readonly TaskVerificationService $verificationService
@@ -46,26 +47,25 @@ class TaskVerificationController extends Controller
 
         // Проверка статуса
         if ($taskResponse->status !== 'pending_review') {
-            return response()->json([
-                'message' => 'Этот ответ не требует верификации',
-            ], 422);
+            return $this->errorResponse('Этот ответ не требует верификации', 422);
         }
 
         // Проверка наличия доказательств (только для задач с типом completion_with_proof)
         // Используем effectiveProofs — учитывает как индивидуальные proofs, так и shared_proofs задачи
         if ($task->response_type === 'completion_with_proof' && $taskResponse->effectiveProofs->isEmpty()) {
-            return response()->json([
-                'message' => 'Нет доказательств для верификации',
-            ], 422);
+            return $this->errorResponse('Нет доказательств для верификации', 422);
         }
 
         // Одобряем через сервис (записывает историю)
         $this->verificationService->approve($taskResponse, $currentUser);
 
-        return (new TaskResource(
-            $task->refresh()
-                ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier'])
-        ))->additional(['message' => 'Доказательство одобрено'])->response();
+        return $this->successResponse(
+            TaskResource::make(
+                $task->refresh()
+                    ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier'])
+            )->resolve(),
+            'Доказательство одобрено'
+        );
     }
 
     /**
@@ -90,18 +90,19 @@ class TaskVerificationController extends Controller
 
         // Проверка статуса
         if ($taskResponse->status !== 'pending_review') {
-            return response()->json([
-                'message' => 'Этот ответ не требует верификации',
-            ], 422);
+            return $this->errorResponse('Этот ответ не требует верификации', 422);
         }
 
         // Отклоняем через сервис (удаляет файлы, записывает историю, статус -> 'rejected')
         $this->verificationService->reject($taskResponse, $currentUser, $validated['reason']);
 
-        return (new TaskResource(
-            $task->refresh()
-                ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier'])
-        ))->additional(['message' => 'Доказательство отклонено'])->response();
+        return $this->successResponse(
+            TaskResource::make(
+                $task->refresh()
+                    ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier'])
+            )->resolve(),
+            'Доказательство отклонено'
+        );
     }
 
     /**
@@ -127,16 +128,17 @@ class TaskVerificationController extends Controller
         // Проверяем наличие pending_review responses
         $pendingCount = $task->responses->where('status', 'pending_review')->count();
         if ($pendingCount === 0) {
-            return response()->json([
-                'message' => 'Нет ответов, ожидающих проверки',
-            ], 422);
+            return $this->errorResponse('Нет ответов, ожидающих проверки', 422);
         }
 
         $this->verificationService->rejectAllForTask($task, $currentUser, $validated['reason']);
 
-        return (new TaskResource(
-            $task->refresh()
-                ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier', 'sharedProofs'])
-        ))->additional(['message' => 'Все ответы отклонены'])->response();
+        return $this->successResponse(
+            TaskResource::make(
+                $task->refresh()
+                    ->load(['assignments.user', 'responses.user', 'responses.proofs', 'responses.verifier', 'sharedProofs'])
+            )->resolve(),
+            'Все ответы отклонены'
+        );
     }
 }

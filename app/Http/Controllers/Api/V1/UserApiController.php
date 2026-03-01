@@ -14,6 +14,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\EmployeeStatsService;
 use App\Services\UserService;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +28,7 @@ use Illuminate\Http\Request;
  */
 class UserApiController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function __construct(
         private readonly EmployeeStatsService $statsService,
@@ -145,7 +146,22 @@ class UserApiController extends Controller
 
         $users = $query->orderBy($sortField, $sortDir)->paginate($perPage);
 
-        return UserResource::collection($users);
+        $usersData = $users->getCollection()->map(fn ($user) => UserResource::make($user)->resolve());
+
+        return response()->json([
+            'success' => true,
+            'data' => $usersData,
+            'current_page' => $users->currentPage(),
+            'last_page' => $users->lastPage(),
+            'per_page' => $users->perPage(),
+            'total' => $users->total(),
+            'links' => [
+                'first' => $users->url(1),
+                'last' => $users->url($users->lastPage()),
+                'prev' => $users->previousPageUrl(),
+                'next' => $users->nextPageUrl(),
+            ],
+        ]);
     }
 
     /**
@@ -162,9 +178,7 @@ class UserApiController extends Controller
         $user = User::find($id);
 
         if (! $user) {
-            return response()->json([
-                'message' => 'Пользователь не найден',
-            ], 404);
+            return $this->errorResponse('Пользователь не найден', 404);
         }
 
         // Eager load dealerships для предотвращения lazy load в hasAccessToUser
@@ -172,12 +186,10 @@ class UserApiController extends Controller
 
         // Проверка доступа к пользователю через общие дилерства
         if (! $this->hasAccessToUser($currentUser, $user)) {
-            return response()->json([
-                'message' => 'Пользователь не найден',
-            ], 404);
+            return $this->errorResponse('Пользователь не найден', 404);
         }
 
-        return new UserResource($user);
+        return $this->successResponse(UserResource::make($user)->resolve());
     }
 
     /**
@@ -207,7 +219,8 @@ class UserApiController extends Controller
         $isActive = $user && ($user->status == 'active');
 
         return response()->json([
-            'is_active' => (bool) $isActive,
+            'success' => true,
+            'data' => ['is_active' => (bool) $isActive],
         ]);
     }
 
@@ -221,14 +234,14 @@ class UserApiController extends Controller
         $user = User::find($id);
 
         if (! $user) {
-            return response()->json(['message' => 'Пользователь не найден'], 404);
+            return $this->errorResponse('Пользователь не найден', 404);
         }
 
         // Eager load dealerships для предотвращения lazy load в hasAccessToUser
         $user->loadMissing('dealerships');
 
         if (! $this->hasAccessToUser($currentUser, $user)) {
-            return response()->json(['message' => 'Пользователь не найден'], 404);
+            return $this->errorResponse('Пользователь не найден', 404);
         }
 
         $dateFrom = $request->query('date_from');
@@ -242,7 +255,7 @@ class UserApiController extends Controller
             ? TimeHelper::endOfDayUtc($dateTo)
             : TimeHelper::endOfDayUtc(TimeHelper::nowUtc()->format('Y-m-d'));
 
-        return response()->json($this->statsService->getStats($user, $from, $to));
+        return $this->successResponse($this->statsService->getStats($user, $from, $to));
     }
 
     /**

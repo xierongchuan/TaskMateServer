@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskResource;
 use App\Models\Task;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ use League\Csv\Writer;
 
 class ArchivedTaskController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     /**
      * Применить общие фильтры архивных задач (dealership access, archive_reason, date range).
@@ -128,9 +129,22 @@ class ArchivedTaskController extends Controller
         $tasks = $query->paginate($perPage);
 
         // Transform data
-        $tasks->getCollection()->transform(fn ($t) => TaskResource::make($t)->resolve());
+        $tasksData = $tasks->getCollection()->map(fn ($t) => TaskResource::make($t)->resolve());
 
-        return response()->json($tasks);
+        return response()->json([
+            'success' => true,
+            'data' => $tasksData,
+            'current_page' => $tasks->currentPage(),
+            'last_page' => $tasks->lastPage(),
+            'per_page' => $tasks->perPage(),
+            'total' => $tasks->total(),
+            'links' => [
+                'first' => $tasks->url(1),
+                'last' => $tasks->url($tasks->lastPage()),
+                'prev' => $tasks->previousPageUrl(),
+                'next' => $tasks->nextPageUrl(),
+            ],
+        ]);
     }
 
     /**
@@ -226,10 +240,13 @@ class ArchivedTaskController extends Controller
         ")->first();
 
         return response()->json([
-            'total' => (int) ($stats->total ?? 0),
-            'completed' => (int) ($stats->completed ?? 0),
-            'completed_late' => (int) ($stats->completed_late ?? 0),
-            'expired' => (int) ($stats->expired ?? 0),
+            'success' => true,
+            'data' => [
+                'total' => (int) ($stats->total ?? 0),
+                'completed' => (int) ($stats->completed ?? 0),
+                'completed_late' => (int) ($stats->completed_late ?? 0),
+                'expired' => (int) ($stats->expired ?? 0),
+            ],
         ]);
     }
 }

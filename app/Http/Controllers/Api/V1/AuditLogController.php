@@ -10,10 +10,12 @@ use App\Http\Requests\Api\V1\GetAuditLogsRequest;
 use App\Models\AuditLog;
 use App\Models\AutoDealership;
 use App\Models\User;
+use App\Traits\ApiResponses;
 use Illuminate\Http\JsonResponse;
 
 class AuditLogController extends Controller
 {
+    use ApiResponses;
     /**
      * Список поддерживаемых таблиц для аудита.
      */
@@ -88,6 +90,7 @@ class AuditLogController extends Controller
         });
 
         return response()->json([
+            'success' => true,
             'data' => $logsData,
             'current_page' => $logs->currentPage(),
             'last_page' => $logs->lastPage(),
@@ -106,9 +109,7 @@ class AuditLogController extends Controller
     {
         // Validate table name to prevent arbitrary table access
         if (! in_array($tableName, self::ALLOWED_TABLES)) {
-            return response()->json([
-                'message' => 'Таблица не поддерживается',
-            ], 400);
+            return $this->errorResponse('Таблица не поддерживается', 400);
         }
 
         $logs = AuditLog::where('table_name', $tableName)
@@ -129,6 +130,7 @@ class AuditLogController extends Controller
         });
 
         return response()->json([
+            'success' => true,
             'data' => $logsData,
         ]);
     }
@@ -174,6 +176,7 @@ class AuditLogController extends Controller
             ->get(['id', 'full_name', 'login', 'role']);
 
         return response()->json([
+            'success' => true,
             'data' => $actors->map(fn ($user) => [
                 'id' => $user->id,
                 'full_name' => $user->full_name,

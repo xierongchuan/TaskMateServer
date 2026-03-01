@@ -11,13 +11,14 @@ use App\Models\Task;
 use App\Models\User;
 use App\Services\EmployeeStatsService;
 use App\Services\ReportService;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function __construct(
         private readonly EmployeeStatsService $employeeStatsService,
@@ -34,7 +35,7 @@ class ReportController extends Controller
         $dateTo = $request->query('date_to');
 
         if (! $dateFrom || ! $dateTo) {
-            return response()->json(['message' => 'Параметры date_from и date_to обязательны'], 400);
+            return $this->errorResponse('Параметры date_from и date_to обязательны', 400);
         }
 
         $from = TimeHelper::startOfDayUtc($dateFrom);
@@ -48,7 +49,7 @@ class ReportController extends Controller
 
         $report = $this->reportService->generateReport($dealershipId, $from, $to, $dateFrom, $dateTo);
 
-        return response()->json($report);
+        return $this->successResponse($report);
     }
 
     /**
@@ -61,7 +62,7 @@ class ReportController extends Controller
         $dateTo = $request->query('date_to');
 
         if (! $dateFrom || ! $dateTo) {
-            return response()->json(['message' => 'Параметры date_from и date_to обязательны'], 400);
+            return $this->errorResponse('Параметры date_from и date_to обязательны', 400);
         }
 
         $from = TimeHelper::startOfDayUtc($dateFrom);
@@ -196,10 +197,10 @@ class ReportController extends Controller
                 break;
 
             default:
-                return response()->json(['message' => 'Неизвестный тип проблемы'], 400);
+                return $this->errorResponse('Неизвестный тип проблемы', 400);
         }
 
-        return response()->json([
+        return $this->successResponse([
             'issue_type' => $issueType,
             'items' => $items,
         ]);

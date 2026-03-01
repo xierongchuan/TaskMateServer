@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\StoreDealershipRequest;
 use App\Http\Requests\Api\V1\UpdateDealershipRequest;
 use App\Http\Resources\DealershipResource;
 use App\Models\AutoDealership;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Log;
  */
 class DealershipController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     /**
      * Получает список автосалонов с фильтрацией и пагинацией.
@@ -58,7 +59,20 @@ class DealershipController extends Controller
 
         $dealerships = $query->orderBy('name')->paginate($perPage);
 
-        return response()->json($dealerships);
+        return response()->json([
+            'success' => true,
+            'data' => $dealerships->items(),
+            'current_page' => $dealerships->currentPage(),
+            'last_page' => $dealerships->lastPage(),
+            'per_page' => $dealerships->perPage(),
+            'total' => $dealerships->total(),
+            'links' => [
+                'first' => $dealerships->url(1),
+                'last' => $dealerships->url($dealerships->lastPage()),
+                'prev' => $dealerships->previousPageUrl(),
+                'next' => $dealerships->nextPageUrl(),
+            ],
+        ]);
     }
 
     /**
@@ -76,7 +90,7 @@ class DealershipController extends Controller
         // Проверка доступа к дилерству via Policy
         $this->authorize('view', $dealership);
 
-        return response()->json(DealershipResource::make($dealership)->resolve());
+        return $this->successResponse(DealershipResource::make($dealership)->resolve());
     }
 
     /**
@@ -92,7 +106,7 @@ class DealershipController extends Controller
 
         $dealership = AutoDealership::create($validated);
 
-        return response()->json(DealershipResource::make($dealership)->resolve(), 201);
+        return $this->createdResponse(DealershipResource::make($dealership)->resolve(), 'Автосалон создан');
     }
 
     /**
@@ -110,7 +124,7 @@ class DealershipController extends Controller
 
         $dealership->update($validated);
 
-        return response()->json(DealershipResource::make($dealership)->resolve());
+        return $this->successResponse(DealershipResource::make($dealership)->resolve());
     }
 
     /**
@@ -141,33 +155,24 @@ class DealershipController extends Controller
         }
 
         if (! empty($relatedData)) {
-            return response()->json([
-                'message' => 'Невозможно удалить автосалон с связанными данными',
-                'related_data' => $relatedData,
-                'errors' => [
-                    'dealership' => ['Автосалон имеет связанные записи: '.implode(', ', array_keys($relatedData))],
-                ],
-            ], 422);
+            return $this->errorResponse(
+                'Невозможно удалить автосалон с связанными данными',
+                422,
+                ['dealership' => ['Автосалон имеет связанные записи: '.implode(', ', array_keys($relatedData))]]
+            );
         }
 
         try {
             $dealership->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Автосалон успешно удален',
-            ], 200);
+            return $this->deletedResponse('Автосалон успешно удален');
         } catch (\Exception $e) {
             Log::error('Dealership deletion failed', [
                 'dealership_id' => $dealership->id,
                 'error' => $e->getMessage(),
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка при удалении автосалона',
-                'error' => config('app.debug') ? $e->getMessage() : 'Внутренняя ошибка сервера',
-            ], 500);
+            return $this->serverErrorResponse('Ошибка при удалении автосалона', $e);
         }
     }
 }

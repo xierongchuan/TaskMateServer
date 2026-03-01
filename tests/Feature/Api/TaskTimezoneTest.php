@@ -101,14 +101,14 @@ describe('Task Timezone', function () {
         $response->assertStatus(201);
 
         // Assert: Deadline сохранён в UTC
-        $task = Task::find($response->json('id'));
+        $task = Task::find($response->json('data.id'));
         expect($task->deadline->format('Y-m-d H:i:s'))->toBe('2025-01-27 15:30:00');
 
         // Assert: API возвращает в UTC с Z suffix
         $getResponse = $this->actingAs($this->manager, 'sanctum')
             ->getJson("/api/v1/tasks/{$task->id}");
 
-        $deadlineFromApi = $getResponse->json('deadline');
+        $deadlineFromApi = $getResponse->json('data.deadline');
         expect($deadlineFromApi)->toContain('2025-01-27T15:30:00');
         expect($deadlineFromApi)->toEndWith('Z');
     });

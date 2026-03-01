@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\Shift;
+use App\Traits\ApiResponses;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -23,6 +24,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class ShiftPhotoController extends Controller
 {
+    use ApiResponses;
     /**
      * Скачать фото смены.
      *
@@ -36,16 +38,12 @@ class ShiftPhotoController extends Controller
     {
         // Проверка подписи URL
         if (! $request->hasValidSignature()) {
-            return response()->json([
-                'message' => 'Ссылка недействительна или истекла',
-            ], 403);
+            return $this->forbiddenResponse('Ссылка недействительна или истекла');
         }
 
         // Проверка типа фото
         if (! in_array($type, ['opening', 'closing'], true)) {
-            return response()->json([
-                'message' => 'Неверный тип фото',
-            ], 400);
+            return $this->errorResponse('Неверный тип фото', 400);
         }
 
         $shift = Shift::findOrFail($id);
@@ -61,16 +59,12 @@ class ShiftPhotoController extends Controller
             : $shift->closing_photo_path;
 
         if (! $photoPath) {
-            return response()->json([
-                'message' => 'Фото не найдено',
-            ], 404);
+            return $this->errorResponse('Фото не найдено', 404);
         }
 
         // Проверяем существование файла
         if (! Storage::disk('shift_photos')->exists($photoPath)) {
-            return response()->json([
-                'message' => 'Файл не найден на сервере',
-            ], 404);
+            return $this->errorResponse('Файл не найден на сервере', 404);
         }
 
         $fullPath = Storage::disk('shift_photos')->path($photoPath);
@@ -103,9 +97,7 @@ class ShiftPhotoController extends Controller
 
         // Проверка доступа
         if (! $this->canViewPhoto($user, $shift)) {
-            return response()->json([
-                'message' => 'Доступ запрещён',
-            ], 403);
+            return $this->forbiddenResponse('Доступ запрещён');
         }
 
         // Получаем путь к фото
@@ -114,16 +106,12 @@ class ShiftPhotoController extends Controller
             : $shift->closing_photo_path;
 
         if (! $photoPath) {
-            return response()->json([
-                'message' => 'Фото не найдено',
-            ], 404);
+            return $this->errorResponse('Фото не найдено', 404);
         }
 
         // Проверяем существование файла
         if (! Storage::disk('shift_photos')->exists($photoPath)) {
-            return response()->json([
-                'message' => 'Файл не найден на сервере',
-            ], 404);
+            return $this->errorResponse('Файл не найден на сервере', 404);
         }
 
         $fullPath = Storage::disk('shift_photos')->path($photoPath);

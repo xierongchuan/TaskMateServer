@@ -160,19 +160,25 @@ describe('Important Links API Endpoints', function () {
             // Assert
             $response->assertStatus(200)
                 ->assertJsonStructure([
-                    'id',
-                    'title',
-                    'url',
-                    'description',
-                    'sort_order',
-                    'is_active',
-                    'creator',
-                    'dealership',
+                    'success',
+                    'data' => [
+                        'id',
+                        'title',
+                        'url',
+                        'description',
+                        'sort_order',
+                        'is_active',
+                        'creator',
+                        'dealership',
+                    ],
                 ])
                 ->assertJson([
-                    'id' => $link->id,
-                    'title' => $link->title,
-                    'url' => $link->url,
+                    'success' => true,
+                    'data' => [
+                        'id' => $link->id,
+                        'title' => $link->title,
+                        'url' => $link->url,
+                    ],
                 ]);
         });
 
@@ -219,11 +225,14 @@ describe('Important Links API Endpoints', function () {
 
             // Assert
             $response->assertStatus(201)
-                ->assertJsonStructure(['id', 'title', 'url', 'description', 'creator', 'dealership'])
+                ->assertJsonStructure(['success', 'data' => ['id', 'title', 'url', 'description', 'creator', 'dealership']])
                 ->assertJson([
-                    'title' => 'Internal Portal',
-                    'url' => 'https://portal.example.com',
-                    'description' => 'Company internal portal',
+                    'success' => true,
+                    'data' => [
+                        'title' => 'Internal Portal',
+                        'url' => 'https://portal.example.com',
+                        'description' => 'Company internal portal',
+                    ],
                 ]);
 
             // Verify in database
@@ -246,7 +255,7 @@ describe('Important Links API Endpoints', function () {
 
             // Assert
             $response->assertStatus(201)
-                ->assertJson(['title' => 'Global Resource']);
+                ->assertJson(['success' => true, 'data' => ['title' => 'Global Resource']]);
 
             $link = ImportantLink::where('title', 'Global Resource')->first();
             expect($link->dealership_id)->toBeNull();
@@ -352,10 +361,13 @@ describe('Important Links API Endpoints', function () {
             // Assert
             $response->assertStatus(200)
                 ->assertJson([
-                    'id' => $link->id,
-                    'title' => 'Updated Title',
-                    'url' => 'https://updated.example.com',
-                    'is_active' => false,
+                    'success' => true,
+                    'data' => [
+                        'id' => $link->id,
+                        'title' => 'Updated Title',
+                        'url' => 'https://updated.example.com',
+                        'is_active' => false,
+                    ],
                 ]);
 
             // Verify in database

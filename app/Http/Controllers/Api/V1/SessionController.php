@@ -8,12 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Traits\ApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
 class SessionController extends Controller
 {
+    use ApiResponses;
     /**
      * Maximum failed login attempts before account lockout
      */
@@ -33,7 +35,7 @@ class SessionController extends Controller
         } catch (\Exception $e) {
             Log::error('Login DB Error', ['error' => $e->getMessage()]);
 
-            return response()->json(['message' => 'Ошибка базы данных'], 500);
+            return $this->errorResponse('Ошибка базы данных', 500);
         }
 
         // Check if account is locked
@@ -44,9 +46,7 @@ class SessionController extends Controller
                 'locked_until' => $user->locked_until,
             ]);
 
-            return response()->json([
-                'message' => "Аккаунт временно заблокирован. Попробуйте через {$minutesLeft} мин.",
-            ], 429);
+            return $this->errorResponse("Аккаунт временно заблокирован. Попробуйте через {$minutesLeft} мин.", 429);
         }
 
         if (! $user || ! Hash::check($req->password, $user->password)) {
@@ -69,7 +69,7 @@ class SessionController extends Controller
 
             Log::warning('Login failed: Invalid credentials', ['login' => $req->login]);
 
-            return response()->json(['message' => 'Неверные данные'], 401);
+            return $this->errorResponse('Неверные данные', 401);
         }
 
         // Reset failed attempts on successful login
@@ -84,7 +84,7 @@ class SessionController extends Controller
 
         $user->load(['dealership', 'dealerships']);
 
-        return response()->json([
+        return $this->successResponse([
             'token' => $token,
             'user' => UserResource::make($user)->resolve(),
         ]);
@@ -95,7 +95,7 @@ class SessionController extends Controller
         Log::info('Logout initiated', ['user_id' => $request->user()->id]);
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Сессия завершена']);
+        return $this->successResponse(null, 'Сессия завершена');
     }
 
     public function current(Request $request)
@@ -105,13 +105,13 @@ class SessionController extends Controller
         if (! $user) {
             Log::warning('Session check failed: No user found from token');
 
-            return response()->json(['message' => 'Не авторизован'], 401);
+            return $this->errorResponse('Не авторизован', 401);
         }
 
         $user->load(['dealership', 'dealerships']);
 
         Log::info('Session check successful', ['user_id' => $user->id]);
 
-        return response()->json(['user' => UserResource::make($user)->resolve()]);
+        return $this->successResponse(['user' => UserResource::make($user)->resolve()]);
     }
 }

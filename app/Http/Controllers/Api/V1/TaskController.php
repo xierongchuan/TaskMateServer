@@ -14,13 +14,14 @@ use App\Models\TaskAssignment;
 use App\Services\TaskFilterService;
 use App\Services\TaskService;
 use App\Services\TaskStatusService;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function __construct(
         private readonly TaskService $taskService,
@@ -43,6 +44,7 @@ class TaskController extends Controller
         $tasksData = $tasks->getCollection()->map(fn ($task) => TaskResource::make($task)->resolve());
 
         return response()->json([
+            'success' => true,
             'data' => $tasksData,
             'current_page' => $tasks->currentPage(),
             'last_page' => $tasks->lastPage(),
@@ -83,7 +85,7 @@ class TaskController extends Controller
         // Security check: Access scope via Policy
         $this->authorize('view', $task);
 
-        return response()->json(TaskResource::make($task)->resolve());
+        return $this->successResponse(TaskResource::make($task)->resolve());
     }
 
     /**
@@ -100,16 +102,13 @@ class TaskController extends Controller
         $validated = $request->validated();
         if (! empty($validated['dealership_id'])) {
             if (! $this->taskService->canAccessDealership($currentUser, (int) $validated['dealership_id'])) {
-                return response()->json([
-                    'message' => 'Вы не можете создать задачу в чужом автосалоне',
-                    'error_type' => 'access_denied',
-                ], 403);
+                return $this->errorResponse('Вы не можете создать задачу в чужом автосалоне', 403);
             }
         }
 
         $task = $this->taskService->createTask($validated, $currentUser);
 
-        return response()->json(TaskResource::make($task->load(['assignments.user']))->resolve(), 201);
+        return $this->createdResponse(TaskResource::make($task->load(['assignments.user']))->resolve(), 'Задача создана');
     }
 
     /**
@@ -130,9 +129,7 @@ class TaskController extends Controller
 
         // Запрет редактирования выполненных задач
         if (in_array($task->status, ['completed', 'completed_late'])) {
-            return response()->json([
-                'message' => 'Нельзя редактировать выполненную задачу',
-            ], 422);
+            return $this->errorResponse('Нельзя редактировать выполненную задачу', 422);
         }
 
         $validated = $request->validated();
@@ -140,16 +137,13 @@ class TaskController extends Controller
         // Security check: Ensure new dealership is accessible
         if (isset($validated['dealership_id'])) {
             if (! $this->taskService->canAccessDealership($currentUser, (int) $validated['dealership_id'])) {
-                return response()->json([
-                    'message' => 'Вы не можете перенести задачу в чужой автосалон',
-                    'error_type' => 'access_denied',
-                ], 403);
+                return $this->errorResponse('Вы не можете перенести задачу в чужой автосалон', 403);
             }
         }
 
         $task = $this->taskService->updateTask($task, $validated);
 
-        return response()->json(TaskResource::make($task->load(['assignments.user', 'responses.user']))->resolve());
+        return $this->successResponse(TaskResource::make($task->load(['assignments.user', 'responses.user']))->resolve());
     }
 
     /**
@@ -174,9 +168,7 @@ class TaskController extends Controller
         // Delete the task
         $task->delete();
 
-        return response()->json([
-            'message' => 'Задача успешно удалена',
-        ]);
+        return $this->deletedResponse('Задача успешно удалена');
     }
 
     /**
@@ -200,16 +192,17 @@ class TaskController extends Controller
         try {
             $task = $this->taskStatusService->transition($task, $user, $request->validated(), $request);
         } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (\Throwable $e) {
-            return response()->json([
-                'message' => config('app.debug')
+            return $this->serverErrorResponse(
+                config('app.debug')
                     ? 'Ошибка при обновлении статуса задачи: '.$e->getMessage()
                     : 'Ошибка при обновлении статуса задачи',
-            ], 500);
+                $e
+            );
         }
 
-        return response()->json(TaskResource::make($task)->resolve());
+        return $this->successResponse(TaskResource::make($task)->resolve());
     }
 
     /**
@@ -260,6 +253,7 @@ class TaskController extends Controller
         $tasksData = $tasks->getCollection()->map(fn ($task) => TaskResource::make($task)->resolve());
 
         return response()->json([
+            'success' => true,
             'data' => $tasksData,
             'current_page' => $tasks->currentPage(),
             'last_page' => $tasks->lastPage(),

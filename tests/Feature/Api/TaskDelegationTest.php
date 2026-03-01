@@ -829,7 +829,7 @@ describe('Task Delegation API', function () {
                 ->getJson("/api/v1/tasks/{$task->id}");
 
             $response->assertStatus(200);
-            $delegations = $response->json('delegations');
+            $delegations = $response->json('data.delegations');
             expect($delegations)->toHaveCount(1);
             expect($delegations[0]['status'])->toBe('pending');
             expect($delegations[0]['reason'])->toBe('В отпуске');

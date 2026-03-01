@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\FileValidation\FileValidationConfig;
+use App\Traits\ApiResponses;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -16,12 +17,14 @@ use Illuminate\Http\JsonResponse;
  */
 class FileConfigController extends Controller
 {
+    use ApiResponses;
+
     /**
      * Получить конфигурацию загрузки файлов.
      */
     public function index(FileValidationConfig $config): JsonResponse
     {
-        return response()->json([
+        return $this->successResponse([
             'task_proof' => $config->toArray('task_proof'),
             'shift_photo' => $config->toArray('shift_photo'),
         ]);
@@ -33,12 +36,9 @@ class FileConfigController extends Controller
     public function show(FileValidationConfig $config, string $preset): JsonResponse
     {
         if (! $config->presetExists($preset)) {
-            return response()->json([
-                'error' => 'Неизвестный пресет',
-                'available_presets' => array_keys($config->getPresets()),
-            ], 404);
+            return $this->errorResponse('Неизвестный пресет', 404);
         }
 
-        return response()->json($config->toArray($preset));
+        return $this->successResponse($config->toArray($preset));
     }
 }

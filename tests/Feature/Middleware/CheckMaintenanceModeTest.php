@@ -106,8 +106,8 @@ describe('CheckMaintenanceMode Middleware', function () {
 
             // Assert - владелец может войти
             expect($response->status())->toBe(200)
-                ->and($response->json('user'))->toBeArray()
-                ->and($response->json('user.role'))->toBe('owner');
+                ->and($response->json('data.user'))->toBeArray()
+                ->and($response->json('data.user.role'))->toBe('owner');
         });
 
         it('blocks unauthenticated login attempts with 503', function () {

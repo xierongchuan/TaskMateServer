@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TaskProof;
 use App\Models\TaskSharedProof;
 use App\Services\TaskProofService;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class TaskProofController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function __construct(
         private readonly TaskProofService $taskProofService
@@ -45,13 +46,11 @@ class TaskProofController extends Controller
             $hasAccess = $this->hasAccessToDealership($currentUser, $task->dealership_id);
 
             if (! $hasAccess && ! $isCreator && ! $isAssigned) {
-                return response()->json([
-                    'message' => 'У вас нет доступа к этому доказательству',
-                ], 403);
+                return $this->forbiddenResponse('У вас нет доступа к этому доказательству');
             }
         }
 
-        return (new \App\Http\Resources\TaskProofResource($proof))->response();
+        return $this->successResponse(\App\Http\Resources\TaskProofResource::make($proof)->resolve());
     }
 
     /**
@@ -71,12 +70,12 @@ class TaskProofController extends Controller
     public function download(Request $request, $id): StreamedResponse|JsonResponse
     {
         if (! $request->hasValidSignature()) {
-            return response()->json(['message' => 'Ссылка недействительна или истекла'], 403);
+            return $this->forbiddenResponse('Ссылка недействительна или истекла');
         }
 
         $proof = TaskProof::with(['taskResponse.task'])->find($id);
         if (! $proof) {
-            return response()->json(['message' => 'Доказательство не найдено'], 404);
+            return $this->errorResponse('Доказательство не найдено', 404);
         }
 
         $filePath = $this->taskProofService->getFilePath($proof);
@@ -92,12 +91,12 @@ class TaskProofController extends Controller
     public function downloadShared(Request $request, $id): StreamedResponse|JsonResponse
     {
         if (! $request->hasValidSignature()) {
-            return response()->json(['message' => 'Ссылка недействительна или истекла'], 403);
+            return $this->forbiddenResponse('Ссылка недействительна или истекла');
         }
 
         $proof = TaskSharedProof::find($id);
         if (! $proof) {
-            return response()->json(['message' => 'Доказательство не найдено'], 404);
+            return $this->errorResponse('Доказательство не найдено', 404);
         }
 
         $filePath = null;
@@ -127,9 +126,7 @@ class TaskProofController extends Controller
 
         // Запрет удаления файлов выполненных задач
         if (in_array($task->status, ['completed', 'completed_late'])) {
-            return response()->json([
-                'message' => 'Нельзя удалять файлы выполненной задачи',
-            ], 422);
+            return $this->errorResponse('Нельзя удалять файлы выполненной задачи', 422);
         }
 
         // Проверка доступа (только владелец proof или менеджер/владелец автосалона)
@@ -138,16 +135,12 @@ class TaskProofController extends Controller
             && in_array($currentUser->role->value, ['manager', 'owner']);
 
         if (! $isProofOwner && ! $hasManageAccess && ! $this->isOwner($currentUser)) {
-            return response()->json([
-                'message' => 'У вас нет прав для удаления этого доказательства',
-            ], 403);
+            return $this->forbiddenResponse('У вас нет прав для удаления этого доказательства');
         }
 
         $this->taskProofService->deleteProof($proof);
 
-        return response()->json([
-            'message' => 'Доказательство успешно удалено',
-        ]);
+        return $this->deletedResponse('Доказательство успешно удалено');
     }
 
     /**
@@ -167,9 +160,7 @@ class TaskProofController extends Controller
 
         // Запрет удаления файлов выполненных задач
         if (in_array($task->status, ['completed', 'completed_late'])) {
-            return response()->json([
-                'message' => 'Нельзя удалять файлы выполненной задачи',
-            ], 422);
+            return $this->errorResponse('Нельзя удалять файлы выполненной задачи', 422);
         }
 
         // Проверка доступа (только менеджер/владелец автосалона)
@@ -177,16 +168,12 @@ class TaskProofController extends Controller
             && in_array($currentUser->role->value, ['manager', 'owner']);
 
         if (! $hasManageAccess && ! $this->isOwner($currentUser)) {
-            return response()->json([
-                'message' => 'У вас нет прав для удаления этого файла',
-            ], 403);
+            return $this->forbiddenResponse('У вас нет прав для удаления этого файла');
         }
 
         $this->taskProofService->deleteSharedProof($proof);
 
-        return response()->json([
-            'message' => 'Файл успешно удалён',
-        ]);
+        return $this->deletedResponse('Файл успешно удалён');
     }
 
     /**
@@ -195,7 +182,7 @@ class TaskProofController extends Controller
     private function streamFile(?string $filePath, ?string $mimeType, string $filename, int $fileSize): StreamedResponse|JsonResponse
     {
         if (! $filePath || ! file_exists($filePath)) {
-            return response()->json(['message' => 'Файл не найден на сервере'], 404);
+            return $this->errorResponse('Файл не найден на сервере', 404);
         }
 
         $mimeType = $mimeType ?: 'application/octet-stream';

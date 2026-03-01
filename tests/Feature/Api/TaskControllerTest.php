@@ -256,7 +256,7 @@ describe('Task API', function () {
 
         // Assert
         $response->assertStatus(200);
-        expect($response->json('status'))->toBe('pending_review');
+        expect($response->json('data.status'))->toBe('pending_review');
     });
 
     it('updates task status to completed', function () {
@@ -273,7 +273,7 @@ describe('Task API', function () {
 
         // Assert
         $response->assertStatus(200);
-        expect($response->json('status'))->toBe('completed');
+        expect($response->json('data.status'))->toBe('completed');
     });
 
     it('resets task status to pending', function () {
@@ -292,7 +292,7 @@ describe('Task API', function () {
 
         // Assert
         $response->assertStatus(200);
-        expect($response->json('status'))->toBe('pending');
+        expect($response->json('data.status'))->toBe('pending');
     });
 
     it('filters tasks by pending_review status', function () {

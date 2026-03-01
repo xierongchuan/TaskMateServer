@@ -18,15 +18,20 @@ info:
     - **employee** — сотрудник, выполнение назначенных задач
 
     ## Формат ответов
-    Все ответы возвращаются в формате JSON. Успешные ответы содержат поле `data`,
-    ошибки содержат поля `message` и `errors`.
+    Все ответы возвращаются в формате JSON. Каждый ответ содержит поле `success`:
+    - Успешные ответы: `{"success": true, "data": {...}, "message": "..."}` (message опционален)
+    - Ошибки: `{"success": false, "message": "...", "errors": {...}}` (errors опционален)
 
     ## Пагинация
-    Списки возвращают пагинированные результаты с полями:
+    Пагинированные списки возвращают результаты с плоскими полями (без вложенного `meta`):
+    - `success` — всегда true
     - `data` — массив элементов
-    - `meta` — информация о пагинации (current_page, last_page, per_page, total)
-    - `links` — ссылки на страницы (first, last, prev, next)
-  version: 1.4.0
+    - `current_page` — текущая страница
+    - `last_page` — последняя страница
+    - `per_page` — записей на странице
+    - `total` — всего записей
+    - `links` — ссылки {first, last, prev, next}
+  version: 1.5.0
   contact:
     name: TaskMate Support
 
@@ -929,14 +934,39 @@ components:
           type: string
           format: date-time
 
+    SuccessResponse:
+      description: Базовый успешный ответ с полем success
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: Всегда true для успешных ответов
+
+    DeletedResponse:
+      description: Ответ при успешном удалении
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Ресурс успешно удалён"
+
     Error:
       type: object
       properties:
+        success:
+          type: boolean
+          example: false
+          description: Всегда false для ошибок
         message:
           type: string
           example: "Ошибка валидации"
         errors:
           type: object
+          description: Детали ошибок валидации (только для 422)
           additionalProperties:
             type: array
             items:
@@ -945,12 +975,14 @@ components:
             login: ["Поле login обязательно для заполнения"]
 
     PaginationMeta:
+      description: |
+        Пагинация возвращается с плоскими полями (не вложенными в meta).
+        Полный формат пагинированного ответа:
+        {"success": true, "data": [...], "current_page": 1, "last_page": 5,
+         "per_page": 15, "total": 73, "links": {"first": "...", "last": "...", "prev": null, "next": "..."}}
       type: object
       properties:
         current_page:
-          type: integer
-          example: 1
-        from:
           type: integer
           example: 1
         last_page:
@@ -959,12 +991,24 @@ components:
         per_page:
           type: integer
           example: 15
-        to:
-          type: integer
-          example: 15
         total:
           type: integer
           example: 73
+        links:
+          type: object
+          properties:
+            first:
+              type: string
+              nullable: true
+            last:
+              type: string
+              nullable: true
+            prev:
+              type: string
+              nullable: true
+            next:
+              type: string
+              nullable: true
 
 security:
   - bearerAuth: []
@@ -1099,11 +1143,17 @@ paths:
               schema:
                 type: object
                 properties:
-                  token:
-                    type: string
-                    example: "1|abc123..."
-                  user:
-                    $ref: '#/components/schemas/User'
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: "1|abc123..."
+                      user:
+                        $ref: '#/components/schemas/User'
         '401':
           description: Неверные учётные данные
           content:
@@ -1136,9 +1186,12 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   message:
                     type: string
-                    example: "Выход выполнен успешно"
+                    example: "Сессия завершена"
         '401':
           description: Не авторизован
 
@@ -1162,8 +1215,14 @@ paths:
               schema:
                 type: object
                 properties:
-                  user:
-                    $ref: '#/components/schemas/User'
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
         '401':
           description: Не авторизован
 
@@ -1252,12 +1311,40 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
-                  meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                  current_page:
+                    type: integer
+                    example: 1
+                  last_page:
+                    type: integer
+                    example: 5
+                  per_page:
+                    type: integer
+                    example: 15
+                  total:
+                    type: integer
+                    example: 73
+                  links:
+                    type: object
+                    properties:
+                      first:
+                        type: string
+                        nullable: true
+                      last:
+                        type: string
+                        nullable: true
+                      prev:
+                        type: string
+                        nullable: true
+                      next:
+                        type: string
+                        nullable: true
 
     post:
       summary: Создать пользователя
@@ -1367,6 +1454,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     $ref: '#/components/schemas/User'
         '404':
@@ -1429,6 +1519,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     $ref: '#/components/schemas/User'
         '403':
@@ -1463,6 +1556,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   message:
                     type: string
                     example: "Пользователь успешно удалён"
@@ -1497,12 +1593,18 @@ paths:
               schema:
                 type: object
                 properties:
-                  is_active:
+                  success:
                     type: boolean
-                  has_open_shift:
-                    type: boolean
-                  current_shift:
-                    $ref: '#/components/schemas/Shift'
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      is_active:
+                        type: boolean
+                      has_open_shift:
+                        type: boolean
+                      current_shift:
+                        $ref: '#/components/schemas/Shift'
 
   /v1/users/{id}/stats:
     get:
@@ -1542,28 +1644,55 @@ paths:
               schema:
                 type: object
                 properties:
-                  total_tasks:
-                    type: integer
-                  completed_tasks:
-                    type: integer
-                  overdue_tasks:
-                    type: integer
-                  completion_rate:
-                    type: number
-                  avg_completion_time:
-                    type: number
-                    description: Среднее время выполнения (минуты)
-                  tasks_by_type:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
                     type: object
-                  shifts:
-                    type: integer
-                  late_shifts:
-                    type: integer
-                  missed_shifts:
-                    type: integer
-                  performance_score:
-                    type: number
-                    description: Оценка производительности (0-100)
+                    properties:
+                      employee_id:
+                        type: integer
+                      employee_name:
+                        type: string
+                      total_tasks:
+                        type: integer
+                      completed_tasks:
+                        type: integer
+                      completed_on_time:
+                        type: integer
+                      completed_late:
+                        type: integer
+                      completion_rate:
+                        type: number
+                      overdue_tasks:
+                        type: integer
+                      pending_review:
+                        type: integer
+                      rejected_tasks:
+                        type: integer
+                      avg_completion_time_hours:
+                        type: number
+                        description: Среднее время выполнения (часы)
+                      tasks_by_type:
+                        type: object
+                        properties:
+                          notification:
+                            type: integer
+                          completion:
+                            type: integer
+                          completion_with_proof:
+                            type: integer
+                      total_shifts:
+                        type: integer
+                      late_shifts:
+                        type: integer
+                      avg_late_minutes:
+                        type: number
+                      missed_shifts:
+                        type: integer
+                      performance_score:
+                        type: number
+                        description: Оценка производительности (0-100)
         '404':
           description: Пользователь не найден
 
@@ -1605,12 +1734,23 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
                     items:
                       $ref: '#/components/schemas/Dealership'
-                  meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                  current_page:
+                    type: integer
+                  last_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+                  links:
+                    type: object
 
     post:
       summary: Создать автосалон
@@ -1667,6 +1807,12 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Автосалон создан"
                   data:
                     $ref: '#/components/schemas/Dealership'
         '403':
@@ -1698,6 +1844,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     $ref: '#/components/schemas/Dealership'
         '404':
@@ -1746,6 +1895,16 @@ paths:
       responses:
         '200':
           description: Автосалон обновлён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Dealership'
         '403':
           description: Недостаточно прав
         '404':
@@ -1773,6 +1932,10 @@ paths:
       responses:
         '200':
           description: Автосалон удалён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedResponse'
         '403':
           description: Недостаточно прав
 
@@ -2550,6 +2713,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
                     items:
@@ -2567,8 +2733,10 @@ paths:
                     properties:
                       first:
                         type: string
+                        nullable: true
                       last:
                         type: string
+                        nullable: true
                       prev:
                         type: string
                         nullable: true
@@ -2656,12 +2824,26 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Задача создана"
                   data:
                     $ref: '#/components/schemas/Task'
         '422':
           description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v1/tasks/my-history:
     get:
@@ -2728,8 +2910,17 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     $ref: '#/components/schemas/Task'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Задача не найдена
 
@@ -2785,8 +2976,28 @@ paths:
       responses:
         '200':
           description: Задача обновлена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Task'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Ошибка валидации (задача завершена)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Задача не найдена
 
@@ -2812,8 +3023,16 @@ paths:
       responses:
         '200':
           description: Задача удалена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedResponse'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v1/tasks/{id}/status:
     patch:
@@ -2888,10 +3107,23 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     $ref: '#/components/schemas/Task'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # ============================================
   # TASK VERIFICATION ENDPOINTS
@@ -2925,6 +3157,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   message:
                     type: string
                     example: "Доказательство одобрено"
@@ -2932,6 +3167,16 @@ paths:
                     $ref: '#/components/schemas/Task'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Ошибка валидации (нет доказательств)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Ответ не найден
 
@@ -2977,14 +3222,25 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   message:
                     type: string
                   data:
                     $ref: '#/components/schemas/Task'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v1/tasks/{taskId}/reject-all-responses:
     post:
@@ -3028,12 +3284,19 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   message:
                     type: string
                   data:
                     $ref: '#/components/schemas/Task'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Задача не найдена
 
@@ -3880,10 +4143,23 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
                     items:
                       $ref: '#/components/schemas/ImportantLink'
+                  current_page:
+                    type: integer
+                  last_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+                  links:
+                    type: object
 
     post:
       summary: Создать ссылку
@@ -3936,10 +4212,31 @@ paths:
       responses:
         '201':
           description: Ссылка создана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Ссылка создана"
+                  data:
+                    $ref: '#/components/schemas/ImportantLink'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '422':
           description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v1/links/{id}:
     get:
@@ -3967,6 +4264,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     $ref: '#/components/schemas/ImportantLink'
         '404':
@@ -4014,8 +4314,22 @@ paths:
       responses:
         '200':
           description: Ссылка обновлена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ImportantLink'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       summary: Удалить ссылку
@@ -4039,8 +4353,23 @@ paths:
       responses:
         '200':
           description: Ссылка удалена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Ссылка успешно удалена"
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # ============================================
   # DASHBOARD ENDPOINTS
@@ -4068,7 +4397,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DashboardData'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DashboardData'
 
   # ============================================
   # REPORTS ENDPOINTS
@@ -4111,77 +4446,83 @@ paths:
               schema:
                 type: object
                 properties:
-                  period:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
                     type: object
                     properties:
-                      from:
+                      period:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            format: date
+                          to:
+                            type: string
+                            format: date
+                      date_from:
                         type: string
                         format: date
-                      to:
+                      date_to:
                         type: string
                         format: date
-                  date_from:
-                    type: string
-                    format: date
-                  date_to:
-                    type: string
-                    format: date
-                  summary:
-                    type: object
-                    properties:
-                      total_tasks:
-                        type: integer
-                      completed_tasks:
-                        type: integer
-                      overdue_tasks:
-                        type: integer
-                      postponed_tasks:
-                        type: integer
-                      total_shifts:
-                        type: integer
-                      late_shifts:
-                        type: integer
-                  tasks_by_status:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        status:
-                          type: string
-                        count:
-                          type: integer
-                        percentage:
-                          type: number
-                  employees_performance:
-                    type: array
-                    description: Статистика производительности по сотрудникам
-                    items:
-                      type: object
-                  daily_stats:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        date:
-                          type: string
-                          format: date
-                        completed:
-                          type: integer
-                        overdue:
-                          type: integer
-                        late_shifts:
-                          type: integer
-                  top_issues:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        issue_type:
-                          type: string
-                        count:
-                          type: integer
-                        description:
-                          type: string
+                      summary:
+                        type: object
+                        properties:
+                          total_tasks:
+                            type: integer
+                          completed_tasks:
+                            type: integer
+                          overdue_tasks:
+                            type: integer
+                          postponed_tasks:
+                            type: integer
+                          total_shifts:
+                            type: integer
+                          late_shifts:
+                            type: integer
+                      tasks_by_status:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status:
+                              type: string
+                            count:
+                              type: integer
+                            percentage:
+                              type: number
+                      employees_performance:
+                        type: array
+                        description: Статистика производительности по сотрудникам
+                        items:
+                          type: object
+                      daily_stats:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              format: date
+                            completed:
+                              type: integer
+                            overdue:
+                              type: integer
+                            late_shifts:
+                              type: integer
+                      top_issues:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            issue_type:
+                              type: string
+                            count:
+                              type: integer
+                            description:
+                              type: string
 
   /v1/reports/issues/{type}:
     get:
@@ -4235,14 +4576,18 @@ paths:
               schema:
                 type: object
                 properties:
-                  type:
-                    type: string
-                  count:
-                    type: integer
-                  items:
-                    type: array
-                    items:
-                      type: object
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      issue_type:
+                        type: string
+                      items:
+                        type: array
+                        items:
+                          type: object
 
   # ============================================
   # SETTINGS ENDPOINTS
@@ -4719,6 +5064,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
                     items:
@@ -4778,8 +5126,22 @@ paths:
       responses:
         '200':
           description: Настройка обновлена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/NotificationSetting'
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v1/notification-settings/bulk:
     post:
@@ -4829,8 +5191,25 @@ paths:
       responses:
         '200':
           description: Настройки обновлены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      updated_count:
+                        type: integer
         '403':
           description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v1/notification-settings/reset:
     post:
@@ -4859,6 +5238,17 @@ paths:
       responses:
         '200':
           description: Настройки сброшены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Настройки сброшены"
         '403':
           description: Недостаточно прав
 

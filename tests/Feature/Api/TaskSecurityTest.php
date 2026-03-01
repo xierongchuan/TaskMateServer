@@ -198,7 +198,7 @@ describe('Task Security', function () {
             $response->assertStatus(201);
 
             // Assert: Данные сохранены as-is (экранирование на frontend)
-            $task = Task::find($response->json('id'));
+            $task = Task::find($response->json('data.id'));
             expect($task->title)->toBe($xssPayloads['title']);
             expect($task->description)->toBe($xssPayloads['description']);
             expect($task->comment)->toBe($xssPayloads['comment']);
@@ -207,7 +207,7 @@ describe('Task Security', function () {
             $getResponse = $this->actingAs($this->managerA, 'sanctum')
                 ->getJson("/api/v1/tasks/{$task->id}");
             $getResponse->assertStatus(200);
-            expect($getResponse->json('title'))->toBe($xssPayloads['title']);
+            expect($getResponse->json('data.title'))->toBe($xssPayloads['title']);
         });
 
         it('stores SQL injection attempts as literal strings', function () {
@@ -232,7 +232,7 @@ describe('Task Security', function () {
             $response->assertStatus(201);
 
             // Assert: Данные сохранены как обычные строки
-            $task = Task::find($response->json('id'));
+            $task = Task::find($response->json('data.id'));
             expect($task->title)->toBe($sqlPayloads['title']);
 
             // Verify: Таблица tasks существует и содержит данные
@@ -259,7 +259,7 @@ describe('Task Security', function () {
             $response->assertStatus(201);
 
             // Assert: Tags сохранены с правильной кодировкой
-            $task = Task::find($response->json('id'));
+            $task = Task::find($response->json('data.id'));
             expect($task->tags)->toBe($cyrillicTags);
 
             // Verify: Поиск по Cyrillic тегам работает
@@ -292,7 +292,7 @@ describe('Task Security', function () {
             $response->assertStatus(201);
 
             // Assert: All unicode preserved
-            $task = Task::find($response->json('id'));
+            $task = Task::find($response->json('data.id'));
             expect($task->title)->toBe($unicodeData['title']);
             expect($task->description)->toBe($unicodeData['description']);
             expect($task->comment)->toBe($unicodeData['comment']);

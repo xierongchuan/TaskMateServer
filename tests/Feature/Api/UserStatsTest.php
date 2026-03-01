@@ -29,7 +29,7 @@ describe('User Stats API - GET /api/v1/users/{id}/stats', function () {
             ->getJson("/api/v1/users/{$this->employee->id}/stats");
 
         $response->assertStatus(200);
-        $data = $response->json();
+        $data = $response->json('data');
 
         expect($data)->toHaveKeys([
             'employee_id', 'employee_name', 'total_tasks', 'completed_tasks',
@@ -49,7 +49,7 @@ describe('User Stats API - GET /api/v1/users/{id}/stats', function () {
             ->getJson("/api/v1/users/{$this->employee->id}/stats");
 
         $response->assertStatus(200);
-        $data = $response->json();
+        $data = $response->json('data');
 
         expect($data['total_tasks'])->toBe(0);
         expect($data['completed_tasks'])->toBe(0);
@@ -106,7 +106,7 @@ describe('User Stats API - GET /api/v1/users/{id}/stats', function () {
             ->getJson("/api/v1/users/{$this->employee->id}/stats");
 
         $response->assertStatus(200);
-        $data = $response->json();
+        $data = $response->json('data');
 
         expect($data['total_tasks'])->toBe(3);
         expect($data['completed_tasks'])->toBe(2);

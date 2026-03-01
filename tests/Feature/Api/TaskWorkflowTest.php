@@ -49,7 +49,7 @@ describe('Task Workflow', function () {
             ]);
 
         $response->assertStatus(200);
-        expect($response->json('status'))->toBe('pending_review');
+        expect($response->json('data.status'))->toBe('pending_review');
 
         // Verify TaskResponse created
         $taskResponse = TaskResponse::where('task_id', $task->id)
@@ -230,7 +230,7 @@ describe('Task Workflow', function () {
             ]);
 
         $response->assertStatus(200);
-        expect($response->json('status'))->toBe('acknowledged');
+        expect($response->json('data.status'))->toBe('acknowledged');
 
         // Verify TaskResponse
         $taskResponse = TaskResponse::where('task_id', $task->id)
@@ -263,7 +263,7 @@ describe('Task Workflow', function () {
             ]);
 
         $response->assertStatus(200);
-        expect($response->json('status'))->toBe('pending');
+        expect($response->json('data.status'))->toBe('pending');
 
         // Verify responses deleted
         expect(TaskResponse::where('task_id', $task->id)->count())->toBe(0);

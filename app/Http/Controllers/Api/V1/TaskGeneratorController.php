@@ -13,13 +13,14 @@ use App\Http\Resources\TaskResource;
 use App\Models\TaskGenerator;
 use App\Rules\ValidAssignmentsForTaskType;
 use App\Services\TaskGeneratorService;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class TaskGeneratorController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function __construct(
         private readonly TaskGeneratorService $generatorService,
@@ -71,9 +72,22 @@ class TaskGeneratorController extends Controller
         $generators = $query->paginate($perPage);
 
         // Transform data
-        $generators->getCollection()->transform(fn ($g) => TaskGeneratorResource::make($g)->resolve());
+        $generatorsData = $generators->getCollection()->map(fn ($g) => TaskGeneratorResource::make($g)->resolve());
 
-        return response()->json($generators);
+        return response()->json([
+            'success' => true,
+            'data' => $generatorsData,
+            'current_page' => $generators->currentPage(),
+            'last_page' => $generators->lastPage(),
+            'per_page' => $generators->perPage(),
+            'total' => $generators->total(),
+            'links' => [
+                'first' => $generators->url(1),
+                'last' => $generators->url($generators->lastPage()),
+                'prev' => $generators->previousPageUrl(),
+                'next' => $generators->nextPageUrl(),
+            ],
+        ]);
     }
 
     /**
@@ -294,9 +308,22 @@ class TaskGeneratorController extends Controller
         $tasks = $query->orderBy('scheduled_date', 'desc')->paginate($perPage);
 
         // Transform data
-        $tasks->getCollection()->transform(fn ($t) => TaskResource::make($t)->resolve());
+        $tasksData = $tasks->getCollection()->map(fn ($t) => TaskResource::make($t)->resolve());
 
-        return response()->json($tasks);
+        return response()->json([
+            'success' => true,
+            'data' => $tasksData,
+            'current_page' => $tasks->currentPage(),
+            'last_page' => $tasks->lastPage(),
+            'per_page' => $tasks->perPage(),
+            'total' => $tasks->total(),
+            'links' => [
+                'first' => $tasks->url(1),
+                'last' => $tasks->url($tasks->lastPage()),
+                'prev' => $tasks->previousPageUrl(),
+                'next' => $tasks->nextPageUrl(),
+            ],
+        ]);
     }
 
     /**

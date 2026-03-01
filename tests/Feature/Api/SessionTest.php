@@ -26,12 +26,15 @@ describe('Session API', function () {
             // Assert
             $response->assertStatus(200)
                 ->assertJsonStructure([
-                    'token',
-                    'user' => ['id', 'login', 'full_name', 'role', 'dealership_id', 'phone'],
+                    'success',
+                    'data' => [
+                        'token',
+                        'user' => ['id', 'login', 'full_name', 'role', 'dealership_id', 'phone'],
+                    ],
                 ]);
 
-            expect($response->json('user.login'))->toBe('testuser')
-                ->and($response->json('token'))->toBeString();
+            expect($response->json('data.user.login'))->toBe('testuser')
+                ->and($response->json('data.token'))->toBeString();
         });
 
         it('fails with invalid credentials', function () {
@@ -99,11 +102,14 @@ describe('Session API', function () {
             // Assert
             $response->assertStatus(200)
                 ->assertJsonStructure([
-                    'user' => ['id', 'login', 'full_name', 'role'],
+                    'success',
+                    'data' => [
+                        'user' => ['id', 'login', 'full_name', 'role'],
+                    ],
                 ]);
 
-            expect($response->json('user.login'))->toBe('currentuser')
-                ->and($response->json('user.full_name'))->toBe('Current User');
+            expect($response->json('data.user.login'))->toBe('currentuser')
+                ->and($response->json('data.user.full_name'))->toBe('Current User');
         });
 
         it('fails without authentication', function () {

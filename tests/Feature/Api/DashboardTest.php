@@ -40,12 +40,15 @@ describe('Dashboard API', function () {
         // Assert
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'active_shifts',
-                'active_tasks',
-                'completed_tasks',
-                'overdue_tasks',
-                'late_shifts_today',
-                'timestamp',
+                'success',
+                'data' => [
+                    'active_shifts',
+                    'active_tasks',
+                    'completed_tasks',
+                    'overdue_tasks',
+                    'late_shifts_today',
+                    'timestamp',
+                ],
             ]);
     });
 
@@ -69,7 +72,7 @@ describe('Dashboard API', function () {
 
         // Assert
         $response->assertStatus(200);
-        $data = $response->json();
+        $data = $response->json('data');
         expect($data['active_shifts'])->toHaveCount(1);
     });
 
@@ -100,7 +103,7 @@ describe('Dashboard API', function () {
 
         // Assert
         $response->assertStatus(200);
-        $data = $response->json();
+        $data = $response->json('data');
 
         expect($data['active_tasks'])->toBeGreaterThanOrEqual(3);
         expect($data['completed_tasks'])->toBeGreaterThanOrEqual(1);
@@ -142,7 +145,7 @@ describe('Dashboard API', function () {
 
         // Assert
         $response->assertStatus(200);
-        $data = $response->json();
+        $data = $response->json('data');
 
         expect($data)->toHaveKey('overdue_tasks_list');
         expect($data['overdue_tasks_list'])->toBeArray();

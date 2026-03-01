@@ -15,6 +15,7 @@ use App\Models\Task;
 use App\Models\TaskDelegation;
 use App\Models\User;
 use App\Services\TaskDelegationService;
+use App\Traits\ApiResponses;
 use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ use Illuminate\Http\Request;
  */
 class TaskDelegationController extends Controller
 {
-    use HasDealershipAccess;
+    use ApiResponses, HasDealershipAccess;
 
     public function __construct(
         private readonly TaskDelegationService $delegationService,
@@ -48,15 +49,15 @@ class TaskDelegationController extends Controller
                 $request->validated('reason'),
             );
         } catch (\DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return $this->errorResponse($e->getMessage(), 422);
         }
 
         event(new DelegationRequested($delegation));
 
-        return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
-            ->additional(['message' => 'Запрос на делегирование создан'])
-            ->response()
-            ->setStatusCode(201);
+        return $this->createdResponse(
+            TaskDelegationResource::make($delegation->load(['fromUser', 'toUser', 'task']))->resolve(),
+            'Запрос на делегирование создан'
+        );
     }
 
     /**
@@ -110,11 +111,18 @@ class TaskDelegationController extends Controller
         $delegations = $query->paginate($perPage);
 
         return response()->json([
+            'success' => true,
             'data' => TaskDelegationResource::collection($delegations->getCollection()),
             'current_page' => $delegations->currentPage(),
             'last_page' => $delegations->lastPage(),
             'per_page' => $delegations->perPage(),
             'total' => $delegations->total(),
+            'links' => [
+                'first' => $delegations->url(1),
+                'last' => $delegations->url($delegations->lastPage()),
+                'prev' => $delegations->previousPageUrl(),
+                'next' => $delegations->nextPageUrl(),
+            ],
         ]);
     }
 
@@ -131,10 +139,10 @@ class TaskDelegationController extends Controller
         $user = auth()->user();
 
         if (! $this->canViewDelegation($user, $delegation)) {
-            return response()->json(['message' => 'Нет доступа'], 403);
+            return $this->forbiddenResponse('Нет доступа');
         }
 
-        return (new TaskDelegationResource($delegation))->response();
+        return $this->successResponse(TaskDelegationResource::make($delegation)->resolve());
     }
 
     /**
@@ -151,19 +159,21 @@ class TaskDelegationController extends Controller
 
         // Только адресат может принять
         if ($delegation->to_user_id !== $user->id) {
-            return response()->json(['message' => 'Только адресат может принять запрос'], 403);
+            return $this->forbiddenResponse('Только адресат может принять запрос');
         }
 
         try {
             $delegation = $this->delegationService->accept($delegation);
         } catch (\DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return $this->errorResponse($e->getMessage(), 422);
         }
 
         event(new DelegationAccepted($delegation));
 
-        return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
-            ->additional(['message' => 'Делегирование принято'])->response();
+        return $this->successResponse(
+            TaskDelegationResource::make($delegation->load(['fromUser', 'toUser', 'task']))->resolve(),
+            'Делегирование принято'
+        );
     }
 
     /**
@@ -184,19 +194,21 @@ class TaskDelegationController extends Controller
 
         // Только адресат может отклонить
         if ($delegation->to_user_id !== $user->id) {
-            return response()->json(['message' => 'Только адресат может отклонить запрос'], 403);
+            return $this->forbiddenResponse('Только адресат может отклонить запрос');
         }
 
         try {
             $delegation = $this->delegationService->reject($delegation, $validated['reason']);
         } catch (\DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return $this->errorResponse($e->getMessage(), 422);
         }
 
         event(new DelegationRejected($delegation));
 
-        return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
-            ->additional(['message' => 'Делегирование отклонено'])->response();
+        return $this->successResponse(
+            TaskDelegationResource::make($delegation->load(['fromUser', 'toUser', 'task']))->resolve(),
+            'Делегирование отклонено'
+        );
     }
 
     /**
@@ -217,25 +229,27 @@ class TaskDelegationController extends Controller
         $isManagerOrOwner = in_array($user->role, [Role::MANAGER, Role::OWNER]);
 
         if (! $isInitiator && ! $isManagerOrOwner) {
-            return response()->json(['message' => 'Недостаточно прав для отмены'], 403);
+            return $this->forbiddenResponse('Недостаточно прав для отмены');
         }
 
         // Проверка доступа к dealership для менеджера
         if ($isManagerOrOwner && ! $isInitiator) {
             $task = Task::find($delegation->task_id);
             if ($task && ! $this->isOwner($user) && ! $this->hasAccessToDealership($user, $task->dealership_id)) {
-                return response()->json(['message' => 'Нет доступа к этой задаче'], 403);
+                return $this->forbiddenResponse('Нет доступа к этой задаче');
             }
         }
 
         try {
             $delegation = $this->delegationService->cancel($delegation, $user);
         } catch (\DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return $this->errorResponse($e->getMessage(), 422);
         }
 
-        return (new TaskDelegationResource($delegation->load(['fromUser', 'toUser', 'task'])))
-            ->additional(['message' => 'Запрос на делегирование отменён'])->response();
+        return $this->successResponse(
+            TaskDelegationResource::make($delegation->load(['fromUser', 'toUser', 'task']))->resolve(),
+            'Запрос на делегирование отменён'
+        );
     }
 
     /**
