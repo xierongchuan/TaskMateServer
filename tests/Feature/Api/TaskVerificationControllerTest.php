@@ -84,7 +84,7 @@ describe('Task Verification API', function () {
 
             // Assert
             $response->assertStatus(404)
-                ->assertJsonPath('message', 'Ответ на задачу не найден');
+                ->assertJsonPath('message', 'Ресурс не найден');
         });
 
         it('returns 422 when response is not pending_review', function () {
@@ -313,7 +313,7 @@ describe('Task Verification API', function () {
 
             // Assert
             $response->assertStatus(404)
-                ->assertJsonPath('message', 'Задача не найдена');
+                ->assertJsonPath('message', 'Ресурс не найден');
         });
 
         it('returns 422 when no pending_review responses', function () {

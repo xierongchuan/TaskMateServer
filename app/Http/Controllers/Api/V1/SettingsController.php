@@ -12,6 +12,7 @@ use App\Http\Requests\Api\V1\UpdateShiftConfigRequest;
 use App\Http\Requests\Api\V1\UpdateTaskConfigRequest;
 use App\Models\Setting;
 use App\Services\SettingsService;
+use App\Traits\HasDealershipAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,6 +21,8 @@ use Illuminate\Http\Request;
  */
 class SettingsController extends Controller
 {
+    use HasDealershipAccess;
+
     public function __construct(
         private readonly SettingsService $settingsService
     ) {}
@@ -104,7 +107,7 @@ class SettingsController extends Controller
      */
     public function getShiftConfig(Request $request): JsonResponse
     {
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
+        $dealershipId = $this->parseDealershipId($request);
 
         $schedules = [];
         if ($dealershipId) {
@@ -172,7 +175,7 @@ class SettingsController extends Controller
      */
     public function getNotificationConfig(Request $request): JsonResponse
     {
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
+        $dealershipId = $this->parseDealershipId($request);
 
         $notificationConfig = [
             'notification_enabled' => (bool) $this->settingsService->getSettingWithFallback('notification_enabled', $dealershipId, true),
@@ -210,7 +213,7 @@ class SettingsController extends Controller
      */
     public function getArchiveConfig(Request $request): JsonResponse
     {
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
+        $dealershipId = $this->parseDealershipId($request);
 
         $archiveConfig = [
             'archive_completed_time' => $this->settingsService->getSettingWithFallback('archive_completed_time', $dealershipId, '03:00'),
@@ -241,9 +244,7 @@ class SettingsController extends Controller
      */
     public function getTaskConfig(Request $request): JsonResponse
     {
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== ''
-            ? (int) $request->query('dealership_id')
-            : null;
+        $dealershipId = $this->parseDealershipId($request);
 
         $taskConfig = [
             // Hybrid mode: require open shift to complete tasks

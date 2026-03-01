@@ -6,6 +6,7 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Enums\Role;
 use App\Models\User;
+use App\Rules\ValidAssignmentsForTaskType;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
 
@@ -81,25 +82,17 @@ class StoreTaskRequest extends BaseApiRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            // Валидация типа задачи и количества исполнителей
-            $taskType = $this->input('task_type');
-            $assignments = $this->input('assignments', []);
+            $assignments = $this->input('assignments');
             $assignmentCount = is_array($assignments) ? count($assignments) : 0;
 
-            // Групповая задача должна иметь хотя бы одного исполнителя
-            if ($taskType === 'group' && $assignmentCount === 0) {
-                $validator->errors()->add(
-                    'assignments',
-                    'Для групповой задачи необходимо указать хотя бы одного исполнителя'
-                );
-            }
-
-            // Индивидуальная задача не может иметь более одного исполнителя
-            if ($taskType === 'individual' && $assignmentCount > 1) {
-                $validator->errors()->add(
-                    'task_type',
-                    'Индивидуальная задача не может иметь более одного исполнителя. Используйте групповую задачу для нескольких исполнителей.'
-                );
+            // Валидация типа задачи и количества исполнителей через переиспользуемое правило
+            $taskType = $this->input('task_type');
+            if ($taskType) {
+                $rule = new ValidAssignmentsForTaskType($taskType);
+                $rule->validate('assignments', $assignments, function (string $message) use ($validator) {
+                    $attribute = str_contains($message, 'Индивидуальная') ? 'task_type' : 'assignments';
+                    $validator->errors()->add($attribute, $message);
+                });
             }
 
             // Валидация: дата появления должна быть раньше или равна дедлайну

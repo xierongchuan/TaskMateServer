@@ -8,6 +8,7 @@ use App\Enums\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Трейт для унификации проверки доступа к дилерствам.
@@ -16,6 +17,19 @@ use Illuminate\Http\JsonResponse;
  */
 trait HasDealershipAccess
 {
+    /**
+     * Разбирает dealership_id из query-параметров запроса.
+     *
+     * Заменяет повторяющийся паттерн:
+     * $request->query('dealership_id') !== null && $request->query('dealership_id') !== ''
+     *     ? (int) $request->query('dealership_id')
+     *     : null
+     */
+    protected function parseDealershipId(Request $request): ?int
+    {
+        return $request->filled('dealership_id') ? $request->integer('dealership_id') : null;
+    }
+
     /**
      * Проверяет, является ли пользователь владельцем (owner).
      */

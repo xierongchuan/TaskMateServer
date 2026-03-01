@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Contracts\FileValidatorInterface;
+use App\Helpers\TaskProofPathGenerator;
 use App\Models\Task;
 use App\Models\TaskSharedProof;
 use App\Services\FileValidation\FileValidationConfig;
@@ -120,13 +121,10 @@ class StoreTaskSharedProofsJob implements ShouldQueue
             $extension
         );
 
-        // Многоуровневая структура директорий (унифицировано с TaskProof)
-        $date = date('Y/m/d');
-        $destinationPath = sprintf(
-            'dealerships/%d/tasks/%d/%s/%s',
+        // Многоуровневая структура директорий (централизовано в TaskProofPathGenerator)
+        $destinationPath = TaskProofPathGenerator::generatePath(
             $this->dealershipId,
             $task->id,
-            $date,
             $filename
         );
 

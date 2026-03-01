@@ -10,6 +10,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -137,6 +138,21 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
 
                 return response()->json($response, 500);
+            }
+        });
+
+        // Обработчик ModelNotFoundException (конвертированного в NotFoundHttpException Laravel'ом):
+        // возвращает единый JSON 404 для API-запросов, где ресурс не найден в базе.
+        // Регистрируется последним, чтобы проверяться первым (FIFO в renderViaCallbacks).
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                // Проверяем, что это именно ModelNotFoundException (а не 404 маршрута)
+                if ($e->getPrevious() instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Ресурс не найден',
+                    ], 404);
+                }
             }
         });
     })->create();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1;
 
 use App\Models\Task;
+use App\Rules\ValidAssignmentsForTaskType;
 use Illuminate\Contracts\Validation\Validator;
 
 /**
@@ -78,31 +79,22 @@ class UpdateTaskRequest extends BaseApiRequest
                 ? $this->route('task')
                 : Task::find($this->route('task'));
 
-            // Валидация типа задачи и количества исполнителей
+            // Валидация типа задачи и количества исполнителей через переиспользуемое правило
             $taskType = $this->input('task_type') ?? $task?->task_type;
-            $assignments = $this->input('assignments');
 
-            // Если assignments не передан в запросе, берём текущие из БД
-            if ($assignments === null && $task) {
-                $assignmentCount = $task->assignments()->count();
-            } else {
-                $assignmentCount = is_array($assignments) ? count($assignments) : 0;
-            }
+            if ($taskType) {
+                $assignments = $this->input('assignments');
 
-            // Групповая задача должна иметь хотя бы одного исполнителя
-            if ($taskType === 'group' && $assignmentCount === 0) {
-                $validator->errors()->add(
-                    'assignments',
-                    'Для групповой задачи необходимо указать хотя бы одного исполнителя'
-                );
-            }
+                // Если assignments не переданы — передаём текущее количество из БД в правило
+                $currentCount = ($assignments === null && $task)
+                    ? $task->assignments()->count()
+                    : 0;
 
-            // Индивидуальная задача не может иметь более одного исполнителя
-            if ($taskType === 'individual' && $assignmentCount > 1) {
-                $validator->errors()->add(
-                    'task_type',
-                    'Индивидуальная задача не может иметь более одного исполнителя. Используйте групповую задачу для нескольких исполнителей.'
-                );
+                $rule = new ValidAssignmentsForTaskType($taskType, $currentCount);
+                $rule->validate('assignments', $assignments, function (string $message) use ($validator) {
+                    $attribute = str_contains($message, 'Индивидуальная') ? 'task_type' : 'assignments';
+                    $validator->errors()->add($attribute, $message);
+                });
             }
         });
     }

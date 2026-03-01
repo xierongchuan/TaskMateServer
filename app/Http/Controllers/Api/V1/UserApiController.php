@@ -163,6 +163,9 @@ class UserApiController extends Controller
             ], 404);
         }
 
+        // Eager load dealerships для предотвращения lazy load в hasAccessToUser
+        $user->loadMissing('dealerships');
+
         // Проверка доступа к пользователю через общие дилерства
         if (! $this->hasAccessToUser($currentUser, $user)) {
             return response()->json([
@@ -185,6 +188,11 @@ class UserApiController extends Controller
         /** @var User $currentUser */
         $currentUser = $request->user();
         $user = User::find($id);
+
+        // Eager load dealerships для предотвращения lazy load в hasAccessToUser
+        if ($user) {
+            $user->loadMissing('dealerships');
+        }
 
         // Проверка доступа к пользователю через общие дилерства
         if ($user && ! $this->hasAccessToUser($currentUser, $user)) {
@@ -212,6 +220,9 @@ class UserApiController extends Controller
             return response()->json(['message' => 'Пользователь не найден'], 404);
         }
 
+        // Eager load dealerships для предотвращения lazy load в hasAccessToUser
+        $user->loadMissing('dealerships');
+
         if (! $this->hasAccessToUser($currentUser, $user)) {
             return response()->json(['message' => 'Пользователь не найден'], 404);
         }
@@ -238,14 +249,7 @@ class UserApiController extends Controller
      */
     public function update(UpdateUserRequest $request, $id): JsonResponse
     {
-        $user = User::with('dealerships')->find($id);
-
-        if (! $user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Пользователь не найден',
-            ], 404);
-        }
+        $user = User::with('dealerships')->findOrFail($id);
 
         /** @var User $currentUser */
         $currentUser = $request->user();
@@ -456,14 +460,7 @@ class UserApiController extends Controller
      */
     public function destroy($id): JsonResponse
     {
-        $user = User::with('dealerships')->find($id);
-
-        if (! $user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Пользователь не найден',
-            ], 404);
-        }
+        $user = User::with('dealerships')->findOrFail($id);
 
         /** @var User $currentUser */
         $currentUser = request()->user();

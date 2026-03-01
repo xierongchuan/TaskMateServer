@@ -12,9 +12,11 @@ use App\Http\Resources\TaskGeneratorResource;
 use App\Http\Resources\TaskResource;
 use App\Models\TaskGenerator;
 use App\Models\TaskGeneratorAssignment;
+use App\Rules\ValidAssignmentsForTaskType;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class TaskGeneratorController extends Controller
 {
@@ -161,33 +163,34 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        $this->authorize('view', $generator);
+        $this->authorize('update', $generator);
 
         $validated = $request->validated();
 
-        // Валидация типа задачи и количества исполнителей
+        // Валидация типа задачи и количества исполнителей через переиспользуемое правило
         $taskType = $validated['task_type'] ?? $generator->task_type;
+        $assignmentsInput = $validated['assignments'] ?? null;
+        $currentCount = ($assignmentsInput === null) ? $generator->assignments()->count() : 0;
 
-        // Определяем количество исполнителей
-        if (isset($validated['assignments'])) {
-            $assignmentCount = count($validated['assignments']);
-        } else {
-            $assignmentCount = $generator->assignments()->count();
-        }
+        $assignmentsValidator = Validator::make(
+            ['assignments' => $assignmentsInput],
+            ['assignments' => [new ValidAssignmentsForTaskType($taskType, $currentCount)]]
+        );
 
-        if ($taskType === 'group' && $assignmentCount === 0) {
+        if ($assignmentsValidator->fails()) {
+            $errors = $assignmentsValidator->errors();
+            // Ошибка про индивидуальную задачу относится к task_type
+            $assignmentsErrors = $errors->get('assignments');
+            $responseErrors = [];
+            foreach ($assignmentsErrors as $message) {
+                $attribute = str_contains($message, 'Индивидуальная') ? 'task_type' : 'assignments';
+                $responseErrors[$attribute][] = $message;
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Для групповой задачи необходимо указать хотя бы одного исполнителя',
-                'errors' => ['assignments' => ['Для групповой задачи необходимо указать хотя бы одного исполнителя']],
-            ], 422);
-        }
-
-        if ($taskType === 'individual' && $assignmentCount > 1) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Индивидуальная задача не может иметь более одного исполнителя',
-                'errors' => ['task_type' => ['Индивидуальная задача не может иметь более одного исполнителя. Используйте групповую задачу для нескольких исполнителей.']],
+                'message' => 'Ошибка валидации',
+                'errors' => $responseErrors,
             ], 422);
         }
 
@@ -285,7 +288,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        $this->authorize('view', $generator);
+        $this->authorize('delete', $generator);
 
         $generator->delete();
 
@@ -302,7 +305,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        $this->authorize('view', $generator);
+        $this->authorize('pause', $generator);
 
         $generator->update(['is_active' => false]);
         $generator->load(['creator', 'dealership', 'assignments.user']);
@@ -321,7 +324,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        $this->authorize('view', $generator);
+        $this->authorize('resume', $generator);
 
         $generator->update(['is_active' => true]);
         $generator->load(['creator', 'dealership', 'assignments.user']);
@@ -388,7 +391,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        $this->authorize('view', $generator);
+        $this->authorize('viewGeneratedTasks', $generator);
 
         $query = $generator->generatedTasks()
             ->with(['creator', 'dealership', 'assignments.user', 'responses']);
@@ -421,7 +424,7 @@ class TaskGeneratorController extends Controller
     {
         $generator = TaskGenerator::findOrFail($id);
 
-        $this->authorize('view', $generator);
+        $this->authorize('viewStatistics', $generator);
 
         // Загружаем все задачи один раз вместо 4 отдельных запросов
         $allTasks = $generator->generatedTasks()

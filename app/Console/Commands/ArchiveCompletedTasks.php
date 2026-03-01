@@ -200,11 +200,15 @@ class ArchiveCompletedTasks extends Command
 
                 // Архивируем только если завершено более 1 дня назад
                 if ($lastResponse && Carbon::parse($lastResponse->created_at)->lt($cutoffDate)) {
-                    $task->update([
-                        'is_active' => false,
-                        'archived_at' => TimeHelper::nowUtc(),
-                        'archive_reason' => 'completed',
-                    ]);
+                    // Отключаем Auditable на время архивации: при 500+ задачах каждый update
+                    // без этого порождает отдельный INSERT в audit_logs.
+                    Task::withoutAuditing(function () use ($task) {
+                        $task->update([
+                            'is_active' => false,
+                            'archived_at' => TimeHelper::nowUtc(),
+                            'archive_reason' => 'completed',
+                        ]);
+                    });
                     $archivedCount++;
                 }
             }

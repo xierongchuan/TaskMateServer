@@ -83,11 +83,15 @@ class ArchiveOverdueAfterShift extends Command
                                 $this->line("    - Archiving task #{$task->id}: {$task->title}");
 
                                 if (! $dryRun) {
-                                    $task->update([
-                                        'is_active' => false,
-                                        'archived_at' => TimeHelper::nowUtc(),
-                                        'archive_reason' => 'expired_after_shift',
-                                    ]);
+                                    // Отключаем Auditable на время архивации: при 500+ задачах каждый
+                                    // update без этого порождает отдельный INSERT в audit_logs.
+                                    Task::withoutAuditing(function () use ($task) {
+                                        $task->update([
+                                            'is_active' => false,
+                                            'archived_at' => TimeHelper::nowUtc(),
+                                            'archive_reason' => 'expired_after_shift',
+                                        ]);
+                                    });
                                 }
 
                                 $archivedCount++;

@@ -183,7 +183,7 @@ describe('Important Links API Endpoints', function () {
 
             // Assert
             $response->assertStatus(404)
-                ->assertJson(['message' => 'Ссылка не найдена']);
+                ->assertJson(['message' => 'Ресурс не найден']);
         });
 
         it('requires authentication', function () {

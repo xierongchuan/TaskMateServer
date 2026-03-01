@@ -91,13 +91,7 @@ class TaskController extends Controller
             'sharedProofs',
             'delegations.fromUser',
             'delegations.toUser',
-        ])->find($id);
-
-        if (! $task) {
-            return response()->json([
-                'message' => 'Задача не найдена',
-            ], 404);
-        }
+        ])->findOrFail($id);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
@@ -142,13 +136,7 @@ class TaskController extends Controller
      */
     public function update(UpdateTaskRequest $request, $id): JsonResponse
     {
-        $task = Task::find($id);
-
-        if (! $task) {
-            return response()->json([
-                'message' => 'Задача не найдена',
-            ], 404);
-        }
+        $task = Task::findOrFail($id);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
@@ -188,13 +176,7 @@ class TaskController extends Controller
      */
     public function destroy($id)
     {
-        $task = Task::find($id);
-
-        if (! $task) {
-            return response()->json([
-                'message' => 'Задача не найдена',
-            ], 404);
-        }
+        $task = Task::findOrFail($id);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
@@ -224,13 +206,7 @@ class TaskController extends Controller
      */
     public function updateStatus(UpdateTaskStatusRequest $request, $id)
     {
-        $task = Task::with(['assignments'])->find($id);
-
-        if (! $task) {
-            return response()->json([
-                'message' => 'Задача не найдена',
-            ], 404);
-        }
+        $task = Task::with(['assignments'])->findOrFail($id);
 
         /** @var \App\Models\User $user */
         $user = auth()->user();

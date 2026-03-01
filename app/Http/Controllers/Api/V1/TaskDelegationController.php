@@ -125,11 +125,7 @@ class TaskDelegationController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $delegation = TaskDelegation::with(['fromUser', 'toUser', 'task'])->find($id);
-
-        if (! $delegation) {
-            return response()->json(['message' => 'Запрос на делегирование не найден'], 404);
-        }
+        $delegation = TaskDelegation::with(['fromUser', 'toUser', 'task'])->findOrFail($id);
 
         /** @var \App\Models\User $user */
         $user = auth()->user();
@@ -148,11 +144,7 @@ class TaskDelegationController extends Controller
      */
     public function accept(int $id): JsonResponse
     {
-        $delegation = TaskDelegation::find($id);
-
-        if (! $delegation) {
-            return response()->json(['message' => 'Запрос на делегирование не найден'], 404);
-        }
+        $delegation = TaskDelegation::findOrFail($id);
 
         /** @var \App\Models\User $user */
         $user = auth()->user();
@@ -185,11 +177,7 @@ class TaskDelegationController extends Controller
             'reason' => 'required|string|max:1000',
         ]);
 
-        $delegation = TaskDelegation::find($id);
-
-        if (! $delegation) {
-            return response()->json(['message' => 'Запрос на делегирование не найден'], 404);
-        }
+        $delegation = TaskDelegation::findOrFail($id);
 
         /** @var \App\Models\User $user */
         $user = $request->user();
@@ -220,11 +208,7 @@ class TaskDelegationController extends Controller
      */
     public function cancel(int $id): JsonResponse
     {
-        $delegation = TaskDelegation::find($id);
-
-        if (! $delegation) {
-            return response()->json(['message' => 'Запрос на делегирование не найден'], 404);
-        }
+        $delegation = TaskDelegation::findOrFail($id);
 
         /** @var \App\Models\User $user */
         $user = auth()->user();

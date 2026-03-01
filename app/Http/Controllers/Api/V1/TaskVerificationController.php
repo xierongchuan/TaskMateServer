@@ -35,13 +35,7 @@ class TaskVerificationController extends Controller
      */
     public function approve($id): JsonResponse
     {
-        $taskResponse = TaskResponse::with(['task.sharedProofs', 'proofs'])->find($id);
-
-        if (! $taskResponse) {
-            return response()->json([
-                'message' => 'Ответ на задачу не найден',
-            ], 404);
-        }
+        $taskResponse = TaskResponse::with(['task.sharedProofs', 'proofs'])->findOrFail($id);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
@@ -85,13 +79,7 @@ class TaskVerificationController extends Controller
     {
         $validated = $request->validated();
 
-        $taskResponse = TaskResponse::with(['task', 'proofs'])->find($id);
-
-        if (! $taskResponse) {
-            return response()->json([
-                'message' => 'Ответ на задачу не найден',
-            ], 404);
-        }
+        $taskResponse = TaskResponse::with(['task', 'proofs'])->findOrFail($id);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
@@ -128,13 +116,7 @@ class TaskVerificationController extends Controller
     {
         $validated = $request->validated();
 
-        $task = Task::with(['responses.proofs', 'sharedProofs'])->find($taskId);
-
-        if (! $task) {
-            return response()->json([
-                'message' => 'Задача не найдена',
-            ], 404);
-        }
+        $task = Task::with(['responses.proofs', 'sharedProofs'])->findOrFail($taskId);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();

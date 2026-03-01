@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Contracts\FileValidatorInterface;
+use App\Helpers\TaskProofPathGenerator;
 use App\Jobs\DeleteProofFileJob;
 use App\Jobs\StoreTaskProofsJob;
 use App\Models\TaskProof;
@@ -57,12 +58,10 @@ class TaskProofService
     ): TaskProof {
         $this->fileValidator->validate($file, self::VALIDATION_PRESET);
 
-        $path = $this->generateFilePath($response->task_id, $dealershipId);
         $filename = $this->generateFilename($file, $response->user_id);
+        $storedPath = TaskProofPathGenerator::generatePath($dealershipId, $response->task_id, $filename);
 
-        $storedPath = $file->storeAs($path, $filename, self::STORAGE_DISK);
-
-        if ($storedPath === false) {
+        if (! Storage::disk(self::STORAGE_DISK)->put($storedPath, $file->get())) {
             throw new InvalidArgumentException('Не удалось сохранить файл');
         }
 
@@ -95,42 +94,7 @@ class TaskProofService
         array $files,
         int $dealershipId
     ): array {
-        $limits = $this->config->getLimits();
-
-        // Одним запросом получаем количество и общий размер
-        $existing = $response->proofs()
-            ->selectRaw('COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size')
-            ->first();
-        $existingCount = (int) $existing->count;
-        $existingSize = (int) $existing->total_size;
-        $newCount = count($files);
-
-        if ($existingCount + $newCount > $limits['max_files_per_response']) {
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Превышено максимальное количество файлов. Максимум: %d, уже загружено: %d, новых: %d',
-                    $limits['max_files_per_response'],
-                    $existingCount,
-                    $newCount
-                )
-            );
-        }
-
-        $newSize = array_reduce($files, fn ($carry, $file) => $carry + $file->getSize(), 0);
-
-        if ($existingSize + $newSize > $limits['max_total_size']) {
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Превышен максимальный общий размер файлов. Максимум: %d MB',
-                    $limits['max_total_size'] / 1024 / 1024
-                )
-            );
-        }
-
-        // Предварительная валидация всех файлов перед загрузкой
-        foreach ($files as $file) {
-            $this->fileValidator->validate($file, self::VALIDATION_PRESET);
-        }
+        $this->validateFileLimits($response, $files);
 
         // Загрузка файлов с транзакцией и откатом при ошибке
         $storedPaths = [];
@@ -140,12 +104,10 @@ class TaskProofService
             DB::beginTransaction();
 
             foreach ($files as $file) {
-                $path = $this->generateFilePath($response->task_id, $dealershipId);
                 $filename = $this->generateFilename($file, $response->user_id);
+                $storedPath = TaskProofPathGenerator::generatePath($dealershipId, $response->task_id, $filename);
 
-                $storedPath = $file->storeAs($path, $filename, self::STORAGE_DISK);
-
-                if ($storedPath === false) {
+                if (! Storage::disk(self::STORAGE_DISK)->put($storedPath, $file->get())) {
                     throw new InvalidArgumentException('Не удалось сохранить файл: '.$file->getClientOriginalName());
                 }
 
@@ -194,42 +156,8 @@ class TaskProofService
         array $files,
         int $dealershipId
     ): void {
-        $limits = $this->config->getLimits();
-
-        // Одним запросом получаем количество и общий размер
-        $existing = $response->proofs()
-            ->selectRaw('COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size')
-            ->first();
-        $existingCount = (int) $existing->count;
-        $existingSize = (int) $existing->total_size;
-        $newCount = count($files);
-
-        if ($existingCount + $newCount > $limits['max_files_per_response']) {
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Превышено максимальное количество файлов. Максимум: %d, уже загружено: %d, новых: %d',
-                    $limits['max_files_per_response'],
-                    $existingCount,
-                    $newCount
-                )
-            );
-        }
-
-        $newSize = array_reduce($files, fn ($carry, $file) => $carry + $file->getSize(), 0);
-
-        if ($existingSize + $newSize > $limits['max_total_size']) {
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Превышен максимальный общий размер файлов. Максимум: %d MB',
-                    $limits['max_total_size'] / 1024 / 1024
-                )
-            );
-        }
-
-        // Валидация всех файлов (синхронно — пользователь получает ошибку сразу)
-        foreach ($files as $file) {
-            $this->fileValidator->validate($file, self::VALIDATION_PRESET);
-        }
+        // Валидация лимитов и каждого файла (синхронно — пользователь получает ошибку сразу)
+        $this->validateFileLimits($response, $files);
 
         // Сохранение во временное хранилище
         $filesData = [];
@@ -350,18 +278,55 @@ class TaskProofService
     }
 
     /**
-     * Генерация пути для хранения файла.
+     * Валидация лимитов файлов перед загрузкой.
+     *
+     * Проверяет максимальное количество файлов, суммарный размер,
+     * а также валидирует каждый файл через FileValidator.
+     * Вызывается из storeProofs() и storeProofsAsync() во избежание дублирования.
+     *
+     * @param  TaskResponse  $response  Ответ на задачу
+     * @param  array<UploadedFile>  $files  Загружаемые файлы
+     *
+     * @throws InvalidArgumentException
      */
-    private function generateFilePath(int $taskId, int $dealershipId): string
+    private function validateFileLimits(TaskResponse $response, array $files): void
     {
-        $date = date('Y/m/d');
+        $limits = $this->config->getLimits();
 
-        return sprintf(
-            'dealerships/%d/tasks/%d/%s',
-            $dealershipId,
-            $taskId,
-            $date
-        );
+        // Одним запросом получаем количество и общий размер
+        $existing = $response->proofs()
+            ->selectRaw('COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size')
+            ->first();
+        $existingCount = (int) $existing->count;
+        $existingSize = (int) $existing->total_size;
+        $newCount = count($files);
+
+        if ($existingCount + $newCount > $limits['max_files_per_response']) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Превышено максимальное количество файлов. Максимум: %d, уже загружено: %d, новых: %d',
+                    $limits['max_files_per_response'],
+                    $existingCount,
+                    $newCount
+                )
+            );
+        }
+
+        $newSize = array_reduce($files, fn ($carry, $file) => $carry + $file->getSize(), 0);
+
+        if ($existingSize + $newSize > $limits['max_total_size']) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Превышен максимальный общий размер файлов. Максимум: %d MB',
+                    $limits['max_total_size'] / 1024 / 1024
+                )
+            );
+        }
+
+        // Предварительная валидация каждого файла (MIME, расширение, magic bytes)
+        foreach ($files as $file) {
+            $this->fileValidator->validate($file, self::VALIDATION_PRESET);
+        }
     }
 
     /**

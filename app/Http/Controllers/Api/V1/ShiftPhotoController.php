@@ -48,17 +48,11 @@ class ShiftPhotoController extends Controller
             ], 400);
         }
 
-        $shift = Shift::find($id);
-
-        if (! $shift) {
-            return response()->json([
-                'message' => 'Смена не найдена',
-            ], 404);
-        }
+        $shift = Shift::findOrFail($id);
 
         // Безопасность обеспечивается подписанным URL:
         // - URL генерируется только для авторизованных пользователей в ShiftResource
-        // - URL имеет ограниченное время жизни (60 мин)
+        // - URL имеет ограниченное время жизни (15 мин)
         // - Проверка прав происходит при генерации URL, а не при скачивании
 
         // Получаем путь к фото
@@ -103,13 +97,7 @@ class ShiftPhotoController extends Controller
      */
     public function show(Request $request, int $id, string $type): BinaryFileResponse|JsonResponse|Response
     {
-        $shift = Shift::find($id);
-
-        if (! $shift) {
-            return response()->json([
-                'message' => 'Смена не найдена',
-            ], 404);
-        }
+        $shift = Shift::findOrFail($id);
 
         $user = $request->user();
 

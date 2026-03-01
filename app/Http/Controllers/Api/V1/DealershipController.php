@@ -71,13 +71,7 @@ class DealershipController extends Controller
     public function show(Request $request, $id)
     {
         $dealership = AutoDealership::with(['users', 'shifts', 'tasks'])
-            ->find($id);
-
-        if (! $dealership) {
-            return response()->json([
-                'message' => 'Автосалон не найден',
-            ], 404);
-        }
+            ->findOrFail($id);
 
         // Проверка доступа к дилерству via Policy
         $this->authorize('view', $dealership);
@@ -110,13 +104,7 @@ class DealershipController extends Controller
      */
     public function update(UpdateDealershipRequest $request, $id)
     {
-        $dealership = AutoDealership::find($id);
-
-        if (! $dealership) {
-            return response()->json([
-                'message' => 'Автосалон не найден',
-            ], 404);
-        }
+        $dealership = AutoDealership::findOrFail($id);
 
         $validated = $request->validated();
 
@@ -133,13 +121,7 @@ class DealershipController extends Controller
      */
     public function destroy($id)
     {
-        $dealership = AutoDealership::find($id);
-
-        if (! $dealership) {
-            return response()->json([
-                'message' => 'Автосалон не найден',
-            ], 404);
-        }
+        $dealership = AutoDealership::findOrFail($id);
 
         // Проверяем наличие связанных данных (одним запросом вместо 6)
         $dealership->loadCount(['users', 'shifts', 'tasks']);

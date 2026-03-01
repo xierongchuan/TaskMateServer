@@ -116,7 +116,7 @@ describe('Shift Photo API', function () {
 
             // Assert
             $response->assertStatus(404)
-                ->assertJsonPath('message', 'Смена не найдена');
+                ->assertJsonPath('message', 'Ресурс не найден');
         });
 
         it('returns 400 for invalid photo type', function () {
@@ -314,7 +314,7 @@ describe('Shift Photo API', function () {
 
             // Assert
             $response->assertStatus(404)
-                ->assertJsonPath('message', 'Смена не найдена');
+                ->assertJsonPath('message', 'Ресурс не найден');
         });
     });
 });

@@ -22,7 +22,7 @@ class ImportantLinkController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
         $perPage = (int) $request->query('per_page', '15');
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
+        $dealershipId = $this->parseDealershipId($request);
         $isActive = $request->query('is_active');
         $search = $request->query('search');
 
@@ -62,13 +62,7 @@ class ImportantLinkController extends Controller
 
     public function show(Request $request, $id)
     {
-        $link = ImportantLink::with(['creator', 'dealership'])->find($id);
-
-        if (! $link) {
-            return response()->json([
-                'message' => 'Ссылка не найдена',
-            ], 404);
-        }
+        $link = ImportantLink::with(['creator', 'dealership'])->findOrFail($id);
 
         // Проверка доступа к дилерству ссылки via Policy
         $this->authorize('view', $link);
@@ -106,13 +100,7 @@ class ImportantLinkController extends Controller
     {
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
-        $link = ImportantLink::find($id);
-
-        if (! $link) {
-            return response()->json([
-                'message' => 'Ссылка не найдена',
-            ], 404);
-        }
+        $link = ImportantLink::findOrFail($id);
 
         // Проверка доступа к текущему дилерству ссылки via Policy
         $this->authorize('update', $link);
@@ -136,13 +124,7 @@ class ImportantLinkController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        $link = ImportantLink::find($id);
-
-        if (! $link) {
-            return response()->json([
-                'message' => 'Ссылка не найдена',
-            ], 404);
-        }
+        $link = ImportantLink::findOrFail($id);
 
         // Проверка доступа к дилерству ссылки via Policy
         $this->authorize('delete', $link);

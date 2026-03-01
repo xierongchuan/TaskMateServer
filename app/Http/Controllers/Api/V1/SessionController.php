@@ -79,7 +79,7 @@ class SessionController extends Controller
             'last_failed_login_at' => null,
         ]);
 
-        $token = $user->createToken('user-token')->plainTextToken;
+        $token = $user->createToken($req->userAgent() ?? 'unknown-device')->plainTextToken;
         Log::info('Login successful', ['user_id' => $user->id]);
 
         $user->load(['dealership', 'dealerships']);

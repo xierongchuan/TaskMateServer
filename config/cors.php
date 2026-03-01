@@ -32,6 +32,7 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true,
+    // Bearer token auth only, no cookies needed
+    'supports_credentials' => false,
 
 ];

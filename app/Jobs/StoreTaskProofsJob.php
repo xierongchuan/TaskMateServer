@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Helpers\TaskProofPathGenerator;
 use App\Models\TaskProof;
 use App\Models\TaskResponse;
 use Illuminate\Bus\Queueable;
@@ -97,12 +98,9 @@ class StoreTaskProofsJob implements ShouldQueue
             $extension
         );
 
-        $date = date('Y/m/d');
-        $destinationPath = sprintf(
-            'dealerships/%d/tasks/%d/%s/%s',
+        $destinationPath = TaskProofPathGenerator::generatePath(
             $this->dealershipId,
             $this->taskId,
-            $date,
             $filename
         );
 

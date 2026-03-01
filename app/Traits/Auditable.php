@@ -32,15 +32,53 @@ use Illuminate\Database\Eloquent\Model;
 trait Auditable
 {
     /**
+     * Глобальный флаг отключения аудита.
+     * Используется при массовых операциях (архивация, bulk-update)
+     * для предотвращения лавины INSERT в audit_logs.
+     */
+    public static bool $auditingDisabled = false;
+
+    /**
+     * Выполняет переданный callback без записи в audit_logs.
+     *
+     * Пример использования при архивации задач:
+     * ```php
+     * Task::withoutAuditing(fn() => $task->update([
+     *     'is_active' => false,
+     *     'archived_at' => TimeHelper::nowUtc(),
+     * ]));
+     * ```
+     *
+     * Метод потокобезопасен в рамках одного процесса PHP:
+     * флаг сбрасывается в блоке finally даже при исключениях.
+     */
+    public static function withoutAuditing(\Closure $callback): mixed
+    {
+        static::$auditingDisabled = true;
+        try {
+            return $callback();
+        } finally {
+            static::$auditingDisabled = false;
+        }
+    }
+
+    /**
      * Boot the auditable trait for a model.
      */
     public static function bootAuditable(): void
     {
         static::created(function (Model $model) {
+            if (static::$auditingDisabled) {
+                return;
+            }
             self::logAudit($model, 'created', $model->toArray());
         });
 
         static::updated(function (Model $model) {
+            if (static::$auditingDisabled) {
+                return;
+            }
+
             $changes = $model->getChanges();
             // Remove updated_at from changes since it's automatic
             unset($changes['updated_at']);
@@ -54,6 +92,9 @@ trait Auditable
         });
 
         static::deleted(function (Model $model) {
+            if (static::$auditingDisabled) {
+                return;
+            }
             self::logAudit($model, 'deleted', $model->toArray());
         });
     }

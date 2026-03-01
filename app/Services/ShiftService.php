@@ -457,11 +457,14 @@ class ShiftService
     }
 
     /**
-     * Get shifts for a user with dealership context
+     * Get shifts for a user with dealership context.
      *
-     * @return \Illuminate\Database\Eloquent\Collection
+     * Когда передан $perPage — возвращает LengthAwarePaginator для постраничной навигации.
+     * Без $perPage — возвращает полную коллекцию (обратная совместимость).
+     *
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
      */
-    public function getUserShifts(User $user, array $filters = [])
+    public function getUserShifts(User $user, array $filters = [], ?int $perPage = null)
     {
         $query = Shift::where('user_id', $user->id)
             ->where('dealership_id', $user->dealership_id)
@@ -480,6 +483,12 @@ class ShiftService
             $query->where('shift_start', '<=', $filters['date_to']);
         }
 
-        return $query->orderBy('shift_start', 'desc')->get();
+        $query->orderBy('shift_start', 'desc');
+
+        if ($perPage !== null) {
+            return $query->paginate($perPage);
+        }
+
+        return $query->get();
     }
 }

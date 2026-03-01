@@ -44,4 +44,36 @@ class TaskGeneratorPolicy
     {
         return $this->view($user, $generator);
     }
+
+    /**
+     * Приостановка генератора: owner или доступ к дилерству генератора.
+     */
+    public function pause(User $user, TaskGenerator $generator): Response
+    {
+        return $this->view($user, $generator);
+    }
+
+    /**
+     * Возобновление генератора: owner или доступ к дилерству генератора.
+     */
+    public function resume(User $user, TaskGenerator $generator): Response
+    {
+        return $this->view($user, $generator);
+    }
+
+    /**
+     * Просмотр статистики генератора: owner или доступ к дилерству генератора.
+     */
+    public function viewStatistics(User $user, TaskGenerator $generator): Response
+    {
+        return $this->view($user, $generator);
+    }
+
+    /**
+     * Просмотр сгенерированных задач: owner или доступ к дилерству генератора.
+     */
+    public function viewGeneratedTasks(User $user, TaskGenerator $generator): Response
+    {
+        return $this->view($user, $generator);
+    }
 }

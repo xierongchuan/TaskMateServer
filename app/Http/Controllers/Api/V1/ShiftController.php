@@ -39,7 +39,7 @@ class ShiftController extends Controller
         }
 
         $perPage = min((int) $request->query('per_page', '15'), 100);
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
+        $dealershipId = $this->parseDealershipId($request);
         $status = $request->query('status');
         $isLate = $request->query('is_late');
         $date = $request->query('date');
@@ -177,15 +177,7 @@ class ShiftController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $shift = Shift::with(['user', 'dealership', 'schedule'])
-            ->find($id);
-
-        if (! $shift) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Смена не найдена',
-            ], 404);
-        }
+        $shift = Shift::with(['user', 'dealership', 'schedule'])->findOrFail($id);
 
         // Проверка доступа к дилерству смены
         $accessError = $this->validateDealershipAccess($currentUser, $shift->dealership_id);
@@ -336,7 +328,7 @@ class ShiftController extends Controller
      */
     public function current(Request $request): JsonResponse
     {
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
+        $dealershipId = $this->parseDealershipId($request);
         $currentShifts = $this->shiftService->getCurrentShifts($dealershipId);
 
         return response()->json([
@@ -352,7 +344,7 @@ class ShiftController extends Controller
      */
     public function statistics(Request $request): JsonResponse
     {
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
+        $dealershipId = $this->parseDealershipId($request);
         $startDate = $request->query('start_date')
             ? Carbon::parse($request->query('start_date'))
             : Carbon::now()->subDays(7);
@@ -418,7 +410,7 @@ class ShiftController extends Controller
             ], 401);
         }
 
-        $dealershipId = $request->query('dealership_id') !== null && $request->query('dealership_id') !== '' ? (int) $request->query('dealership_id') : null;
+        $dealershipId = $this->parseDealershipId($request);
         $shift = $this->shiftService->getUserOpenShift($user, $dealershipId);
 
         if (! $shift) {

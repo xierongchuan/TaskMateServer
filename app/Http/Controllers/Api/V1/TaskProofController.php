@@ -32,13 +32,7 @@ class TaskProofController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $proof = TaskProof::with(['taskResponse.task'])->find($id);
-
-        if (! $proof) {
-            return response()->json([
-                'message' => 'Доказательство не найдено',
-            ], 404);
-        }
+        $proof = TaskProof::with(['taskResponse.task'])->findOrFail($id);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
@@ -125,13 +119,7 @@ class TaskProofController extends Controller
      */
     public function destroy($id): JsonResponse
     {
-        $proof = TaskProof::with(['taskResponse.task'])->find($id);
-
-        if (! $proof) {
-            return response()->json([
-                'message' => 'Доказательство не найдено',
-            ], 404);
-        }
+        $proof = TaskProof::with(['taskResponse.task'])->findOrFail($id);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
@@ -171,13 +159,7 @@ class TaskProofController extends Controller
      */
     public function destroyShared($id): JsonResponse
     {
-        $proof = TaskSharedProof::with(['task'])->find($id);
-
-        if (! $proof) {
-            return response()->json([
-                'message' => 'Файл не найден',
-            ], 404);
-        }
+        $proof = TaskSharedProof::with(['task'])->findOrFail($id);
 
         /** @var \App\Models\User $currentUser */
         $currentUser = auth()->user();
