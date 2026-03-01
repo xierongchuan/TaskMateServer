@@ -8,6 +8,7 @@ use App\Enums\TaskStatus;
 use App\Helpers\TimeHelper;
 use App\Traits\Auditable;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -366,5 +367,83 @@ class Task extends Model
     public function scopeFromGenerator($query, $generatorId)
     {
         return $query->where('generator_id', $generatorId);
+    }
+
+    /**
+     * Scope для фильтрации выполненных задач.
+     *
+     * Учитывает тип задачи:
+     * - individual: хотя бы один completed response (опционально — в заданном диапазоне дат)
+     * - group: ВСЕ назначенные пользователи имеют completed response
+     *   (опционально — хотя бы один из них в заданном диапазоне дат)
+     *
+     * @param  Carbon|null  $from  Начало диапазона responded_at (UTC, включительно)
+     * @param  Carbon|null  $to  Конец диапазона responded_at (UTC, включительно)
+     */
+    public function scopeCompleted(Builder $query, ?Carbon $from = null, ?Carbon $to = null): Builder
+    {
+        $hasDateRange = $from !== null && $to !== null;
+
+        return $query->where(function (Builder $q) use ($hasDateRange, $from, $to): void {
+            // Индивидуальные задачи: хотя бы один completed response
+            $q->where(function (Builder $individual) use ($hasDateRange, $from, $to): void {
+                $individual->where('task_type', 'individual')
+                    ->whereHas('responses', function (Builder $r) use ($hasDateRange, $from, $to): void {
+                        $r->where('status', 'completed');
+                        if ($hasDateRange) {
+                            $r->whereBetween('responded_at', [$from, $to]);
+                        }
+                    });
+            })
+            // Групповые задачи: ВСЕ назначенные выполнили
+                ->orWhere(function (Builder $group) use ($hasDateRange, $from, $to): void {
+                    $group->where('task_type', 'group')
+                        ->whereHas('assignments')
+                        ->whereRaw('(
+                        SELECT COUNT(DISTINCT ta.user_id)
+                        FROM task_assignments ta
+                        WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
+                    ) > 0')
+                        ->whereRaw('(
+                        SELECT COUNT(DISTINCT ta.user_id)
+                        FROM task_assignments ta
+                        WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
+                    ) = (
+                        SELECT COUNT(DISTINCT tr.user_id)
+                        FROM task_responses tr
+                        WHERE tr.task_id = tasks.id AND tr.status = ?
+                    )', ['completed']);
+
+                    if ($hasDateRange) {
+                        // Дополнительно: хотя бы один completed response в диапазоне дат
+                        $group->whereHas('responses', function (Builder $r) use ($from, $to): void {
+                            $r->where('status', 'completed')
+                                ->whereBetween('responded_at', [$from, $to]);
+                        });
+                    }
+                });
+        });
+    }
+
+    /**
+     * Scope для фильтрации просроченных задач.
+     *
+     * Задача считается просроченной, если:
+     * - is_active = true
+     * - deadline IS NOT NULL
+     * - deadline < $before (по умолчанию — текущее UTC-время)
+     * - нет ни одного completed response
+     *
+     * @param  Carbon|null  $before  Граница дедлайна (UTC). По умолчанию — TimeHelper::nowUtc()
+     */
+    public function scopeOverdue(Builder $query, ?Carbon $before = null): Builder
+    {
+        $cutoff = $before ?? TimeHelper::nowUtc();
+
+        return $query
+            ->where('is_active', true)
+            ->whereNotNull('deadline')
+            ->where('deadline', '<', $cutoff)
+            ->whereDoesntHave('responses', fn (Builder $q) => $q->where('status', 'completed'));
     }
 }

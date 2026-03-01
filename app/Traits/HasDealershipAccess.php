@@ -4,19 +4,31 @@ declare(strict_types=1);
 
 namespace App\Traits;
 
-use App\Enums\Role;
 use App\Models\User;
+use App\Services\DealershipAccessService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Трейт для унификации проверки доступа к дилерствам.
+ * Трейт для унификации проверки доступа к дилерствам в контроллерах.
  *
- * Устраняет дублирование кода проверки доступа в контроллерах.
+ * Предоставляет HTTP-уровень обёртки над DealershipAccessService:
+ * методы validate* возвращают JsonResponse|null для удобного использования
+ * в контроллерах. Бизнес-логика сосредоточена в DealershipAccessService.
+ *
+ * Используйте DealershipAccessService напрямую в сервисном слое.
  */
 trait HasDealershipAccess
 {
+    /**
+     * Возвращает экземпляр DealershipAccessService через IoC-контейнер.
+     */
+    private function dealershipAccessService(): DealershipAccessService
+    {
+        return app(DealershipAccessService::class);
+    }
+
     /**
      * Разбирает dealership_id из query-параметров запроса.
      *
@@ -35,15 +47,17 @@ trait HasDealershipAccess
      */
     protected function isOwner(User $user): bool
     {
-        return $user->role === Role::OWNER;
+        return $this->dealershipAccessService()->isOwner($user);
     }
 
     /**
      * Получает список ID дилерств, доступных пользователю.
+     *
+     * @return array<int>
      */
     protected function getAccessibleDealershipIds(User $user): array
     {
-        return $user->getAccessibleDealershipIds();
+        return $this->dealershipAccessService()->getUserDealershipIds($user);
     }
 
     /**
@@ -51,11 +65,7 @@ trait HasDealershipAccess
      */
     protected function hasAccessToDealership(User $user, int $dealershipId): bool
     {
-        if ($this->isOwner($user)) {
-            return true;
-        }
-
-        return in_array($dealershipId, $this->getAccessibleDealershipIds($user), true);
+        return $this->dealershipAccessService()->hasAccessToDealership($user, $dealershipId);
     }
 
     /**
@@ -65,11 +75,11 @@ trait HasDealershipAccess
      */
     protected function validateDealershipAccess(User $user, ?int $dealershipId): ?JsonResponse
     {
-        if ($dealershipId === null || $this->isOwner($user)) {
+        if ($dealershipId === null || $this->dealershipAccessService()->isOwner($user)) {
             return null;
         }
 
-        if (! $this->hasAccessToDealership($user, $dealershipId)) {
+        if (! $this->dealershipAccessService()->hasAccessToDealership($user, $dealershipId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Нет доступа к указанному дилерству',
@@ -87,11 +97,11 @@ trait HasDealershipAccess
      */
     protected function validateMultipleDealershipsAccess(User $user, array $dealershipIds): ?JsonResponse
     {
-        if (empty($dealershipIds) || $this->isOwner($user)) {
+        if (empty($dealershipIds) || $this->dealershipAccessService()->isOwner($user)) {
             return null;
         }
 
-        $accessibleIds = $this->getAccessibleDealershipIds($user);
+        $accessibleIds = $this->dealershipAccessService()->getUserDealershipIds($user);
         $inaccessible = array_diff($dealershipIds, $accessibleIds);
 
         if (! empty($inaccessible)) {
@@ -110,35 +120,17 @@ trait HasDealershipAccess
      */
     protected function hasAccessToUser(User $currentUser, User $targetUser): bool
     {
-        if ($this->isOwner($currentUser)) {
-            return true;
-        }
-
-        $accessibleIds = $this->getAccessibleDealershipIds($currentUser);
-        $targetDealershipIds = $this->getUserDealershipIds($targetUser);
-
-        // Если у целевого пользователя нет дилерств - доступ есть (orphan user)
-        if (empty($targetDealershipIds)) {
-            return true;
-        }
-
-        return ! empty(array_intersect($targetDealershipIds, $accessibleIds));
+        return $this->dealershipAccessService()->hasAccessToUser($currentUser, $targetUser);
     }
 
     /**
      * Получает все ID дилерств пользователя (основное + прикреплённые).
+     *
+     * @return array<int>
      */
     protected function getUserDealershipIds(User $user): array
     {
-        $ids = [];
-
-        if ($user->dealership_id) {
-            $ids[] = $user->dealership_id;
-        }
-
-        $attachedIds = $user->dealerships->pluck('id')->toArray();
-
-        return array_unique(array_merge($ids, $attachedIds));
+        return $this->dealershipAccessService()->getAllUserDealershipIds($user);
     }
 
     /**
@@ -148,7 +140,7 @@ trait HasDealershipAccess
      */
     protected function validateUserAccess(User $currentUser, User $targetUser): ?JsonResponse
     {
-        if (! $this->hasAccessToUser($currentUser, $targetUser)) {
+        if (! $this->dealershipAccessService()->hasAccessToUser($currentUser, $targetUser)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Нет доступа к данному пользователю',
@@ -168,13 +160,7 @@ trait HasDealershipAccess
         User $user,
         string $dealershipColumn = 'dealership_id'
     ): Builder {
-        if ($this->isOwner($user)) {
-            return $query;
-        }
-
-        $accessibleIds = $this->getAccessibleDealershipIds($user);
-
-        return $query->whereIn($dealershipColumn, $accessibleIds);
+        return $this->dealershipAccessService()->scopeByAccessibleDealerships($query, $user, $dealershipColumn);
     }
 
     /**
@@ -183,18 +169,7 @@ trait HasDealershipAccess
      */
     protected function scopeUsersByAccessibleDealerships(Builder $query, User $user): Builder
     {
-        if ($this->isOwner($user)) {
-            return $query;
-        }
-
-        $accessibleIds = $this->getAccessibleDealershipIds($user);
-
-        return $query->where(function ($q) use ($accessibleIds) {
-            $q->whereIn('dealership_id', $accessibleIds)
-                ->orWhereHas('dealerships', function ($subQ) use ($accessibleIds) {
-                    $subQ->whereIn('auto_dealerships.id', $accessibleIds);
-                });
-        });
+        return $this->dealershipAccessService()->scopeUsersByAccessibleDealerships($query, $user);
     }
 
     /**
@@ -202,18 +177,6 @@ trait HasDealershipAccess
      */
     protected function scopeTasksByAccessibleDealerships(Builder $query, User $user): Builder
     {
-        if ($this->isOwner($user)) {
-            return $query;
-        }
-
-        $accessibleIds = $this->getAccessibleDealershipIds($user);
-
-        return $query->where(function ($q) use ($accessibleIds, $user) {
-            $q->whereIn('dealership_id', $accessibleIds)
-                ->orWhereHas('assignments', function ($subQ) use ($user) {
-                    $subQ->where('user_id', $user->id);
-                })
-                ->orWhere('creator_id', $user->id);
-        });
+        return $this->dealershipAccessService()->scopeTasksByAccessibleDealerships($query, $user);
     }
 }

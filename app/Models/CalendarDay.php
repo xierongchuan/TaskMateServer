@@ -312,4 +312,97 @@ class CalendarDay extends Model
             ->where('dealership_id', $dealershipId)
             ->delete() > 0;
     }
+
+    /**
+     * Batch-загрузка данных о праздниках для группы дилерских центров на конкретную дату.
+     *
+     * Возвращает map, позволяющую определить статус праздника без дополнительных запросов.
+     * Логика аналогична isHoliday(): если у дилерства есть собственный календарь — только он;
+     * иначе — fallback на глобальный (dealership_id IS NULL).
+     *
+     * Структура результата:
+     * - Ключ int    => CalendarDay — запись из собственного календаря дилерства
+     * - Ключ null   => CalendarDay — глобальная запись (для fallback)
+     *
+     * @param  array<int>  $dealershipIds  Список ID дилерских центров
+     * @param  array<int, string>  $localDates  Карта dealership_id => локальная дата (Y-m-d) для каждого дилерства
+     * @param  int  $year  Год для проверки наличия собственного календаря
+     * @return array{
+     *     ownCalendarIds: array<int>,
+     *     dealershipRecords: Collection,
+     *     globalRecords: Collection,
+     * }
+     */
+    public static function getHolidayDataForDealerships(
+        array $dealershipIds,
+        array $localDates,
+        int $year
+    ): array {
+        if (empty($dealershipIds)) {
+            return [
+                'ownCalendarIds' => [],
+                'dealershipRecords' => collect(),
+                'globalRecords' => collect(),
+            ];
+        }
+
+        $yearStart = Carbon::createFromDate($year, 1, 1)->toDateString();
+        $yearEnd = Carbon::createFromDate($year, 12, 31)->toDateString();
+
+        // Один запрос: определяем, у каких дилерств есть свой календарь за год
+        $ownCalendarIds = self::whereBetween('date', [$yearStart, $yearEnd])
+            ->whereIn('dealership_id', $dealershipIds)
+            ->distinct()
+            ->pluck('dealership_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        // Дилерства с собственным календарём — загружаем их записи на нужные даты
+        $dealershipRecords = collect();
+        if (! empty($ownCalendarIds)) {
+            // Группируем дилерства по их локальной дате для эффективного запроса
+            $dateGroups = [];
+            foreach ($ownCalendarIds as $dealershipId) {
+                $localDate = $localDates[$dealershipId] ?? null;
+                if ($localDate !== null) {
+                    $dateGroups[$localDate][] = $dealershipId;
+                }
+            }
+
+            // Получаем записи собственного календаря для всех дат сразу
+            $dealershipRecords = self::where(function ($query) use ($dateGroups) {
+                foreach ($dateGroups as $date => $ids) {
+                    $query->orWhere(function ($q) use ($date, $ids) {
+                        $q->whereDate('date', $date)->whereIn('dealership_id', $ids);
+                    });
+                }
+            })->get()->keyBy('dealership_id');
+        }
+
+        // Дилерства без собственного календаря — нужен fallback на глобальные записи
+        $fallbackIds = array_diff($dealershipIds, $ownCalendarIds);
+        $globalRecords = collect();
+        if (! empty($fallbackIds)) {
+            // Определяем уникальные даты для fallback-дилерств
+            $fallbackDates = array_unique(
+                array_map(fn ($id) => $localDates[$id] ?? null,
+                    array_filter($fallbackIds, fn ($id) => isset($localDates[$id]))
+                )
+            );
+
+            if (! empty($fallbackDates)) {
+                // Один запрос для всех глобальных записей на нужные даты
+                $globalRecords = self::whereNull('dealership_id')
+                    ->whereIn(DB::raw('date::text'), $fallbackDates)
+                    ->get()
+                    ->keyBy(fn ($record) => $record->date->toDateString());
+            }
+        }
+
+        return [
+            'ownCalendarIds' => $ownCalendarIds,
+            'dealershipRecords' => $dealershipRecords,
+            'globalRecords' => $globalRecords,
+        ];
+    }
 }

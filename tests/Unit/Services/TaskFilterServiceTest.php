@@ -9,6 +9,7 @@ use App\Models\TaskAssignment;
 use App\Models\TaskGenerator;
 use App\Models\TaskResponse;
 use App\Models\User;
+use App\Services\DealershipAccessService;
 use App\Services\TaskFilterService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ describe('TaskFilterService', function () {
         $this->owner = User::factory()->create([
             'role' => Role::OWNER->value,
         ]);
-        $this->filterService = new TaskFilterService;
+        $this->filterService = new TaskFilterService(new DealershipAccessService);
     });
 
     describe('getFilteredTasks', function () {

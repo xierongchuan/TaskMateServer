@@ -48,7 +48,7 @@ class ShiftScheduleController extends Controller
     {
         $currentUser = $request->user();
         if (! $currentUser) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
         $schedule = ShiftSchedule::findOrFail($id);
@@ -111,7 +111,7 @@ class ShiftScheduleController extends Controller
     {
         $currentUser = $request->user();
         if (! $currentUser) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
         $schedule = ShiftSchedule::findOrFail($id);
@@ -185,7 +185,7 @@ class ShiftScheduleController extends Controller
     {
         $currentUser = $request->user();
         if (! $currentUser) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
         $schedule = ShiftSchedule::findOrFail($id);

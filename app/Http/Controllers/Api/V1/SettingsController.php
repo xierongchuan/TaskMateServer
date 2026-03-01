@@ -83,7 +83,7 @@ class SettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Setting updated successfully',
+                'message' => 'Настройка успешно обновлена',
                 'data' => [
                     'key' => $key,
                     'value' => $setting->getTypedValue(),
@@ -157,7 +157,7 @@ class SettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Shift configuration updated successfully',
+                'message' => 'Конфигурация смен успешно обновлена',
                 'data' => $updatedSettings,
             ]);
         } catch (\InvalidArgumentException $e) {
@@ -203,7 +203,7 @@ class SettingsController extends Controller
      */
     public function updateNotificationConfig(UpdateNotificationConfigRequest $request): JsonResponse
     {
-        return $this->updateConfigSettings($request, 'Notification configuration updated successfully');
+        return $this->updateConfigSettings($request, 'Конфигурация уведомлений успешно обновлена');
     }
 
     /**
@@ -234,7 +234,7 @@ class SettingsController extends Controller
      */
     public function updateArchiveConfig(UpdateArchiveConfigRequest $request): JsonResponse
     {
-        return $this->updateConfigSettings($request, 'Archive configuration updated successfully');
+        return $this->updateConfigSettings($request, 'Конфигурация архивации успешно обновлена');
     }
 
     /**
@@ -274,7 +274,7 @@ class SettingsController extends Controller
      */
     public function updateTaskConfig(UpdateTaskConfigRequest $request): JsonResponse
     {
-        return $this->updateConfigSettings($request, 'Task configuration updated successfully');
+        return $this->updateConfigSettings($request, 'Конфигурация задач успешно обновлена');
     }
 
     /**

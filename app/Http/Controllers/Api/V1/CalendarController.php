@@ -126,7 +126,7 @@ class CalendarController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Calendar day updated',
+            'message' => 'День календаря обновлён',
             'data' => CalendarDayResource::make($calendarDay)->resolve(),
             'meta' => [
                 'copied_from_global' => $copiedFromGlobal,
@@ -159,7 +159,7 @@ class CalendarController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid date format',
+                'message' => 'Неверный формат даты',
             ], 422);
         }
 
@@ -167,7 +167,7 @@ class CalendarController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $deleted ? 'Calendar day removed' : 'No record found',
+            'message' => $deleted ? 'День календаря удалён' : 'Запись не найдена',
             'data' => ['deleted' => $deleted],
         ]);
     }
@@ -242,7 +242,7 @@ class CalendarController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "Bulk operation '{$data['operation']}' completed",
+            'message' => "Массовая операция '{$data['operation']}' выполнена",
             'data' => [
                 'operation' => $data['operation'],
                 'year' => $year,
@@ -273,7 +273,7 @@ class CalendarController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid date format',
+                'message' => 'Неверный формат даты',
             ], 422);
         }
 

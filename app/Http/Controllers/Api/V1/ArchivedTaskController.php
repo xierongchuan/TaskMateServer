@@ -159,7 +159,7 @@ class ArchivedTaskController extends Controller
         return response()->json([
             'success' => true,
             'data' => TaskResource::make($task)->resolve(),
-            'message' => 'Task restored from archive',
+            'message' => 'Задача восстановлена из архива',
         ]);
     }
 

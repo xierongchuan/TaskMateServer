@@ -70,8 +70,13 @@ class TaskGenerator extends Model
      * 6. Today must match the recurrence pattern (daily/weekly/monthly)
      *
      * All time operations are in UTC.
+     *
+     * @param  Carbon|null  $now  Current UTC time (defaults to TimeHelper::nowUtc())
+     * @param  bool|null  $preloadedIsHoliday  Pre-computed holiday status for the generator's dealership.
+     *                                         When provided, skips the CalendarDay::isHoliday() DB call,
+     *                                         eliminating N+1 queries in batch processing contexts.
      */
-    public function shouldGenerateToday(?Carbon $now = null): bool
+    public function shouldGenerateToday(?Carbon $now = null, ?bool $preloadedIsHoliday = null): bool
     {
         $now = $now ?? TimeHelper::nowUtc();
 
@@ -94,8 +99,10 @@ class TaskGenerator extends Model
             }
         }
 
-        // Check if today is a holiday
-        if (CalendarDay::isHoliday($now, $this->dealership_id)) {
+        // Check if today is a holiday.
+        // Use pre-computed value when available (batch processing) to avoid N+1 queries.
+        $isHoliday = $preloadedIsHoliday ?? CalendarDay::isHoliday($now, $this->dealership_id);
+        if ($isHoliday) {
             return false;
         }
 

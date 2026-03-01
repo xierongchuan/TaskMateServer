@@ -6,19 +6,21 @@ namespace App\Policies;
 
 use App\Models\Task;
 use App\Models\User;
-use App\Traits\HasDealershipAccess;
+use App\Services\DealershipAccessService;
 use Illuminate\Auth\Access\Response;
 
 class TaskPolicy
 {
-    use HasDealershipAccess;
+    public function __construct(
+        private readonly DealershipAccessService $dealershipAccess,
+    ) {}
 
     /**
      * Просмотр задачи: owner, создатель, назначенный, или доступ к дилерству.
      */
     public function view(User $user, Task $task): Response
     {
-        if ($this->isOwner($user)) {
+        if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
 
@@ -30,7 +32,7 @@ class TaskPolicy
             return Response::allow();
         }
 
-        if ($this->hasAccessToDealership($user, $task->dealership_id)) {
+        if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
             return Response::allow();
         }
 
@@ -42,7 +44,7 @@ class TaskPolicy
      */
     public function update(User $user, Task $task): Response
     {
-        if ($this->isOwner($user)) {
+        if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
 
@@ -50,7 +52,7 @@ class TaskPolicy
             return Response::allow();
         }
 
-        if ($this->hasAccessToDealership($user, $task->dealership_id)) {
+        if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
             return Response::allow();
         }
 
@@ -62,11 +64,11 @@ class TaskPolicy
      */
     public function delete(User $user, Task $task): Response
     {
-        if ($this->isOwner($user)) {
+        if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
 
-        if ($this->hasAccessToDealership($user, $task->dealership_id)) {
+        if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
             return Response::allow();
         }
 
@@ -82,11 +84,11 @@ class TaskPolicy
      */
     public function updateStatus(User $user, Task $task): Response
     {
-        if ($task->dealership_id === null || $this->isOwner($user)) {
+        if ($task->dealership_id === null || $this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
 
-        if ($this->hasAccessToDealership($user, $task->dealership_id)) {
+        if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
             return Response::allow();
         }
 

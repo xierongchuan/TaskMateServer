@@ -35,7 +35,7 @@ class ShiftController extends Controller
     {
         $currentUser = $request->user();
         if (! $currentUser) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
         $perPage = min((int) $request->query('per_page', '15'), 100);
@@ -110,7 +110,7 @@ class ShiftController extends Controller
     {
         $currentUser = $request->user();
         if (! $currentUser) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
         $data = $request->validated();
@@ -125,7 +125,7 @@ class ShiftController extends Controller
             if (! $this->shiftService->validateUserDealership($user, (int) $data['dealership_id'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'User does not belong to the specified dealership',
+                    'message' => 'Пользователь не принадлежит указанному автосалону',
                 ], 403);
             }
 
@@ -141,7 +141,7 @@ class ShiftController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Shift opened successfully',
+                'message' => 'Смена успешно открыта',
                 'data' => new ShiftResource($shift),
             ], 201);
 
@@ -174,7 +174,7 @@ class ShiftController extends Controller
     {
         $currentUser = $request->user();
         if (! $currentUser) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
         $shift = Shift::with(['user', 'dealership', 'schedule'])->findOrFail($id);
@@ -202,7 +202,7 @@ class ShiftController extends Controller
         $currentUser = $request->user();
 
         if (! $currentUser) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
         // Проверка доступа к дилерству смены
@@ -224,7 +224,7 @@ class ShiftController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Shift closed successfully',
+                    'message' => 'Смена успешно закрыта',
                     'data' => new ShiftResource($updatedShift),
                 ]);
             }
@@ -241,14 +241,14 @@ class ShiftController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Shift updated successfully',
+                    'message' => 'Смена успешно обновлена',
                     'data' => new ShiftResource($shift),
                 ]);
             }
 
             return response()->json([
                 'success' => false,
-                'message' => 'No valid fields to update',
+                'message' => 'Нет допустимых полей для обновления',
             ], 400);
 
         } catch (\InvalidArgumentException $e) {
@@ -278,7 +278,7 @@ class ShiftController extends Controller
     {
         $currentUser = $request->user();
         if (! $currentUser) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
         $shift = Shift::findOrFail($id);
@@ -297,7 +297,7 @@ class ShiftController extends Controller
             if ($shift->status === ShiftStatus::OPEN->value && ! $shift->shift_end) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot delete an active shift',
+                    'message' => 'Невозможно удалить активную смену',
                 ], 400);
             }
 
@@ -305,7 +305,7 @@ class ShiftController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Shift deleted successfully',
+                'message' => 'Смена успешно удалена',
             ]);
 
         } catch (\Exception $e) {
@@ -372,7 +372,7 @@ class ShiftController extends Controller
         if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthenticated',
+                'message' => 'Не авторизован',
             ], 401);
         }
 
@@ -406,7 +406,7 @@ class ShiftController extends Controller
         if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthenticated',
+                'message' => 'Не авторизован',
             ], 401);
         }
 
@@ -417,7 +417,7 @@ class ShiftController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => null,
-                'message' => 'No active shift found',
+                'message' => 'Активная смена не найдена',
             ]);
         }
 

@@ -219,19 +219,19 @@ class ArchiveCompletedTasks extends Command
 
     /**
      * Archive overdue tasks for a dealership
+     *
+     * Архивируются только задачи, дедлайн которых прошёл более суток назад
+     * (cutoffDate = nowUtc - 1 день). Это предотвращает мгновенную архивацию
+     * задач, по которым дедлайн только что истёк.
      */
     private function archiveOverdueTasks(?int $dealershipId): int
     {
+        // Используем cutoffDate = nowUtc - 1 день вместо nowUtc,
+        // чтобы не архивировать задачи с дедлайном который истёк только что.
         $cutoffDate = TimeHelper::nowUtc()->subDay();
 
-        $query = Task::query()
-            ->where('is_active', true)
-            ->whereNull('archived_at')
-            ->whereNotNull('deadline')
-            ->where('deadline', '<', $cutoffDate)
-            ->whereDoesntHave('responses', function ($q) {
-                $q->where('status', 'completed');
-            });
+        $query = Task::overdue($cutoffDate)
+            ->whereNull('archived_at');
 
         if ($dealershipId !== null) {
             $query->where('dealership_id', $dealershipId);

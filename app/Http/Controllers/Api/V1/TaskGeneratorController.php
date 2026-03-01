@@ -152,7 +152,7 @@ class TaskGeneratorController extends Controller
         return response()->json([
             'success' => true,
             'data' => TaskGeneratorResource::make($generator)->resolve(),
-            'message' => 'Task generator created successfully',
+            'message' => 'Генератор задач успешно создан',
         ], 201);
     }
 
@@ -277,7 +277,7 @@ class TaskGeneratorController extends Controller
         return response()->json([
             'success' => true,
             'data' => TaskGeneratorResource::make($generator)->resolve(),
-            'message' => 'Task generator updated successfully',
+            'message' => 'Генератор задач успешно обновлён',
         ]);
     }
 
@@ -294,7 +294,7 @@ class TaskGeneratorController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Task generator deleted successfully',
+            'message' => 'Генератор задач успешно удалён',
         ]);
     }
 
@@ -313,7 +313,7 @@ class TaskGeneratorController extends Controller
         return response()->json([
             'success' => true,
             'data' => TaskGeneratorResource::make($generator)->resolve(),
-            'message' => 'Task generator paused',
+            'message' => 'Генератор задач приостановлен',
         ]);
     }
 
@@ -332,7 +332,7 @@ class TaskGeneratorController extends Controller
         return response()->json([
             'success' => true,
             'data' => TaskGeneratorResource::make($generator)->resolve(),
-            'message' => 'Task generator resumed',
+            'message' => 'Генератор задач возобновлён',
         ]);
     }
 

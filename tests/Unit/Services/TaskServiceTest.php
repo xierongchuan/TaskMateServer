@@ -8,6 +8,7 @@ use App\Models\AutoDealership;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\User;
+use App\Services\DealershipAccessService;
 use App\Services\TaskService;
 use Carbon\Carbon;
 
@@ -25,7 +26,7 @@ describe('TaskService', function () {
         $this->owner = User::factory()->create([
             'role' => Role::OWNER->value,
         ]);
-        $this->taskService = new TaskService;
+        $this->taskService = new TaskService(new DealershipAccessService);
     });
 
     describe('createTask', function () {

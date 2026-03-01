@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Helpers\TimeHelper;
+use App\Models\CalendarDay;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskGenerator;
+use App\Services\SettingsService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -39,7 +41,7 @@ class ProcessTaskGeneratorsJob implements ShouldQueue
         $now = TimeHelper::nowUtc();
         Log::info('ProcessTaskGeneratorsJob started', ['time_utc' => $now->toIso8601ZuluString()]);
 
-        $generators = TaskGenerator::with(['assignments'])
+        $generators = TaskGenerator::with(['assignments', 'dealership'])
             ->where('is_active', true)
             ->whereDate('start_date', '<=', $now->toDateString())
             ->where(function ($q) use ($now) {
@@ -48,20 +50,31 @@ class ProcessTaskGeneratorsJob implements ShouldQueue
             })
             ->get();
 
+        // Pre-compute holiday status for all dealerships in a single batch query,
+        // avoiding N+1 queries (CalendarDay::isHoliday() per generator).
+        $holidayMap = $this->buildHolidayMap($generators, $now);
+
         $createdCount = 0;
         $skippedCount = 0;
 
         foreach ($generators as $generator) {
+            // Retrieve pre-computed holiday status for this generator's dealership.
+            // Null dealership_id uses key 'null' (global calendar result).
+            $dealershipKey = $generator->dealership_id !== null
+                ? $generator->dealership_id
+                : 'null';
+            $preloadedIsHoliday = $holidayMap[$dealershipKey] ?? null;
+
             try {
                 // Используем транзакцию с блокировкой для предотвращения race condition
                 // между несколькими воркерами
-                $created = DB::transaction(function () use ($generator, $now) {
+                $created = DB::transaction(function () use ($generator, $now, $preloadedIsHoliday) {
                     // Перезагружаем генератор с блокировкой
                     $lockedGenerator = TaskGenerator::where('id', $generator->id)
                         ->lockForUpdate()
                         ->first();
 
-                    if (! $lockedGenerator || ! $lockedGenerator->shouldGenerateToday($now)) {
+                    if (! $lockedGenerator || ! $lockedGenerator->shouldGenerateToday($now, $preloadedIsHoliday)) {
                         return false;
                     }
 
@@ -89,6 +102,95 @@ class ProcessTaskGeneratorsJob implements ShouldQueue
             'skipped' => $skippedCount,
             'total_generators' => $generators->count(),
         ]);
+    }
+
+    /**
+     * Build a map of holiday status for all unique dealerships in the generator collection.
+     *
+     * Executes at most 3 DB queries for the entire batch (compared to N*3 queries before):
+     *   1. Check which dealerships have their own calendar for the year
+     *   2. Fetch calendar records for dealerships with their own calendar
+     *   3. Fetch global calendar records for dealerships without their own calendar
+     *
+     * Map keys:
+     *   - int   => bool   — dealership_id to holiday status (own calendar)
+     *   - 'null' => bool  — global calendar status (for generators with null dealership_id)
+     *
+     * @param  \Illuminate\Support\Collection<int, TaskGenerator>  $generators
+     * @return array<int|string, bool>
+     */
+    private function buildHolidayMap(\Illuminate\Support\Collection $generators, Carbon $now): array
+    {
+        $settingsService = app(SettingsService::class);
+
+        // Collect unique dealership IDs (excluding null).
+        $dealershipIds = $generators
+            ->pluck('dealership_id')
+            ->filter()
+            ->unique()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        // Build per-dealership local date map (dealership_id => 'Y-m-d' in local timezone).
+        // Each dealership may have a different timezone, so local calendar dates may differ.
+        $localDates = [];
+        foreach ($dealershipIds as $dealershipId) {
+            $timezone = $settingsService->getTimezone($dealershipId);
+            $localDates[$dealershipId] = $now->copy()->setTimezone($timezone)->toDateString();
+        }
+
+        $year = (int) $now->format('Y');
+
+        // Single batch call — replaces N*3 queries with at most 3 queries total.
+        $batchData = CalendarDay::getHolidayDataForDealerships($dealershipIds, $localDates, $year);
+
+        $ownCalendarIds = $batchData['ownCalendarIds'];    // int[]
+        $dealershipRecords = $batchData['dealershipRecords']; // Collection keyed by dealership_id
+        $globalRecords = $batchData['globalRecords'];         // Collection keyed by date string
+
+        $holidayMap = [];
+
+        // Resolve holiday status for each dealership with its own calendar.
+        foreach ($ownCalendarIds as $dealershipId) {
+            $record = $dealershipRecords->get($dealershipId);
+            $holidayMap[$dealershipId] = $record !== null && $record->type === 'holiday';
+        }
+
+        // Resolve holiday status for dealerships falling back to the global calendar.
+        $fallbackIds = array_diff($dealershipIds, $ownCalendarIds);
+        foreach ($fallbackIds as $dealershipId) {
+            $localDate = $localDates[$dealershipId] ?? null;
+            if ($localDate === null) {
+                $holidayMap[$dealershipId] = false;
+
+                continue;
+            }
+            $record = $globalRecords->get($localDate);
+            $holidayMap[$dealershipId] = $record !== null && $record->type === 'holiday';
+        }
+
+        // Resolve holiday status for generators with null dealership_id (global calendar).
+        $hasNullDealership = $generators->contains(fn ($g) => $g->dealership_id === null);
+        if ($hasNullDealership) {
+            $globalTimezone = $settingsService->getTimezone(null);
+            $globalLocalDate = $now->copy()->setTimezone($globalTimezone)->toDateString();
+
+            // Re-use already-fetched global records if the date matches; otherwise query once.
+            // Global records are already keyed by date string, so a direct lookup is free.
+            $globalRecord = $globalRecords->get($globalLocalDate);
+
+            if ($globalRecord === null && ! $globalRecords->has($globalLocalDate)) {
+                // The date wasn't fetched in the batch (no fallback dealerships shared this date).
+                $globalRecord = CalendarDay::whereNull('dealership_id')
+                    ->whereDate('date', $globalLocalDate)
+                    ->first();
+            }
+
+            $holidayMap['null'] = $globalRecord !== null && $globalRecord->type === 'holiday';
+        }
+
+        return $holidayMap;
     }
 
     /**

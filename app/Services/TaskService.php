@@ -8,7 +8,6 @@ use App\Events\TaskAssigned;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\User;
-use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -19,7 +18,9 @@ use Illuminate\Support\Facades\DB;
  */
 class TaskService
 {
-    use HasDealershipAccess;
+    public function __construct(
+        private readonly DealershipAccessService $dealershipAccess,
+    ) {}
 
     /**
      * Создаёт новую задачу.
@@ -202,10 +203,6 @@ class TaskService
             return true;
         }
 
-        if ($this->isOwner($user)) {
-            return true;
-        }
-
-        return $this->hasAccessToDealership($user, $dealershipId);
+        return $this->dealershipAccess->hasAccessToDealership($user, $dealershipId);
     }
 }

@@ -10,6 +10,7 @@ use App\Models\AutoDealership;
 use App\Models\TaskResponse;
 use App\Policies\DealershipPolicy;
 use App\Policies\TaskResponsePolicy;
+use App\Services\AmqpChannelManager;
 use App\Services\FileValidation\FileValidationConfig;
 use App\Services\FileValidation\FileValidator;
 use App\Services\FileValidation\MimeTypeResolver;
@@ -47,6 +48,21 @@ class AppServiceProvider extends ServiceProvider
 
         // Alias для конкретного класса
         $this->app->alias(FileValidatorInterface::class, FileValidator::class);
+
+        // Регистрация AMQP-менеджера каналов как singleton
+        // Одно физическое соединение на весь жизненный цикл процесса.
+        // Конфигурация берётся из config/queue.php → connections.rabbitmq.hosts.0
+        $this->app->singleton(AmqpChannelManager::class, function ($app) {
+            $config = $app['config']->get('queue.connections.rabbitmq.hosts.0', []);
+
+            return new AmqpChannelManager(
+                host: $config['host'] ?? 'rabbitmq',
+                port: (int) ($config['port'] ?? 5672),
+                user: $config['user'] ?? 'guest',
+                password: $config['password'] ?? 'guest',
+                vhost: $config['vhost'] ?? '/',
+            );
+        });
     }
 
     /**

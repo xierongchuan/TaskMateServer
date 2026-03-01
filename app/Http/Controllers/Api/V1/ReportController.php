@@ -8,6 +8,7 @@ use App\Helpers\TimeHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Shift;
 use App\Models\Task;
+use App\Models\TaskResponse;
 use App\Models\User;
 use App\Services\EmployeeStatsService;
 use App\Traits\HasDealershipAccess;
@@ -29,7 +30,7 @@ class ReportController extends Controller
         $dateTo = $request->query('date_to');
 
         if (! $dateFrom || ! $dateTo) {
-            return response()->json(['message' => 'Parameters date_from and date_to are required'], 400);
+            return response()->json(['message' => 'Параметры date_from и date_to обязательны'], 400);
         }
 
         // Конвертируем даты в UTC для запросов к БД
@@ -116,42 +117,64 @@ class ReportController extends Controller
         )->filter(fn ($stats) => $stats['has_history'])->sortByDesc('performance_score')->values();
 
         // === ЕЖЕДНЕВНАЯ СТАТИСТИКА ===
+        // Три агрегирующих запроса вместо 3×N запросов в цикле по дням.
+
+        // Задачи, выполненные в каждый день периода (по времени ответа).
+        // Считаем DISTINCT task_id, чтобы повторить логику whereHas: одна задача — один счёт.
+        $completedByDayQuery = TaskResponse::query()
+            ->join('tasks', 'tasks.id', '=', 'task_responses.task_id')
+            ->where('task_responses.status', 'completed')
+            ->whereBetween('task_responses.responded_at', [$from, $to])
+            ->whereNull('tasks.deleted_at')
+            ->selectRaw('DATE(task_responses.responded_at) AS day, COUNT(DISTINCT task_responses.task_id) AS cnt')
+            ->groupBy('day');
+
+        if ($dealershipId) {
+            $completedByDayQuery->where('tasks.dealership_id', $dealershipId);
+        }
+
+        /** @var \Illuminate\Support\Collection<string, int> $completedByDay */
+        $completedByDay = $completedByDayQuery->pluck('cnt', 'day');
+
+        // Задачи, просроченные в каждый день периода (дедлайн попал в день, уже прошёл, задача активна и не выполнена).
+        $overdueByDayQuery = Task::whereBetween('deadline', [$from, $to])
+            ->where('deadline', '<', $nowUtc)
+            ->where('is_active', true)
+            ->whereDoesntHave('responses', function ($q) {
+                $q->where('status', 'completed');
+            })
+            ->selectRaw('DATE(deadline) AS day, COUNT(*) AS cnt')
+            ->groupBy('day');
+
+        $this->scopeByDealership($overdueByDayQuery, $dealershipId);
+
+        /** @var \Illuminate\Support\Collection<string, int> $overdueByDay */
+        $overdueByDay = $overdueByDayQuery->pluck('cnt', 'day');
+
+        // Опоздания на смены в каждый день периода.
+        $lateShiftsByDayQuery = Shift::whereBetween('shift_start', [$from, $to])
+            ->where('late_minutes', '>', 0)
+            ->selectRaw('DATE(shift_start) AS day, COUNT(*) AS cnt')
+            ->groupBy('day');
+
+        $this->scopeByDealership($lateShiftsByDayQuery, $dealershipId);
+
+        /** @var \Illuminate\Support\Collection<string, int> $lateShiftsByDay */
+        $lateShiftsByDay = $lateShiftsByDayQuery->pluck('cnt', 'day');
+
+        // Собираем dailyStats из хэш-мап в PHP, итерируя по дням периода.
         $dailyStats = [];
         $current = $from->copy();
         while ($current <= $to) {
-            $dayStart = TimeHelper::startOfDayUtc($current);
-            $dayEnd = TimeHelper::endOfDayUtc($current);
-
-            // Задачи, выполненные в этот день (по времени response)
-            $dayCompletedQuery = Task::whereHas('responses', function ($q) use ($dayStart, $dayEnd) {
-                $q->where('status', 'completed')
-                    ->whereBetween('responded_at', [$dayStart, $dayEnd]);
-            });
-            $this->scopeByDealership($dayCompletedQuery, $dealershipId);
-            $dayCompleted = $dayCompletedQuery->count();
-
-            // Задачи, просроченные в этот день (дедлайн попал в этот день и уже прошёл)
-            $dayOverdueQuery = Task::whereBetween('deadline', [$dayStart, $dayEnd])
-                ->where('deadline', '<', $nowUtc)
-                ->where('is_active', true)
-                ->whereDoesntHave('responses', function ($q) {
-                    $q->where('status', 'completed');
-                });
-            $this->scopeByDealership($dayOverdueQuery, $dealershipId);
-            $dayOverdue = $dayOverdueQuery->count();
-
-            // Опоздания на смены в этот день
-            $dayLateShiftsQuery = Shift::whereBetween('shift_start', [$dayStart, $dayEnd])
-                ->where('late_minutes', '>', 0);
-            $this->scopeByDealership($dayLateShiftsQuery, $dealershipId);
-            $dayLateShifts = $dayLateShiftsQuery->count();
+            $day = $current->format('Y-m-d');
 
             $dailyStats[] = [
-                'date' => $current->format('Y-m-d'),
-                'completed' => $dayCompleted,
-                'overdue' => $dayOverdue,
-                'late_shifts' => $dayLateShifts,
+                'date' => $day,
+                'completed' => (int) ($completedByDay[$day] ?? 0),
+                'overdue' => (int) ($overdueByDay[$day] ?? 0),
+                'late_shifts' => (int) ($lateShiftsByDay[$day] ?? 0),
             ];
+
             $current->addDay();
         }
 
@@ -259,7 +282,7 @@ class ReportController extends Controller
         $dateTo = $request->query('date_to');
 
         if (! $dateFrom || ! $dateTo) {
-            return response()->json(['message' => 'Parameters date_from and date_to are required'], 400);
+            return response()->json(['message' => 'Параметры date_from и date_to обязательны'], 400);
         }
 
         $from = TimeHelper::startOfDayUtc($dateFrom);
@@ -394,7 +417,7 @@ class ReportController extends Controller
                 break;
 
             default:
-                return response()->json(['message' => 'Unknown issue type'], 400);
+                return response()->json(['message' => 'Неизвестный тип проблемы'], 400);
         }
 
         return response()->json([

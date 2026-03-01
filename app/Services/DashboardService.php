@@ -110,10 +110,7 @@ class DashboardService
             ->first();
 
         // Подсчёт просроченных задач (без выполненных)
-        $overdueCount = Task::query()
-            ->where('is_active', true)
-            ->where('deadline', '<', $nowUtc)
-            ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'))
+        $overdueCount = Task::overdue($nowUtc)
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
             ->count();
 
@@ -121,35 +118,7 @@ class DashboardService
         $completedToday = Task::query()
             ->whereNull('archived_at')
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
-            ->where(function ($q) use ($todayStart, $todayEnd) {
-                // Индивидуальные задачи: хотя бы один completed response за сегодня
-                $q->where(function ($individual) use ($todayStart, $todayEnd) {
-                    $individual->where('task_type', 'individual')
-                        ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
-                            ->whereBetween('responded_at', [$todayStart, $todayEnd]));
-                })
-                // Групповые задачи: ВСЕ назначенные выполнили И хотя бы один за сегодня
-                    ->orWhere(function ($group) use ($todayStart, $todayEnd) {
-                        $group->where('task_type', 'group')
-                            ->whereHas('assignments')
-                            ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
-                                ->whereBetween('responded_at', [$todayStart, $todayEnd]))
-                            ->whereRaw('(
-                            SELECT COUNT(DISTINCT ta.user_id)
-                            FROM task_assignments ta
-                            WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
-                        ) > 0')
-                            ->whereRaw('(
-                            SELECT COUNT(DISTINCT ta.user_id)
-                            FROM task_assignments ta
-                            WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
-                        ) = (
-                            SELECT COUNT(DISTINCT tr.user_id)
-                            FROM task_responses tr
-                            WHERE tr.task_id = tasks.id AND tr.status = ?
-                        )', ['completed']);
-                    });
-            })
+            ->completed($todayStart, $todayEnd)
             ->count();
 
         return [
@@ -228,7 +197,28 @@ class DashboardService
             ->get(['id', 'dealership_id', 'name', 'start_time', 'end_time'])
             ->groupBy('dealership_id');
 
-        return $dealerships->map(function ($dealership) use ($employeeCounts, $shiftCounts, $allSchedules) {
+        // Batch: предзагрузка данных о праздниках одним запросом вместо N*3 запросов.
+        // Каждое дилерство может быть в своём timezone, поэтому конвертируем UTC → локальный день.
+        $nowUtc = TimeHelper::nowUtc();
+        $year = (int) $nowUtc->format('Y');
+
+        // Вычисляем локальную дату для каждого дилерства (учитываем timezone)
+        $localDates = [];
+        foreach ($dealerships as $dealership) {
+            $timezone = $dealership->timezone ?? '+05:00';
+            $localDates[$dealership->id] = $nowUtc->copy()->setTimezone($timezone)->toDateString();
+        }
+
+        // Один batch-запрос вместо 3 запросов на каждое дилерство
+        $holidayData = CalendarDay::getHolidayDataForDealerships($dealershipIds, $localDates, $year);
+
+        return $dealerships->map(function ($dealership) use (
+            $employeeCounts,
+            $shiftCounts,
+            $allSchedules,
+            $holidayData,
+            $localDates
+        ) {
             $schedules = $allSchedules->get($dealership->id, collect());
 
             $currentOrNextSchedule = null;
@@ -248,6 +238,13 @@ class DashboardService
                 }
             }
 
+            // Определяем статус праздника из предзагруженных данных (без дополнительных запросов)
+            $isHoliday = $this->resolveIsHolidayFromBatch(
+                $dealership->id,
+                $localDates[$dealership->id] ?? null,
+                $holidayData
+            );
+
             return [
                 'dealership_id' => $dealership->id,
                 'dealership_name' => $dealership->name,
@@ -261,9 +258,44 @@ class DashboardService
                     'end_time' => $currentOrNextSchedule->end_time,
                     'is_current' => $isCurrentSchedule,
                 ] : null,
-                'is_today_holiday' => CalendarDay::isHoliday(TimeHelper::nowUtc(), $dealership->id),
+                'is_today_holiday' => $isHoliday,
             ];
         });
+    }
+
+    /**
+     * Определяет статус праздника из предзагруженных batch-данных.
+     *
+     * Воспроизводит логику CalendarDay::isHoliday() без дополнительных запросов к БД:
+     * - Если дилерство имеет собственный календарь — используем только его запись
+     * - Если нет — fallback на глобальную запись (dealership_id IS NULL)
+     *
+     * @param  int  $dealershipId  ID дилерского центра
+     * @param  string|null  $localDate  Локальная дата дилерства в формате Y-m-d
+     * @param  array{ownCalendarIds: array<int>, dealershipRecords: \Illuminate\Support\Collection, globalRecords: \Illuminate\Support\Collection}  $holidayData
+     */
+    private function resolveIsHolidayFromBatch(
+        int $dealershipId,
+        ?string $localDate,
+        array $holidayData
+    ): bool {
+        if ($localDate === null) {
+            return false;
+        }
+
+        $hasOwnCalendar = in_array($dealershipId, $holidayData['ownCalendarIds'], strict: true);
+
+        if ($hasOwnCalendar) {
+            // Используем ТОЛЬКО запись из собственного календаря дилерства
+            $record = $holidayData['dealershipRecords']->get($dealershipId);
+
+            return $record !== null && $record->type === 'holiday';
+        }
+
+        // Fallback: глобальная запись для данной локальной даты
+        $globalRecord = $holidayData['globalRecords']->get($localDate);
+
+        return $globalRecord !== null && $globalRecord->type === 'holiday';
     }
 
     /**
@@ -291,9 +323,7 @@ class DashboardService
 
         // Просроченные задачи (overdue)
         $overdueTasks = Task::with(['creator:id,full_name', 'dealership:id,name', 'assignments.user:id,full_name', 'responses.user:id,full_name'])
-            ->where('is_active', true)
-            ->where('deadline', '<', $nowUtc)
-            ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'))
+            ->overdue($nowUtc)
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
             ->orderBy('deadline')
             ->limit(15)
@@ -307,33 +337,7 @@ class DashboardService
             $completedTasks = Task::with(['creator:id,full_name', 'dealership:id,name', 'assignments.user:id,full_name', 'responses.user:id,full_name'])
                 ->whereNull('archived_at')
                 ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
-                ->where(function ($q) use ($todayStart, $todayEnd) {
-                    $q->where(function ($individual) use ($todayStart, $todayEnd) {
-                        $individual->where('task_type', 'individual')
-                            ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
-                                ->whereBetween('responded_at', [$todayStart, $todayEnd]));
-                    })
-                        ->orWhere(function ($group) use ($todayStart, $todayEnd) {
-                            $group->where('task_type', 'group')
-                                ->whereHas('assignments')
-                                ->whereHas('responses', fn ($r) => $r->where('status', 'completed')
-                                    ->whereBetween('responded_at', [$todayStart, $todayEnd]))
-                                ->whereRaw('(
-                                SELECT COUNT(DISTINCT ta.user_id)
-                                FROM task_assignments ta
-                                WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
-                            ) > 0')
-                                ->whereRaw('(
-                                SELECT COUNT(DISTINCT ta.user_id)
-                                FROM task_assignments ta
-                                WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
-                            ) = (
-                                SELECT COUNT(DISTINCT tr.user_id)
-                                FROM task_responses tr
-                                WHERE tr.task_id = tasks.id AND tr.status = ?
-                            )', ['completed']);
-                        });
-                })
+                ->completed($todayStart, $todayEnd)
                 ->orderByDesc('updated_at')
                 ->limit($remainingLimit)
                 ->get();
@@ -359,9 +363,7 @@ class DashboardService
     protected function getOverdueTasksList(?int $dealershipId): Collection
     {
         return Task::with(['creator:id,full_name', 'dealership:id,name', 'assignments.user:id,full_name', 'responses.user:id,full_name'])
-            ->where('is_active', true)
-            ->where('deadline', '<', TimeHelper::nowUtc())
-            ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'))
+            ->overdue()
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
             ->orderBy('deadline')
             ->limit(10)

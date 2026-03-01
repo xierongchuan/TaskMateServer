@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Helpers\TimeHelper;
 use App\Models\Task;
 use App\Models\User;
-use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,7 +20,9 @@ use Illuminate\Http\Request;
  */
 class TaskFilterService
 {
-    use HasDealershipAccess;
+    public function __construct(
+        private readonly DealershipAccessService $dealershipAccess,
+    ) {}
 
     /**
      * Применяет все фильтры и возвращает пагинированный результат.
@@ -117,9 +118,9 @@ class TaskFilterService
     {
         $dealershipId = $request->filled('dealership_id') ? $request->integer('dealership_id') : null;
 
-        if (! $this->isOwner($currentUser)) {
+        if (! $this->dealershipAccess->isOwner($currentUser)) {
             if ($dealershipId) {
-                if (! $this->hasAccessToDealership($currentUser, $dealershipId)) {
+                if (! $this->dealershipAccess->hasAccessToDealership($currentUser, $dealershipId)) {
                     // Если фильтрация по недоступному автосалону - возвращаем пустой результат
                     $query->where('dealership_id', -1);
                 } else {
@@ -127,7 +128,7 @@ class TaskFilterService
                 }
             } else {
                 // Показываем задачи из всех доступных автосалонов
-                $this->scopeTasksByAccessibleDealerships($query, $currentUser);
+                $this->dealershipAccess->scopeTasksByAccessibleDealerships($query, $currentUser);
             }
         } elseif ($dealershipId) {
             $query->where('dealership_id', $dealershipId);
@@ -270,32 +271,7 @@ class TaskFilterService
                 break;
 
             case 'completed':
-                $query->where(function ($q) {
-                    // Индивидуальные задачи: хотя бы один completed response
-                    $q->where(function ($individual) {
-                        $individual->where('task_type', 'individual')
-                            ->whereHas('responses', fn ($r) => $r->where('status', 'completed'));
-                    })
-                    // Групповые задачи: ВСЕ назначенные должны выполнить
-                        ->orWhere(function ($group) {
-                            $group->where('task_type', 'group')
-                                ->whereHas('assignments') // должны быть назначенные
-                                ->whereRaw('(
-                                SELECT COUNT(DISTINCT ta.user_id)
-                                FROM task_assignments ta
-                                WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
-                            ) > 0')
-                                ->whereRaw('(
-                                SELECT COUNT(DISTINCT ta.user_id)
-                                FROM task_assignments ta
-                                WHERE ta.task_id = tasks.id AND ta.deleted_at IS NULL
-                            ) = (
-                                SELECT COUNT(DISTINCT tr.user_id)
-                                FROM task_responses tr
-                                WHERE tr.task_id = tasks.id AND tr.status = ?
-                            )', ['completed']);
-                        });
-                });
+                $query->completed();
                 break;
 
             case 'pending_review':
@@ -303,10 +279,7 @@ class TaskFilterService
                 break;
 
             case 'overdue':
-                $query->where('is_active', true)
-                    ->whereNotNull('deadline')
-                    ->where('deadline', '<', $nowUtc)
-                    ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'));
+                $query->overdue($nowUtc);
                 break;
 
             case 'pending':

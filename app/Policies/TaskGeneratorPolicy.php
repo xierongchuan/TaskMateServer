@@ -6,23 +6,25 @@ namespace App\Policies;
 
 use App\Models\TaskGenerator;
 use App\Models\User;
-use App\Traits\HasDealershipAccess;
+use App\Services\DealershipAccessService;
 use Illuminate\Auth\Access\Response;
 
 class TaskGeneratorPolicy
 {
-    use HasDealershipAccess;
+    public function __construct(
+        private readonly DealershipAccessService $dealershipAccess,
+    ) {}
 
     /**
      * Доступ к генератору задач: owner или доступ к дилерству генератора.
      */
     public function view(User $user, TaskGenerator $generator): Response
     {
-        if ($this->isOwner($user)) {
+        if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
 
-        if ($this->hasAccessToDealership($user, $generator->dealership_id)) {
+        if ($this->dealershipAccess->hasAccessToDealership($user, $generator->dealership_id)) {
             return Response::allow();
         }
 

@@ -122,7 +122,7 @@ class NotificationSettingController extends Controller
 
         if (! $setting) {
             return response()->json([
-                'message' => 'Notification setting not found',
+                'message' => 'Настройка уведомления не найдена',
             ], 404);
         }
 
@@ -195,7 +195,7 @@ class NotificationSettingController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Settings updated successfully',
+            'message' => 'Настройки успешно обновлены',
             'updated_count' => $updatedCount,
         ]);
     }
@@ -239,7 +239,7 @@ class NotificationSettingController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Settings reset to defaults successfully',
+            'message' => 'Настройки успешно сброшены к значениям по умолчанию',
         ]);
     }
 }

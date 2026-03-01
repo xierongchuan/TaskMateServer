@@ -6,12 +6,14 @@ namespace App\Policies;
 
 use App\Models\TaskResponse;
 use App\Models\User;
-use App\Traits\HasDealershipAccess;
+use App\Services\DealershipAccessService;
 use Illuminate\Auth\Access\Response;
 
 class TaskResponsePolicy
 {
-    use HasDealershipAccess;
+    public function __construct(
+        private readonly DealershipAccessService $dealershipAccess,
+    ) {}
 
     /**
      * Одобрение/отклонение ответа: owner или доступ к дилерству задачи.
@@ -20,11 +22,11 @@ class TaskResponsePolicy
     {
         $task = $taskResponse->task;
 
-        if ($this->isOwner($user)) {
+        if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
 
-        if ($this->hasAccessToDealership($user, $task->dealership_id)) {
+        if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
             return Response::allow();
         }
 
