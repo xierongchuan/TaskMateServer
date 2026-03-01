@@ -11,16 +11,19 @@ use App\Http\Requests\Api\V1\UpdateTaskGeneratorRequest;
 use App\Http\Resources\TaskGeneratorResource;
 use App\Http\Resources\TaskResource;
 use App\Models\TaskGenerator;
-use App\Models\TaskGeneratorAssignment;
 use App\Rules\ValidAssignmentsForTaskType;
+use App\Services\TaskGeneratorService;
 use App\Traits\HasDealershipAccess;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class TaskGeneratorController extends Controller
 {
     use HasDealershipAccess;
+
+    public function __construct(
+        private readonly TaskGeneratorService $generatorService,
+    ) {}
 
     /**
      * List all task generators with filtering.
@@ -104,49 +107,7 @@ class TaskGeneratorController extends Controller
             return $accessError;
         }
 
-        // Handle backwards compatibility: convert old single-value fields to arrays
-        $daysOfWeek = $validated['recurrence_days_of_week'] ?? null;
-        $daysOfMonth = $validated['recurrence_days_of_month'] ?? null;
-
-        // If old format is provided, convert to array
-        if (empty($daysOfWeek) && ! empty($validated['recurrence_day_of_week'])) {
-            $daysOfWeek = [$validated['recurrence_day_of_week']];
-        }
-        if (empty($daysOfMonth) && ! empty($validated['recurrence_day_of_month'])) {
-            $daysOfMonth = [$validated['recurrence_day_of_month']];
-        }
-
-        $user = $request->user();
-
-        $generator = TaskGenerator::create([
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'comment' => $validated['comment'] ?? null,
-            'creator_id' => $user->id,
-            'dealership_id' => $validated['dealership_id'],
-            'recurrence' => $validated['recurrence'],
-            'recurrence_time' => $validated['recurrence_time'].':00',
-            'deadline_time' => $validated['deadline_time'].':00',
-            'recurrence_days_of_week' => $daysOfWeek,
-            'recurrence_days_of_month' => $daysOfMonth,
-            'start_date' => Carbon::parse($validated['start_date'])->setTimezone('UTC'),
-            'end_date' => isset($validated['end_date'])
-                ? Carbon::parse($validated['end_date'])->setTimezone('UTC')
-                : null,
-            'task_type' => $validated['task_type'] ?? 'individual',
-            'response_type' => $validated['response_type'] ?? 'notification',
-            'priority' => $validated['priority'] ?? 'medium',
-            'tags' => $validated['tags'] ?? null,
-            'notification_settings' => $validated['notification_settings'] ?? null,
-            'is_active' => true,
-        ]);
-
-        // Create assignments in bulk
-        TaskGeneratorAssignment::insert(array_map(fn ($userId) => [
-            'generator_id' => $generator->id,
-            'user_id' => $userId,
-        ], $validated['assignments']));
-
+        $generator = $this->generatorService->createGenerator($validated, $currentUser);
         $generator->load(['creator', 'dealership', 'assignments.user']);
 
         return response()->json([
@@ -194,89 +155,12 @@ class TaskGeneratorController extends Controller
             ], 422);
         }
 
-        $updateData = [];
-
-        if (isset($validated['title'])) {
-            $updateData['title'] = $validated['title'];
-        }
-        if (array_key_exists('description', $validated)) {
-            $updateData['description'] = $validated['description'];
-        }
-        if (array_key_exists('comment', $validated)) {
-            $updateData['comment'] = $validated['comment'];
-        }
-        if (isset($validated['recurrence'])) {
-            $updateData['recurrence'] = $validated['recurrence'];
-        }
-        if (isset($validated['recurrence_time'])) {
-            $updateData['recurrence_time'] = $validated['recurrence_time'].':00';
-        }
-        if (isset($validated['deadline_time'])) {
-            $updateData['deadline_time'] = $validated['deadline_time'].':00';
-        }
-
-        // Handle backwards compatibility for recurrence days
-        if (array_key_exists('recurrence_days_of_week', $validated)) {
-            $updateData['recurrence_days_of_week'] = $validated['recurrence_days_of_week'];
-        } elseif (array_key_exists('recurrence_day_of_week', $validated)) {
-            // Convert old single value to array
-            $updateData['recurrence_days_of_week'] = $validated['recurrence_day_of_week']
-                ? [$validated['recurrence_day_of_week']]
-                : null;
-        }
-
-        if (array_key_exists('recurrence_days_of_month', $validated)) {
-            $updateData['recurrence_days_of_month'] = $validated['recurrence_days_of_month'];
-        } elseif (array_key_exists('recurrence_day_of_month', $validated)) {
-            // Convert old single value to array
-            $updateData['recurrence_days_of_month'] = $validated['recurrence_day_of_month']
-                ? [$validated['recurrence_day_of_month']]
-                : null;
-        }
-
-        if (isset($validated['start_date'])) {
-            $updateData['start_date'] = Carbon::parse($validated['start_date'])->setTimezone('UTC');
-        }
-        if (array_key_exists('end_date', $validated)) {
-            $updateData['end_date'] = $validated['end_date']
-                ? Carbon::parse($validated['end_date'])->setTimezone('UTC')
-                : null;
-        }
-        if (isset($validated['task_type'])) {
-            $updateData['task_type'] = $validated['task_type'];
-        }
-        if (isset($validated['response_type'])) {
-            $updateData['response_type'] = $validated['response_type'];
-        }
-        if (isset($validated['priority'])) {
-            $updateData['priority'] = $validated['priority'];
-        }
-        if (array_key_exists('tags', $validated)) {
-            $updateData['tags'] = $validated['tags'];
-        }
-        if (array_key_exists('notification_settings', $validated)) {
-            $updateData['notification_settings'] = $validated['notification_settings'];
-        }
-
-        $generator->update($updateData);
-
-        // Update assignments if provided
-        if (isset($validated['assignments'])) {
-            // Remove old assignments
-            TaskGeneratorAssignment::where('generator_id', $generator->id)->delete();
-
-            // Create new assignments in bulk
-            TaskGeneratorAssignment::insert(array_map(fn ($userId) => [
-                'generator_id' => $generator->id,
-                'user_id' => $userId,
-            ], $validated['assignments']));
-        }
-
-        $generator->load(['creator', 'dealership', 'assignments.user']);
+        $updated = $this->generatorService->updateGenerator($generator, $validated);
+        $updated->load(['creator', 'dealership', 'assignments.user']);
 
         return response()->json([
             'success' => true,
-            'data' => TaskGeneratorResource::make($generator)->resolve(),
+            'data' => TaskGeneratorResource::make($updated)->resolve(),
             'message' => 'Генератор задач успешно обновлён',
         ]);
     }
@@ -426,140 +310,9 @@ class TaskGeneratorController extends Controller
 
         $this->authorize('viewStatistics', $generator);
 
-        // Загружаем все задачи один раз вместо 4 отдельных запросов
-        $allTasks = $generator->generatedTasks()
-            ->with(['responses', 'assignments'])
-            ->get();
-
-        $periods = [7, 30, 365];
-        $cutoffs = [];
-        foreach ($periods as $days) {
-            $cutoffs[$days] = Carbon::now()->subDays($days)->startOfDay();
-        }
-
-        $allTime = $this->computeStatsForTasks($allTasks);
-        $week = $this->computeStatsForTasks($allTasks->filter(fn ($t) => $t->scheduled_date >= $cutoffs[7]));
-        $month = $this->computeStatsForTasks($allTasks->filter(fn ($t) => $t->scheduled_date >= $cutoffs[30]));
-        $year = $this->computeStatsForTasks($allTasks->filter(fn ($t) => $t->scheduled_date >= $cutoffs[365]));
-
-        // Calculate average completion time (in minutes) from already loaded tasks
-        $avgCompletionTime = $this->computeAverageCompletionTime($allTasks);
-
         return response()->json([
             'success' => true,
-            'data' => [
-                'generator_id' => $generator->id,
-                'all_time' => $allTime,
-                'week' => $week,
-                'month' => $month,
-                'year' => $year,
-                'average_completion_time_minutes' => $avgCompletionTime,
-            ],
+            'data' => $this->generatorService->getStatistics($generator),
         ]);
-    }
-
-    /**
-     * Compute statistics for a collection of tasks.
-     *
-     * Counts tasks based on their actual status:
-     * - Completed: archived with reason 'completed' OR active with 'completed' response status
-     * - Expired: archived with reason 'expired' OR active but past deadline without completion
-     * - Pending: active tasks not yet completed or expired
-     */
-    private function computeStatsForTasks($tasks): array
-    {
-        $totalGenerated = $tasks->count();
-
-        $completedCount = 0;
-        $expiredCount = 0;
-        $pendingCount = 0;
-        $onTimeCount = 0;
-
-        foreach ($tasks as $task) {
-            $status = $task->status;
-
-            if ($task->archived_at !== null) {
-                if ($task->archive_reason === 'completed') {
-                    $completedCount++;
-                    if ($task->deadline && Carbon::parse($task->archived_at)->lte(Carbon::parse($task->deadline))) {
-                        $onTimeCount++;
-                    }
-                } elseif ($task->archive_reason === 'expired') {
-                    $expiredCount++;
-                } else {
-                    $pendingCount++;
-                }
-            } else {
-                if ($status === 'completed') {
-                    $completedCount++;
-                    $completedResponse = $task->responses->where('status', 'completed')->sortByDesc('responded_at')->first();
-                    if ($completedResponse && $task->deadline) {
-                        if (Carbon::parse($completedResponse->responded_at)->lte(Carbon::parse($task->deadline))) {
-                            $onTimeCount++;
-                        }
-                    }
-                } elseif ($status === 'overdue') {
-                    $expiredCount++;
-                } else {
-                    $pendingCount++;
-                }
-            }
-        }
-
-        $completionRate = $totalGenerated > 0
-            ? round(($completedCount / $totalGenerated) * 100, 2)
-            : 0;
-
-        $onTimeRate = $completedCount > 0
-            ? round(($onTimeCount / $completedCount) * 100, 2)
-            : 0;
-
-        return [
-            'total_generated' => $totalGenerated,
-            'completed_count' => $completedCount,
-            'expired_count' => $expiredCount,
-            'pending_count' => $pendingCount,
-            'on_time_count' => $onTimeCount,
-            'completion_rate' => $completionRate,
-            'on_time_rate' => $onTimeRate,
-        ];
-    }
-
-    /**
-     * Compute average completion time in minutes from a pre-loaded collection.
-     */
-    private function computeAverageCompletionTime($tasks): ?float
-    {
-        $totalMinutes = 0;
-        $count = 0;
-
-        foreach ($tasks as $task) {
-            if (! $task->appear_date) {
-                continue;
-            }
-
-            $appearDate = Carbon::parse($task->appear_date);
-            $completedAt = null;
-
-            if ($task->archived_at !== null && $task->archive_reason === 'completed') {
-                $completedAt = Carbon::parse($task->archived_at);
-            } else {
-                $completedResponse = $task->responses->where('status', 'completed')->sortByDesc('responded_at')->first();
-                if ($completedResponse) {
-                    $completedAt = Carbon::parse($completedResponse->responded_at);
-                }
-            }
-
-            if ($completedAt) {
-                $minutes = $appearDate->diffInMinutes($completedAt);
-
-                if ($minutes > 0 && $minutes < 60 * 24 * 7) {
-                    $totalMinutes += $minutes;
-                    $count++;
-                }
-            }
-        }
-
-        return $count > 0 ? round($totalMinutes / $count, 2) : null;
     }
 }

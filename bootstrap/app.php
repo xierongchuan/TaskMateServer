@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Exceptions\AccessDeniedException;
 use App\Exceptions\DuplicateTaskException;
+use App\Exceptions\InvalidStatusTransitionException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -46,6 +47,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $e->getMessage(),
                 'error_type' => 'access_denied',
             ], 403);
+        });
+
+        $exceptions->render(function (InvalidStatusTransitionException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_type' => 'invalid_status_transition',
+            ], 422);
         });
 
         // Обработчик ошибок базы данных (SQL-запросы)
@@ -107,6 +116,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     $e instanceof \PDOException ||
                     $e instanceof DuplicateTaskException ||
                     $e instanceof AccessDeniedException ||
+                    $e instanceof InvalidStatusTransitionException ||
                     $e instanceof \Illuminate\Validation\ValidationException ||
                     $e instanceof \Illuminate\Auth\AuthenticationException ||
                     $e instanceof \Illuminate\Auth\Access\AuthorizationException ||

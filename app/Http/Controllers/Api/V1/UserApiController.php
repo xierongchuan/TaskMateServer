@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\Role;
+use App\Exceptions\AccessDeniedException;
+use App\Exceptions\SelfEditRestrictedException;
 use App\Helpers\TimeHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreUserRequest;
@@ -12,22 +13,25 @@ use App\Http\Requests\Api\V1\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\EmployeeStatsService;
+use App\Services\UserService;
 use App\Traits\HasDealershipAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Контроллер для управления пользователями.
  *
  * Предоставляет CRUD операции для пользователей системы.
+ * Авторизация — через UserPolicy, бизнес-логика — через UserService.
  */
 class UserApiController extends Controller
 {
     use HasDealershipAccess;
 
     public function __construct(
-        private readonly EmployeeStatsService $statsService
+        private readonly EmployeeStatsService $statsService,
+        private readonly UserService $userService,
     ) {}
 
     /**
@@ -242,208 +246,33 @@ class UserApiController extends Controller
     }
 
     /**
-     * Обновляет данные пользователя.
-     *
-     * @param  UpdateUserRequest  $request  Валидированный запрос
-     * @param  int|string  $id  ID пользователя
-     */
-    public function update(UpdateUserRequest $request, $id): JsonResponse
-    {
-        $user = User::with('dealerships')->findOrFail($id);
-
-        /** @var User $currentUser */
-        $currentUser = $request->user();
-
-        // Security check: Non-owners cannot modify Owners
-        if (! $this->isOwner($currentUser) && $user->role === Role::OWNER) {
-            return response()->json([
-                'success' => false,
-                'message' => 'У вас нет прав для редактирования Владельца',
-                'error_type' => 'access_denied',
-            ], 403);
-        }
-
-        // Security check: Non-owners cannot modify other Managers (but can edit themselves)
-        if (! $this->isOwner($currentUser) && $user->role === Role::MANAGER && $user->id !== $currentUser->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'У вас нет прав для редактирования Управляющего',
-                'error_type' => 'access_denied',
-            ], 403);
-        }
-
-        $validated = $request->validated();
-
-        // Security check: Restrict self-editing - users cannot change their own critical fields
-        // This check MUST be first so it catches attempts before other validations
-        if ($user->id === $currentUser->id) {
-            $restrictedFields = ['login', 'role', 'dealership_id', 'dealership_ids'];
-            $attemptedChanges = array_intersect_key($validated, array_flip($restrictedFields));
-
-            if (! empty($attemptedChanges)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Вы не можете изменять логин, роль или автосалон своего аккаунта',
-                    'error_type' => 'self_edit_restricted',
-                ], 403);
-            }
-        }
-
-        // Security check: Scope access to assigned dealerships (skip for self-editing)
-        if ($user->id !== $currentUser->id) {
-            $accessError = $this->validateUserAccess($currentUser, $user);
-            if ($accessError) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'У вас нет прав для редактирования сотрудника другого автосалона',
-                    'error_type' => 'access_denied',
-                ], 403);
-            }
-        }
-
-        // Security check: Non-owners cannot promote users to Owner
-        if (isset($validated['role']) && $validated['role'] === Role::OWNER->value) {
-            if (! $this->isOwner($currentUser)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Только Владелец может назначать роль Владельца',
-                    'error_type' => 'access_denied',
-                ], 403);
-            }
-        }
-
-        // Security check: Ensure new dealership is accessible
-        if (isset($validated['dealership_id'])) {
-            $accessError = $this->validateDealershipAccess($currentUser, (int) $validated['dealership_id']);
-            if ($accessError) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Вы не можете привязать сотрудника к чужому автосалону',
-                    'error_type' => 'access_denied',
-                ], 403);
-            }
-        }
-
-        // Security check: Ensure new dealerships array is accessible
-        if (isset($validated['dealership_ids'])) {
-            $accessError = $this->validateMultipleDealershipsAccess($currentUser, $validated['dealership_ids']);
-            if ($accessError) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Вы не можете управлять доступом к чужому автосалону',
-                    'error_type' => 'access_denied',
-                ], 403);
-            }
-        }
-
-        $updateData = [];
-
-        // Only update password if it's provided and not empty
-        if (isset($validated['password']) && $validated['password'] !== '' && $validated['password'] !== null) {
-            // Security: If user is changing their OWN password, require current_password verification
-            // Owners/Managers can reset others' passwords without this check
-            if ($user->id === $currentUser->id) {
-                if (! isset($validated['current_password']) || ! Hash::check($validated['current_password'], $user->password)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Текущий пароль указан неверно',
-                        'errors' => ['current_password' => ['Неверный текущий пароль']],
-                    ], 422);
-                }
-            }
-            $updateData['password'] = Hash::make($validated['password']);
-        }
-
-        if (isset($validated['full_name'])) {
-            $updateData['full_name'] = $validated['full_name'];
-        }
-
-        // Support both 'phone' and 'phone_number' fields
-        if (isset($validated['phone'])) {
-            $updateData['phone'] = $validated['phone'];
-        } elseif (isset($validated['phone_number'])) {
-            $updateData['phone'] = $validated['phone_number'];
-        }
-
-        if (isset($validated['role'])) {
-            $updateData['role'] = $validated['role'];
-        }
-
-        if (isset($validated['dealership_id'])) {
-            $updateData['dealership_id'] = $validated['dealership_id'];
-        }
-
-        if (isset($validated['dealership_ids'])) {
-            $user->dealerships()->sync($validated['dealership_ids']);
-        }
-
-        $user->update($updateData);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Данные пользователя успешно обновлены',
-            'data' => new UserResource($user),
-        ], 200);
-    }
-
-    /**
      * Создаёт нового пользователя.
      *
      * @param  StoreUserRequest  $request  Валидированный запрос
      */
     public function store(StoreUserRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        try {
+            $this->authorize('create', User::class);
+        } catch (AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_type' => 'access_denied',
+            ], 403);
+        }
 
         /** @var User $currentUser */
         $currentUser = $request->user();
 
-        // Security check: Non-owners cannot create Owners
-        if ($validated['role'] === Role::OWNER->value) {
-            if (! $this->isOwner($currentUser)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Только Владелец может создавать пользователей с ролью Владельца',
-                    'error_type' => 'access_denied',
-                ], 403);
-            }
-        }
-
-        // Security check: Ensure new dealership is accessible
-        if (! empty($validated['dealership_id'])) {
-            $accessError = $this->validateDealershipAccess($currentUser, (int) $validated['dealership_id']);
-            if ($accessError) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Вы не можете создать сотрудника в чужом автосалоне',
-                    'error_type' => 'access_denied',
-                ], 403);
-            }
-        }
-
-        // Security check: Ensure new dealerships array is accessible
-        if (! empty($validated['dealership_ids'])) {
-            $accessError = $this->validateMultipleDealershipsAccess($currentUser, $validated['dealership_ids']);
-            if ($accessError) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Вы не можете дать доступ к чужому автосалону',
-                    'error_type' => 'access_denied',
-                ], 403);
-            }
-        }
-
-        $user = User::create([
-            'login' => $validated['login'],
-            'password' => Hash::make($validated['password']),
-            'full_name' => $validated['full_name'],
-            'phone' => $validated['phone'],
-            'role' => $validated['role'],
-            'dealership_id' => $validated['dealership_id'] ?? null,
-        ]);
-
-        if (! empty($validated['dealership_ids'])) {
-            $user->dealerships()->sync($validated['dealership_ids']);
+        try {
+            $user = $this->userService->createUser($request->validated(), $currentUser);
+        } catch (AccessDeniedException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_type' => 'access_denied',
+            ], 403);
         }
 
         return response()->json([
@@ -454,66 +283,91 @@ class UserApiController extends Controller
     }
 
     /**
-     * Удаляет пользователя.
+     * Обновляет данные пользователя.
      *
+     * @param  UpdateUserRequest  $request  Валидированный запрос
      * @param  int|string  $id  ID пользователя
      */
-    public function destroy($id): JsonResponse
+    public function update(UpdateUserRequest $request, $id): JsonResponse
     {
-        $user = User::with('dealerships')->findOrFail($id);
+        $targetUser = User::with('dealerships')->findOrFail($id);
+
+        try {
+            $this->authorize('update', $targetUser);
+        } catch (AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_type' => 'access_denied',
+            ], 403);
+        }
 
         /** @var User $currentUser */
-        $currentUser = request()->user();
+        $currentUser = $request->user();
 
-        // Security check: Users cannot delete themselves
-        if ($user->id === $currentUser->id) {
+        try {
+            $updatedUser = $this->userService->updateUser($targetUser, $request->validated(), $currentUser);
+        } catch (SelfEditRestrictedException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Вы не можете удалить свой собственный аккаунт',
+                'message' => $e->getMessage(),
+                'error_type' => 'self_edit_restricted',
+            ], 403);
+        } catch (AccessDeniedException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_type' => 'access_denied',
+            ], 403);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'errors' => ['current_password' => ['Неверный текущий пароль']],
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Данные пользователя успешно обновлены',
+            'data' => new UserResource($updatedUser),
+        ], 200);
+    }
+
+    /**
+     * Удаляет пользователя.
+     *
+     * @param  Request  $request  HTTP-запрос
+     * @param  int|string  $id  ID пользователя
+     */
+    public function destroy(Request $request, $id): JsonResponse
+    {
+        $targetUser = User::with('dealerships')->findOrFail($id);
+
+        try {
+            $this->authorize('delete', $targetUser);
+        } catch (AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
             ], 403);
         }
 
-        // Security check: Only Owner can delete Owner
-        if ($user->role === Role::OWNER && ! $this->isOwner($currentUser)) {
+        /** @var User $currentUser */
+        $currentUser = $request->user();
+
+        // Сохраняем имя до удаления — после soft-delete атрибут всё равно доступен,
+        // но фиксируем его явно для читаемости
+        $userName = $targetUser->full_name;
+
+        try {
+            $relatedData = $this->userService->deleteUser($targetUser, $currentUser);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'У вас нет прав для удаления Владельца',
-            ], 403);
-        }
-
-        // Security check: Non-owners cannot delete managers
-        if (! $this->isOwner($currentUser) && $user->role === Role::MANAGER) {
-            return response()->json([
-                'success' => false,
-                'message' => 'У вас нет прав для удаления Управляющего',
-            ], 403);
-        }
-
-        // Security check: Scope access to assigned dealerships for deletion
-        $accessError = $this->validateUserAccess($currentUser, $user);
-        if ($accessError) {
-            return response()->json([
-                'success' => false,
-                'message' => 'У вас нет прав для удаления сотрудника другого автосалона',
-            ], 403);
-        }
-
-        // Проверяем наличие связанных данных (одним запросом вместо 5)
-        $user->loadCount(['shifts', 'taskAssignments', 'taskResponses', 'createdTasks', 'createdLinks']);
-
-        $relatedData = [];
-        $countMap = [
-            'shifts' => $user->shifts_count,
-            'task_assignments' => $user->task_assignments_count,
-            'task_responses' => $user->task_responses_count,
-            'created_tasks' => $user->created_tasks_count,
-            'created_links' => $user->created_links_count,
-        ];
-
-        foreach ($countMap as $key => $count) {
-            if ($count > 0) {
-                $relatedData[$key] = $count;
-            }
+                'message' => 'Ошибка при удалении пользователя',
+                'error' => config('app.debug') ? $e->getMessage() : 'Внутренняя ошибка сервера',
+            ], 500);
         }
 
         if (! empty($relatedData)) {
@@ -527,24 +381,10 @@ class UserApiController extends Controller
             ], 422);
         }
 
-        try {
-            // Удаляем все токены пользователя перед удалением
-            $user->tokens()->delete();
-
-            $userName = $user->full_name;
-            $user->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => "Пользователь '{$userName}' успешно удален",
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ошибка при удалении пользователя',
-                'error' => config('app.debug') ? $e->getMessage() : 'Внутренняя ошибка сервера',
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => "Пользователь '{$userName}' успешно удален",
+        ], 200);
     }
 
     /**

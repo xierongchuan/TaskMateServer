@@ -8,8 +8,10 @@ use App\Contracts\FileValidatorInterface;
 use App\Listeners\PublishTaskEventSubscriber;
 use App\Models\AutoDealership;
 use App\Models\TaskResponse;
+use App\Models\User;
 use App\Policies\DealershipPolicy;
 use App\Policies\TaskResponsePolicy;
+use App\Policies\UserPolicy;
 use App\Services\AmqpChannelManager;
 use App\Services\FileValidation\FileValidationConfig;
 use App\Services\FileValidation\FileValidator;
@@ -83,6 +85,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(AutoDealership::class, DealershipPolicy::class);
         Gate::policy(TaskResponse::class, TaskResponsePolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
     }
 
     /**
