@@ -1,5 +1,11 @@
 <?php
 
+// Scribe is a dev-only dependency. Return empty config when not installed
+// to prevent "Class not found" errors in production/worker containers.
+if (! class_exists(\Knuckles\Scribe\Config\AuthIn::class)) {
+    return [];
+}
+
 use Knuckles\Scribe\Config\AuthIn;
 use Knuckles\Scribe\Config\Defaults;
 use Knuckles\Scribe\Extracting\Strategies;
