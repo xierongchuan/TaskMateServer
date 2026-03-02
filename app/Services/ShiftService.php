@@ -6,12 +6,14 @@ namespace App\Services;
 
 use App\Contracts\FileValidatorInterface;
 use App\Enums\ShiftStatus;
+use App\Exceptions\ScheduleAmbiguousException;
 use App\Models\Shift;
 use App\Models\ShiftSchedule;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -37,8 +39,9 @@ class ShiftService
      * Open a new shift for a user
      *
      * @throws \InvalidArgumentException
+     * @throws ScheduleAmbiguousException
      */
-    public function openShift(User $user, UploadedFile $photo, ?User $replacingUser = null, ?string $reason = null, ?int $dealershipId = null): Shift
+    public function openShift(User $user, UploadedFile $photo, ?User $replacingUser = null, ?string $reason = null, ?int $dealershipId = null, ?int $shiftScheduleId = null): Shift
     {
         // Use provided dealershipId or fallback to user's primary dealership
         $dealershipId = $dealershipId ?? $user->dealership_id;
@@ -56,7 +59,7 @@ class ShiftService
         $localTimeStr = $localNow->format('H:i');
 
         $lateTolerance = $this->settingsService->getLateTolerance($dealershipId);
-        $schedule = $this->resolveShiftSchedule($dealershipId, $localTimeStr, $lateTolerance);
+        $schedule = $this->resolveShiftSchedule($dealershipId, $localTimeStr, $lateTolerance, $shiftScheduleId);
 
         // Вычисляем scheduled_start и scheduled_end в UTC
         $scheduledStart = $this->scheduleTimeToUtc($localNow, $schedule->start_time, $timezone);
@@ -299,17 +302,77 @@ class ShiftService
     }
 
     /**
+     * Возвращает список расписаний, доступных для открытия смены прямо сейчас.
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function getAvailableSchedulesForNow(int $dealershipId): Collection
+    {
+        $timezone = $this->settingsService->getTimezone($dealershipId);
+        $localNow = Carbon::now()->setTimezone($timezone);
+        $localTimeStr = $localNow->format('H:i');
+
+        $lateTolerance = $this->settingsService->getLateTolerance($dealershipId);
+
+        return $this->resolveAvailableSchedules($dealershipId, $localTimeStr, $lateTolerance);
+    }
+
+    /**
      * Определяет расписание смены для текущего локального времени.
      *
      * Логика:
      * 1. Если время попадает в интервал активной смены → эта смена
-     * 2. Если не попадает → ищем ближайшую следующую смену
-     *    - Если до неё ≤ lateTolerance минут → раннее открытие, привязываем к ней
-     *    - Если > lateTolerance → ошибка
+     * 2. Если не попадает → ищем ближайшую следующую смену в пределах lateTolerance
+     * 3. Если нет следующей → ищем смену, завершившуюся ≤ lateTolerance минут назад
+     *
+     * При нескольких кандидатах и указанном $shiftScheduleId — проверяем принадлежность.
+     * При нескольких кандидатах без $shiftScheduleId — бросаем ScheduleAmbiguousException.
+     *
+     * @throws \InvalidArgumentException
+     * @throws ScheduleAmbiguousException
+     */
+    private function resolveShiftSchedule(int $dealershipId, string $localTime, int $lateTolerance, ?int $shiftScheduleId = null): ShiftSchedule
+    {
+        $candidates = $this->resolveAvailableSchedules($dealershipId, $localTime, $lateTolerance);
+
+        if ($candidates->isEmpty()) {
+            throw new \InvalidArgumentException('Не удалось определить смену для текущего времени');
+        }
+
+        // Если указан конкретный ID расписания — проверяем его наличие среди кандидатов
+        if ($shiftScheduleId !== null) {
+            $selected = $candidates->firstWhere('id', $shiftScheduleId);
+            if (! $selected) {
+                throw new \InvalidArgumentException(
+                    'Указанное расписание смены недоступно для открытия в текущее время'
+                );
+            }
+
+            return $selected;
+        }
+
+        if ($candidates->count() === 1) {
+            return $candidates->first();
+        }
+
+        // Несколько кандидатов без явного указания расписания
+        throw new ScheduleAmbiguousException(
+            'Невозможно автоматически определить смену: несколько расписаний активны одновременно. Укажите shift_schedule_id.',
+            $candidates
+        );
+    }
+
+    /**
+     * Собирает коллекцию расписаний, доступных для открытия смены в указанное время.
+     *
+     * Фазы (возвращаются кандидаты только ОДНОЙ фазы):
+     * Phase 1: все расписания, содержащие localTime (containsTime)
+     * Phase 2 (если phase 1 пуста): все расписания, до начала которых ≤ lateTolerance минут
+     * Phase 3 (если phase 2 пуста): все расписания, завершившиеся ≤ lateTolerance минут назад
      *
      * @throws \InvalidArgumentException
      */
-    private function resolveShiftSchedule(int $dealershipId, string $localTime, int $lateTolerance): ShiftSchedule
+    private function resolveAvailableSchedules(int $dealershipId, string $localTime, int $lateTolerance): Collection
     {
         $schedules = ShiftSchedule::where('dealership_id', $dealershipId)
             ->where('is_active', true)
@@ -320,38 +383,27 @@ class ShiftService
             throw new \InvalidArgumentException('Не настроены смены для автосалона');
         }
 
-        // 1. Ищем смену, в интервал которой попадает текущее время
-        foreach ($schedules as $schedule) {
-            if ($schedule->containsTime($localTime)) {
-                return $schedule;
-            }
+        // Phase 1: смены, в интервал которых попадает текущее время
+        $phase1 = $schedules->filter(fn (ShiftSchedule $s) => $s->containsTime($localTime))->values();
+        if ($phase1->isNotEmpty()) {
+            return $phase1;
         }
 
-        // 2. Не попали ни в одну → ищем ближайшую следующую
-        $bestSchedule = null;
-        $bestMinutes = PHP_INT_MAX;
+        // Phase 2: смены, до начала которых ≤ lateTolerance минут (раннее открытие)
+        $phase2 = $schedules->filter(function (ShiftSchedule $s) use ($localTime, $lateTolerance) {
+            $minutes = $s->minutesUntilStart($localTime);
 
-        foreach ($schedules as $schedule) {
-            $minutes = $schedule->minutesUntilStart($localTime);
-
-            if ($minutes > 0 && $minutes < $bestMinutes) {
-                $bestMinutes = $minutes;
-                $bestSchedule = $schedule;
-            }
+            // minutesUntilStart возвращает 0-1439; если 0 — именно сейчас начало (but containsTime уже обработало)
+            // Отбираем только реально "до начала" (minutes > 0)
+            return $minutes > 0 && $minutes <= $lateTolerance;
+        })->values();
+        if ($phase2->isNotEmpty()) {
+            return $phase2;
         }
 
-        if ($bestSchedule && $bestMinutes <= $lateTolerance) {
-            return $bestSchedule;
-        }
-
-        // 3. Также проверяем, может время сразу после окончания какой-то смены
-        //    (опоздание после смены) — привязываем к предыдущей
-        $bestPrevSchedule = null;
-        $bestPrevMinutes = PHP_INT_MAX;
-
-        foreach ($schedules as $schedule) {
-            // Минуты после end_time
-            $endMinutes = $this->timeToMinutes($schedule->end_time);
+        // Phase 3: смены, завершившиеся ≤ lateTolerance минут назад
+        $phase3 = $schedules->filter(function (ShiftSchedule $s) use ($localTime, $lateTolerance) {
+            $endMinutes = $this->timeToMinutes($s->end_time);
             $currentMinutes = $this->timeToMinutes($localTime);
             $diff = $currentMinutes - $endMinutes;
 
@@ -359,24 +411,10 @@ class ShiftService
                 $diff += 1440;
             }
 
-            // Если прошло менее lateTolerance минут после конца смены
-            if ($diff <= $lateTolerance && $diff < $bestPrevMinutes) {
-                $bestPrevMinutes = $diff;
-                $bestPrevSchedule = $schedule;
-            }
-        }
+            return $diff <= $lateTolerance;
+        })->values();
 
-        if ($bestPrevSchedule) {
-            return $bestPrevSchedule;
-        }
-
-        if ($bestSchedule) {
-            throw new \InvalidArgumentException(
-                "Слишком рано для открытия смены \"{$bestSchedule->name}\". До начала: {$bestMinutes} мин. Допустимо: {$lateTolerance} мин."
-            );
-        }
-
-        throw new \InvalidArgumentException('Не удалось определить смену для текущего времени');
+        return $phase3;
     }
 
     /**

@@ -221,7 +221,7 @@ describe('ShiftSchedule API', function () {
                 ])->assertStatus(201);
         });
 
-        it('detects overlapping schedule', function () {
+        it('allows overlapping schedule', function () {
             $response = $this->actingAs($this->manager, 'sanctum')
                 ->postJson('/api/v1/shift-schedules', [
                     'dealership_id' => $this->dealership->id,
@@ -230,12 +230,11 @@ describe('ShiftSchedule API', function () {
                     'end_time' => '15:00',
                 ]);
 
-            $response->assertStatus(422);
-            expect($response->json('message'))->toContain('пересекается');
+            $response->assertStatus(201);
         });
 
-        it('detects midnight-crossing overlap', function () {
-            // Existing: 09:00-18:00. Create night shift, then try overlapping with it.
+        it('allows midnight-crossing overlap', function () {
+            // Existing: 09:00-18:00. Create night shift, then create overlapping one.
             $this->actingAs($this->manager, 'sanctum')
                 ->postJson('/api/v1/shift-schedules', [
                     'dealership_id' => $this->dealership->id,
@@ -252,8 +251,7 @@ describe('ShiftSchedule API', function () {
                     'end_time' => '07:00',
                 ]);
 
-            $response->assertStatus(422);
-            expect($response->json('message'))->toContain('пересекается');
+            $response->assertStatus(201);
         });
 
         it('allows adjacent non-overlapping schedule', function () {
@@ -336,7 +334,7 @@ describe('ShiftSchedule API', function () {
                 ])->assertStatus(200);
         });
 
-        it('detects overlap after time change', function () {
+        it('allows overlap after time change', function () {
             ShiftSchedule::create([
                 'dealership_id' => $this->dealership->id,
                 'name' => 'Другая',
@@ -352,8 +350,7 @@ describe('ShiftSchedule API', function () {
                     'end_time' => '20:00',
                 ]);
 
-            $response->assertStatus(422);
-            expect($response->json('message'))->toContain('пересекается');
+            $response->assertStatus(200);
         });
 
         it('forbidden for employee', function () {

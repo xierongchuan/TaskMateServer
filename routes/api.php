@@ -106,6 +106,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/shifts/statistics', [ShiftController::class, 'statistics']);
             Route::get('/shifts/my', [ShiftController::class, 'myShifts']);
             Route::get('/shifts/my/current', [ShiftController::class, 'myCurrentShift']);
+            Route::get('/shifts/available-schedules', [ShiftController::class, 'availableSchedules']);
             Route::get('/shifts/{id}', [ShiftController::class, 'show']);
 
             // Shifts - WRITE операции

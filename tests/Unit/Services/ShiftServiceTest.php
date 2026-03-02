@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\ScheduleAmbiguousException;
 use App\Models\AutoDealership;
 use App\Models\Shift;
 use App\Models\ShiftSchedule;
@@ -321,6 +322,297 @@ describe('ShiftService', function () {
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
             expect($shift->status)->toBe('open');
+        });
+    });
+
+    // ─── resolveAvailableSchedules / getAvailableSchedulesForNow ───
+
+    describe('getAvailableSchedulesForNow', function () {
+        it('returns single schedule when time is inside its interval', function () {
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Утренняя',
+                'sort_order' => 0,
+                'start_time' => '09:00',
+                'end_time' => '18:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-01-31 12:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
+
+            expect($result)->toHaveCount(1)
+                ->and($result->first()->name)->toBe('Утренняя');
+        });
+
+        it('returns multiple schedules when two overlap at current time', function () {
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена A',
+                'sort_order' => 0,
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'is_active' => true,
+            ]);
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена B',
+                'sort_order' => 1,
+                'start_time' => '09:00',
+                'end_time' => '17:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
+
+            expect($result)->toHaveCount(2);
+        });
+
+        it('phase 1 (containment) is prioritized over phase 2 (tolerance)', function () {
+            // Смена A: 08:00-12:00 (активна в 10:00 — phase 1)
+            // Смена B: 10:05-18:00 (до начала 5 мин от 10:00 — phase 2 если не было phase 1)
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена A',
+                'sort_order' => 0,
+                'start_time' => '08:00',
+                'end_time' => '12:00',
+                'is_active' => true,
+            ]);
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена B',
+                'sort_order' => 1,
+                'start_time' => '10:05',
+                'end_time' => '18:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
+
+            // Phase 1 found Смена A — phase 2 is skipped
+            expect($result)->toHaveCount(1)
+                ->and($result->first()->name)->toBe('Смена A');
+        });
+
+        it('returns midnight-crossing schedule for time after midnight', function () {
+            $schedule = ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Ночная',
+                'sort_order' => 0,
+                'start_time' => '22:00',
+                'end_time' => '06:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-02-01 03:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
+
+            expect($result)->toHaveCount(1)
+                ->and($result->first()->id)->toBe($schedule->id);
+        });
+
+        it('phase 2: returns schedules within tolerance before start', function () {
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Утренняя',
+                'sort_order' => 0,
+                'start_time' => '09:00',
+                'end_time' => '18:00',
+                'is_active' => true,
+            ]);
+
+            // 5 min before start, tolerance = 15
+            Carbon::setTestNow(Carbon::parse('2026-01-31 08:55:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
+
+            expect($result)->toHaveCount(1);
+        });
+
+        it('phase 3: returns schedule within tolerance after end', function () {
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Утренняя',
+                'sort_order' => 0,
+                'start_time' => '09:00',
+                'end_time' => '18:00',
+                'is_active' => true,
+            ]);
+
+            // 10 min after end, tolerance = 15
+            Carbon::setTestNow(Carbon::parse('2026-01-31 18:10:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
+
+            expect($result)->toHaveCount(1);
+        });
+
+        it('returns empty collection when no schedules match', function () {
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Утренняя',
+                'sort_order' => 0,
+                'start_time' => '09:00',
+                'end_time' => '18:00',
+                'is_active' => true,
+            ]);
+
+            // Far outside any schedule and tolerance
+            Carbon::setTestNow(Carbon::parse('2026-01-31 20:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
+
+            expect($result)->toHaveCount(0);
+        });
+    });
+
+    describe('openShift with ambiguous schedules', function () {
+        it('throws ScheduleAmbiguousException when multiple candidates and no schedule specified', function () {
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена A',
+                'sort_order' => 0,
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'is_active' => true,
+            ]);
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена B',
+                'sort_order' => 1,
+                'start_time' => '09:00',
+                'end_time' => '17:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            expect(fn () => $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg')))
+                ->toThrow(ScheduleAmbiguousException::class);
+        });
+
+        it('opens shift with specified schedule_id when multiple candidates exist', function () {
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена A',
+                'sort_order' => 0,
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'is_active' => true,
+            ]);
+            $scheduleB = ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена B',
+                'sort_order' => 1,
+                'start_time' => '09:00',
+                'end_time' => '17:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            $shift = $this->service->openShift(
+                $this->user,
+                UploadedFile::fake()->image('photo.jpg'),
+                null,
+                null,
+                null,
+                $scheduleB->id
+            );
+
+            expect($shift->shift_schedule_id)->toBe($scheduleB->id);
+        });
+
+        it('throws InvalidArgumentException when specified schedule_id is not among candidates', function () {
+            ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Утренняя',
+                'sort_order' => 0,
+                'start_time' => '09:00',
+                'end_time' => '18:00',
+                'is_active' => true,
+            ]);
+
+            $nightSchedule = ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Ночная',
+                'sort_order' => 1,
+                'start_time' => '20:00',
+                'end_time' => '04:00',
+                'is_active' => true,
+            ]);
+
+            // 10:00 is inside Утренняя only
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            expect(fn () => $this->service->openShift(
+                $this->user,
+                UploadedFile::fake()->image('photo.jpg'),
+                null,
+                null,
+                null,
+                $nightSchedule->id
+            ))->toThrow(\InvalidArgumentException::class, 'недоступно');
+        });
+
+        it('getCandidates returns the ambiguous schedules in exception', function () {
+            $scheduleA = ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена A',
+                'sort_order' => 0,
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'is_active' => true,
+            ]);
+            $scheduleB = ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена B',
+                'sort_order' => 1,
+                'start_time' => '09:00',
+                'end_time' => '17:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
+            $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+
+            try {
+                $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
+                expect(false)->toBeTrue('Expected exception not thrown');
+            } catch (ScheduleAmbiguousException $e) {
+                $candidates = $e->getCandidates();
+                expect($candidates)->toHaveCount(2);
+                expect($candidates->pluck('id')->sort()->values()->toArray())
+                    ->toBe(collect([$scheduleA->id, $scheduleB->id])->sort()->values()->toArray());
+            }
         });
     });
 });

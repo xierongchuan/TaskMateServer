@@ -23,6 +23,7 @@ class StoreShiftRequest extends BaseApiRequest
             'user_id' => 'required|exists:users,id',
             'dealership_id' => 'required|exists:auto_dealerships,id',
             'opening_photo' => 'required|file|image|mimes:jpeg,png,jpg|max:5120',
+            'shift_schedule_id' => 'nullable|integer|exists:shift_schedules,id',
         ];
     }
 }

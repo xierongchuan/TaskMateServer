@@ -84,17 +84,6 @@ class ShiftScheduleController extends Controller
             ], 422);
         }
 
-        // Проверка пересечения интервалов
-        $newSchedule = new ShiftSchedule($data);
-        $overlapping = $this->findOverlapping($newSchedule);
-
-        if ($overlapping) {
-            return response()->json([
-                'success' => false,
-                'message' => "Интервал пересекается со сменой \"{$overlapping->name}\" ({$overlapping->start_time}-{$overlapping->end_time})",
-            ], 422);
-        }
-
         $schedule = ShiftSchedule::create($data);
 
         return response()->json([
@@ -135,21 +124,6 @@ class ShiftScheduleController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Смена с таким названием уже существует в этом автосалоне',
-                ], 422);
-            }
-        }
-
-        // Проверка пересечения интервалов (если меняются времена)
-        if (isset($data['start_time']) || isset($data['end_time'])) {
-            $testSchedule = $schedule->replicate();
-            $testSchedule->fill($data);
-            $testSchedule->id = $schedule->id;
-
-            $overlapping = $this->findOverlapping($testSchedule);
-            if ($overlapping) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Интервал пересекается со сменой \"{$overlapping->name}\" ({$overlapping->start_time}-{$overlapping->end_time})",
                 ], 422);
             }
         }
@@ -224,24 +198,5 @@ class ShiftScheduleController extends Controller
             'success' => true,
             'message' => 'Смена удалена',
         ]);
-    }
-
-    /**
-     * Найти активную смену, которая пересекается с данной.
-     */
-    private function findOverlapping(ShiftSchedule $schedule): ?ShiftSchedule
-    {
-        $others = ShiftSchedule::where('dealership_id', $schedule->dealership_id)
-            ->where('is_active', true)
-            ->when($schedule->id, fn ($q) => $q->where('id', '!=', $schedule->id))
-            ->get();
-
-        foreach ($others as $other) {
-            if ($schedule->overlaps($other)) {
-                return $other;
-            }
-        }
-
-        return null;
     }
 }

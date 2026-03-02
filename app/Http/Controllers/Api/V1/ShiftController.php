@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\ShiftStatus;
+use App\Exceptions\ScheduleAmbiguousException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreShiftRequest;
 use App\Http\Requests\Api\V1\UpdateShiftRequest;
 use App\Http\Resources\ShiftResource;
+use App\Http\Resources\ShiftScheduleResource;
 use App\Models\Shift;
 use App\Models\User;
 use App\Services\ShiftService;
@@ -134,7 +136,8 @@ class ShiftController extends Controller
                 $data['opening_photo'],
                 null,
                 null,
-                (int) $data['dealership_id']
+                (int) $data['dealership_id'],
+                isset($data['shift_schedule_id']) ? (int) $data['shift_schedule_id'] : null
             );
 
             $shift->load(['user', 'dealership']);
@@ -147,6 +150,13 @@ class ShiftController extends Controller
 
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             throw $e;
+        } catch (ScheduleAmbiguousException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => 'schedule_ambiguous',
+                'candidates' => ShiftScheduleResource::collection($e->getCandidates())->resolve(),
+            ], 409);
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -392,6 +402,49 @@ class ShiftController extends Controller
             'success' => true,
             'data' => ShiftResource::collection($shifts),
         ]);
+    }
+
+    /**
+     * Get shift schedules available for opening right now
+     *
+     * GET /api/v1/shifts/available-schedules?dealership_id=...
+     */
+    public function availableSchedules(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! $currentUser) {
+            return response()->json(['message' => 'Не авторизован'], 401);
+        }
+
+        $dealershipId = $request->query('dealership_id');
+        if (! $dealershipId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Параметр dealership_id обязателен',
+            ], 422);
+        }
+
+        $dealershipId = (int) $dealershipId;
+
+        $accessError = $this->validateDealershipAccess($currentUser, $dealershipId);
+        if ($accessError) {
+            return $accessError;
+        }
+
+        try {
+            $candidates = $this->shiftService->getAvailableSchedulesForNow($dealershipId);
+
+            return response()->json([
+                'success' => true,
+                'data' => ShiftScheduleResource::collection($candidates),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => [],
+            ]);
+        }
     }
 
     /**

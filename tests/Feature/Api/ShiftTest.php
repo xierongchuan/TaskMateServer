@@ -177,4 +177,160 @@ describe('Shift API', function () {
         // Assert - Should be forbidden
         $response->assertStatus(403);
     });
+
+    // ─── GET /shifts/available-schedules ───────────────────
+
+    describe('available-schedules', function () {
+        it('returns single candidate when one schedule contains current time', function () {
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->getJson("/api/v1/shifts/available-schedules?dealership_id={$this->dealership->id}");
+
+            $response->assertStatus(200);
+            expect($response->json('success'))->toBeTrue();
+            expect($response->json('data'))->toHaveCount(1);
+        });
+
+        it('returns multiple candidates when schedules overlap at current time', function () {
+            // Add second overlapping schedule
+            \App\Models\ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена 2',
+                'sort_order' => 1,
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'is_active' => true,
+            ]);
+
+            // 10:00 is inside both 09:00-18:00 and 08:00-16:00
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->getJson("/api/v1/shifts/available-schedules?dealership_id={$this->dealership->id}");
+
+            $response->assertStatus(200);
+            expect($response->json('data'))->toHaveCount(2);
+        });
+
+        it('returns empty when no schedule matches current time', function () {
+            // Current time is well outside tolerance of 09:00-18:00
+            Carbon::setTestNow(Carbon::parse('2026-01-31 19:30:00', 'UTC'));
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->getJson("/api/v1/shifts/available-schedules?dealership_id={$this->dealership->id}");
+
+            $response->assertStatus(200);
+            expect($response->json('data'))->toHaveCount(0);
+        });
+
+        it('requires dealership_id parameter', function () {
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->getJson('/api/v1/shifts/available-schedules');
+
+            $response->assertStatus(422);
+        });
+    });
+
+    // ─── POST /shifts with overlap logic ───────────────────
+
+    describe('store with overlapping schedules', function () {
+        it('auto-resolves when single candidate exists', function () {
+            // 09:00-18:00 is the only schedule, time is inside it
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $user = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
+            $file = \Illuminate\Http\Testing\File::image('photo.jpg');
+
+            $response = $this->actingAs($this->owner, 'sanctum')
+                ->postJson('/api/v1/shifts', [
+                    'dealership_id' => $this->dealership->id,
+                    'user_id' => $user->id,
+                    'opening_photo' => $file,
+                ]);
+
+            $response->assertStatus(201);
+        });
+
+        it('returns 409 with candidates when multiple schedules overlap', function () {
+            \App\Models\ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена 2',
+                'sort_order' => 1,
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $user = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
+            $file = \Illuminate\Http\Testing\File::image('photo.jpg');
+
+            $response = $this->actingAs($this->owner, 'sanctum')
+                ->postJson('/api/v1/shifts', [
+                    'dealership_id' => $this->dealership->id,
+                    'user_id' => $user->id,
+                    'opening_photo' => $file,
+                ]);
+
+            $response->assertStatus(409);
+            expect($response->json('error_code'))->toBe('schedule_ambiguous');
+            expect($response->json('candidates'))->toHaveCount(2);
+        });
+
+        it('opens shift with explicit shift_schedule_id when multiple schedules overlap', function () {
+            $schedule2 = \App\Models\ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена 2',
+                'sort_order' => 1,
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'is_active' => true,
+            ]);
+
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $user = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
+            $file = \Illuminate\Http\Testing\File::image('photo.jpg');
+
+            $response = $this->actingAs($this->owner, 'sanctum')
+                ->postJson('/api/v1/shifts', [
+                    'dealership_id' => $this->dealership->id,
+                    'user_id' => $user->id,
+                    'opening_photo' => $file,
+                    'shift_schedule_id' => $schedule2->id,
+                ]);
+
+            $response->assertStatus(201);
+            $this->assertDatabaseHas('shifts', [
+                'user_id' => $user->id,
+                'shift_schedule_id' => $schedule2->id,
+            ]);
+        });
+
+        it('returns 400 when shift_schedule_id is not among candidates', function () {
+            // Only one overlapping schedule at current time
+            Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
+            $user = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
+            $file = \Illuminate\Http\Testing\File::image('photo.jpg');
+
+            // Create a schedule that is NOT active at current time (20:00-04:00)
+            $nightSchedule = \App\Models\ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Ночная',
+                'sort_order' => 1,
+                'start_time' => '20:00',
+                'end_time' => '04:00',
+                'is_active' => true,
+            ]);
+
+            $response = $this->actingAs($this->owner, 'sanctum')
+                ->postJson('/api/v1/shifts', [
+                    'dealership_id' => $this->dealership->id,
+                    'user_id' => $user->id,
+                    'opening_photo' => $file,
+                    'shift_schedule_id' => $nightSchedule->id,
+                ]);
+
+            $response->assertStatus(400);
+        });
+    });
 });
