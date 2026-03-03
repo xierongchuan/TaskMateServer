@@ -14,16 +14,17 @@ app/
 ├── Http/Requests/Api/V1/      # Form Requests (валидация)
 ├── Models/                    # 19 Eloquent моделей
 ├── Services/                  # 11 сервисов (бизнес-логика)
-├── Jobs/                      # 5 Jobs (RabbitMQ)
+├── Jobs/                      # 4 Jobs (RabbitMQ)
 ├── Console/Commands/          # Artisan-команды (архивация, очистка)
 ├── Enums/                     # Role, TaskStatus, TaskType, Priority...
 ├── Traits/                    # Auditable, HasDealershipAccess, ApiResponses
-└── Helpers/TimeHelper.php     # UTC: nowUtc(), toIsoZulu()
+├── Helpers/TimeHelper.php     # UTC: nowUtc(), toIsoZulu()
+└── Validation/FileValidation/ # Magic bytes проверка
 routes/api.php                 # 50+ endpoints, base: /api/v1
-tests/Feature/                 # 30+ тестов
+tests/Feature/                 # 968 Pest тестов
 ```
 
-## Conventions
+## Конвенции
 
 ### Controller → Service → Model
 
@@ -42,15 +43,18 @@ public function store(Request $request): JsonResponse
 }
 ```
 
-### Форматирование ответов
+### Form Requests (обязательно)
 
 ```php
-// Модели используют toApiArray() — НЕ API Resources (кроме User, Shift)
-// toApiArray() гарантирует UTC даты с Z суффиксом
-$task->toApiArray(); // appear_date: "2024-01-15T10:30:00Z"
+// app/Http/Requests/Api/V1/StoreTaskRequest.php
+// Валидация ТОЛЬКО здесь, не в контроллере через $request->validate()
+public function rules(): array
+{
+    return ['title' => 'required|string|max:255'];
+}
 ```
 
-### Eager loading — обязательно
+### Eager loading (обязательно)
 
 ```php
 // ПРАВИЛЬНО: предзагрузка для N+1 prevention
@@ -58,44 +62,73 @@ $tasks = Task::with(['creator', 'assignments.user', 'responses.proofs'])->get();
 
 // НЕПРАВИЛЬНО: ленивая загрузка вызовет N+1
 $tasks = Task::all();
-foreach ($tasks as $task) { $task->creator->name; } // N+1!
+foreach ($tasks as $task) { $task->creator->name; }
 ```
 
-### Валидация
+### Форматирование ответов (API Resources)
 
 ```php
-// Всегда через Form Requests в app/Http/Requests/Api/V1/
-// НЕ валидировать в контроллере через $request->validate()
+// Используй API Resources для сериализации (гарантируют UTC даты с Z суффиксом)
+// Доступны: TaskResource, TaskResponseResource, TaskProofResource, TaskSharedProofResource,
+//           TaskDelegationResource, TaskGeneratorResource, CalendarDayResource, UserResource, ShiftResource
+
+// Одиночный ресурс (оборачивает в {"data": {...}})
+return new TaskResource($task);
+
+// С дополнительными полями (message и т.д.)
+return (new TaskResource($task))->additional(['message' => 'Задача создана'])->response();
+
+// Сырой массив БЕЗ обёртки data (для совместимости с существующими форматами)
+return response()->json(TaskResource::make($task)->resolve());
+
+// Для пагинации (сохраняет формат Laravel paginator)
+$tasks->getCollection()->transform(fn ($t) => TaskResource::make($t)->resolve());
 ```
 
-### Даты
+### Даты (TimeHelper)
 
 ```php
-// Все даты — UTC. Используй TimeHelper.
 use App\Helpers\TimeHelper;
-$now = TimeHelper::nowUtc();
-$iso = TimeHelper::toIsoZulu($carbon); // "2024-01-15T10:30:00Z"
+
+$now = TimeHelper::nowUtc();                          // Carbon UTC
+$iso = TimeHelper::toIsoZulu($carbon);                // "2024-01-15T10:30:00Z"
+$boundaries = TimeHelper::dayBoundariesForTimezone($dealership->timezone);  // День в timezone дилера
 ```
+
+## Jobs (RabbitMQ)
+
+| Job | Очередь | Ответственность |
+|-----|---------|----------------|
+| ProcessTaskGeneratorsJob | task_generators | Генерация задач из шаблонов (5 мин) |
+| StoreTaskProofsJob | proof_upload | Асинхронное сохранение файлов доказательств |
+| StoreTaskSharedProofsJob | shared_proof_upload | Общие файлы для group tasks |
+| DeleteProofFileJob | file_cleanup | Удаление файлов из storage |
 
 ## Ключевые сервисы
 
 | Сервис | Ответственность |
 |--------|----------------|
-| TaskService | CRUD задач, проверка дубликатов, syncAssignments |
+| TaskService | CRUD задач, дубликаты, syncAssignments |
 | TaskFilterService | Фильтрация + пагинация (date_range, status, priority, search) |
 | TaskProofService | Загрузка/удаление файлов. Приватное хранилище + signed URLs (60 мин) |
 | TaskVerificationService | approve/reject. При reject — удаляет файлы, пишет в VerificationHistory |
 | FileValidation/ | Magic bytes проверка (не только расширение) |
 
-## Jobs (RabbitMQ)
+## Хранилище файлов
 
-| Job | Очередь | Что делает |
-|-----|---------|-----------|
-| ProcessTaskGeneratorsJob | task_generators | Генерация задач из шаблонов (каждые 5 мин) |
-| StoreTaskProofsJob | proof_upload | Асинхронное сохранение файлов доказательств |
-| StoreTaskSharedProofsJob | shared_proof_upload | Общие файлы для group tasks |
-| DeleteProofFileJob | file_cleanup | Удаление файлов из storage |
-| AutoCloseShiftsJob | shift_auto_close | Автозакрытие смен |
+- Disk: `task_proofs` → `storage/app/private/task_proofs/`
+- Доступ: только signed URLs (60 мин), авторизация при генерации URL
+- Лимиты: 5 файлов, 200MB total. Изображения 5MB, видео 100MB, документы 50MB
+
+## Команды (специфичные для backend)
+
+```bash
+php artisan test                            # Все тесты
+php artisan test --filter=TaskControllerTest # Конкретный
+composer test:coverage                       # С покрытием (min 50%)
+php vendor/bin/pint                          # Форматирование кода
+php vendor/bin/pint --test                   # Проверка стиля
+```
 
 ## Запрещено
 
@@ -105,19 +138,4 @@ $iso = TimeHelper::toIsoZulu($carbon); // "2024-01-15T10:30:00Z"
 - Логика в контроллерах — выносить в Services
 - Модели без eager loading в контроллерах
 - SoftDeletes без учёта при запросах (User, Task, TaskAssignment)
-
-## Тестирование
-
-```bash
-php artisan test                            # Все тесты
-php artisan test --filter=TaskControllerTest # Конкретный
-composer test:coverage                       # С покрытием (min 50%)
-vendor/bin/pint                              # Форматирование
-vendor/bin/pint --test                       # Проверка стиля
-```
-
-## Хранилище файлов
-
-- Disk: `task_proofs` → `storage/app/private/task_proofs/`
-- Доступ: только signed URLs (60 мин), авторизация при генерации URL
-- Лимиты: 5 файлов, 200MB total. Изображения 5MB, видео 100MB, документы 50MB
+- N+1 queries — всегда проверяй через Laravel Debugbar
