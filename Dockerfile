@@ -37,7 +37,11 @@ RUN composer install --no-dev --optimize-autoloader --prefer-dist --no-interacti
 # 6) Копирование кодовой базы
 COPY . .
 
-# 7) Права на каталоги
+# 7) Очистка и перегенерация кэша сервисов (только production-зависимости)
+RUN rm -f bootstrap/cache/services.php bootstrap/cache/packages.php \
+  && php artisan package:discover --ansi
+
+# 8) Права на каталоги
 RUN chown -R www-data:www-data storage storage/framework bootstrap/cache \
   && chmod -R 755 storage storage/framework bootstrap/cache
 
@@ -63,6 +67,10 @@ COPY --from=build /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 # Копируем артефакты и код из build
 COPY --from=build /app /app
 COPY --from=build /usr/bin/composer /usr/bin/composer
+
+# Очистка и перегенерация кэша сервисов (только production-зависимости)
+RUN rm -f bootstrap/cache/services.php bootstrap/cache/packages.php \
+  && php artisan package:discover --ansi
 
 # Копируем Caddyfile
 COPY Caddyfile /etc/caddy/Caddyfile
