@@ -49,7 +49,11 @@ class TaskPolicy
             return Response::allow();
         }
 
-        if ($task->assignments->contains('user_id', $user->id)) {
+        if ($task->relationLoaded('assignments') && $task->assignments->contains('user_id', $user->id)) {
+            return Response::allow();
+        }
+
+        if (! $task->relationLoaded('assignments') && $task->assignments()->where('user_id', $user->id)->exists()) {
             return Response::allow();
         }
 

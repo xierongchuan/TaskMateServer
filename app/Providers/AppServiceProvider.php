@@ -7,9 +7,11 @@ namespace App\Providers;
 use App\Contracts\FileValidatorInterface;
 use App\Listeners\PublishTaskEventSubscriber;
 use App\Models\AutoDealership;
+use App\Models\Task;
 use App\Models\TaskResponse;
 use App\Models\User;
 use App\Policies\DealershipPolicy;
+use App\Policies\TaskPolicy;
 use App\Policies\TaskResponsePolicy;
 use App\Policies\UserPolicy;
 use App\Services\AmqpChannelManager;
@@ -84,6 +86,7 @@ class AppServiceProvider extends ServiceProvider
     protected function registerPolicies(): void
     {
         Gate::policy(AutoDealership::class, DealershipPolicy::class);
+        Gate::policy(Task::class, TaskPolicy::class);
         Gate::policy(TaskResponse::class, TaskResponsePolicy::class);
         Gate::policy(User::class, UserPolicy::class);
     }

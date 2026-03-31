@@ -46,7 +46,11 @@ class TimeHelper
             return null;
         }
 
-        return Carbon::parse($datetime)->setTimezone(self::DB_TIMEZONE);
+        try {
+            return Carbon::parse($datetime)->setTimezone(self::DB_TIMEZONE);
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     /**
@@ -142,7 +146,7 @@ class TimeHelper
      */
     public static function startOfWeekUtc(): Carbon
     {
-        return Carbon::now(self::DB_TIMEZONE)->startOfWeek();
+        return Carbon::now(self::DB_TIMEZONE)->startOfWeek(Carbon::MONDAY);
     }
 
     /**
@@ -150,7 +154,7 @@ class TimeHelper
      */
     public static function endOfWeekUtc(): Carbon
     {
-        return Carbon::now(self::DB_TIMEZONE)->endOfWeek();
+        return Carbon::now(self::DB_TIMEZONE)->endOfWeek(Carbon::SUNDAY);
     }
 
     /**

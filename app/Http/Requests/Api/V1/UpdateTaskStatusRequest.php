@@ -29,4 +29,18 @@ class UpdateTaskStatusRequest extends BaseApiRequest
             'proof_files.*' => 'file|max:102400', // 100 MB max per file
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'status.required' => 'Статус обязателен',
+            'status.in' => 'Некорректный статус',
+            'proof_files.max' => 'Максимальное количество файлов: '.TaskProofService::MAX_FILES_PER_RESPONSE,
+            'proof_files.*.max' => 'Размер файла не может превышать 100 МБ',
+            'proof_files.*.file' => 'Загруженный объект должен быть файлом',
+        ];
+    }
 }
