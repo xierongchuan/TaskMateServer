@@ -9,6 +9,8 @@ use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -188,6 +190,60 @@ class TaskService
             ], array_values($toCreate));
             TaskAssignment::insert($bulkData);
         }
+    }
+
+    /**
+     * Удаляет задачу и её назначения.
+     *
+     * @param  Task  $task  Задача для удаления
+     */
+    public function deleteTask(Task $task): void
+    {
+        DB::transaction(function () use ($task) {
+            TaskAssignment::where('task_id', $task->id)->delete();
+            $task->delete();
+        });
+    }
+
+    /**
+     * Получает историю выполненных задач пользователя.
+     *
+     * @param  User  $user  Пользователь
+     * @param  Request  $request  HTTP-запрос с параметрами фильтрации
+     */
+    public function getMyHistory(User $user, Request $request): LengthAwarePaginator
+    {
+        $query = Task::with([
+            'creator',
+            'dealership',
+            'assignments.user',
+            'responses' => function ($q) use ($user) {
+                $q->where('user_id', $user->id)->with(['proofs', 'verifier']);
+            },
+        ])
+            ->whereHas('assignments', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->whereHas('responses', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            });
+
+        if ($request->filled('response_status')) {
+            $status = $request->input('response_status');
+            $query->whereHas('responses', function ($q) use ($user, $status) {
+                $q->where('user_id', $user->id)->where('status', $status);
+            });
+        }
+
+        if ($request->filled('dealership_id')) {
+            $query->where('dealership_id', $request->input('dealership_id'));
+        }
+
+        $query->orderByDesc('updated_at');
+
+        $perPage = min((int) $request->input('per_page', 15), 100);
+
+        return $query->paginate($perPage);
     }
 
     /**

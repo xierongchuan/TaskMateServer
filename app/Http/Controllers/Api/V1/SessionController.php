@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 class SessionController extends Controller
 {
     use ApiResponses;
+
     /**
      * Maximum failed login attempts before account lockout
      */

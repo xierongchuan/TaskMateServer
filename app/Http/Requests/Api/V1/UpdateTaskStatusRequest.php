@@ -6,12 +6,11 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Enums\TaskResponseStatus;
 use App\Services\TaskProofService;
-use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * Form Request для обновления статуса задачи.
  */
-class UpdateTaskStatusRequest extends FormRequest
+class UpdateTaskStatusRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {

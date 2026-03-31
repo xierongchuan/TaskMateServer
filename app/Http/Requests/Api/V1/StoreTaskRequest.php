@@ -17,17 +17,11 @@ class StoreTaskRequest extends BaseApiRequest
 {
     /**
      * Определяет, авторизован ли пользователь для этого запроса.
-     * Только manager и owner могут создавать задачи.
+     * Проверка роли и доступа к дилерству — в TaskPolicy::create().
      */
     public function authorize(): bool
     {
-        $user = $this->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        return in_array($user->role, [Role::MANAGER, Role::OWNER]);
+        return true;
     }
 
     /**

@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 class AuditLogController extends Controller
 {
     use ApiResponses;
+
     /**
      * Список поддерживаемых таблиц для аудита.
      */

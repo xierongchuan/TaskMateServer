@@ -10,7 +10,6 @@ use App\Http\Requests\Api\V1\UpdateTaskRequest;
 use App\Http\Requests\Api\V1\UpdateTaskStatusRequest;
 use App\Http\Resources\TaskResource;
 use App\Models\Task;
-use App\Models\TaskAssignment;
 use App\Services\TaskFilterService;
 use App\Services\TaskService;
 use App\Services\TaskStatusService;
@@ -98,13 +97,9 @@ class TaskController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
 
-        // Security check: Ensure dealership is accessible
+        // Security check: role + dealership via Policy
         $validated = $request->validated();
-        if (! empty($validated['dealership_id'])) {
-            if (! $this->taskService->canAccessDealership($currentUser, (int) $validated['dealership_id'])) {
-                return $this->errorResponse('Вы не можете создать задачу в чужом автосалоне', 403);
-            }
-        }
+        $this->authorize('create', [Task::class, $validated['dealership_id'] ?? null]);
 
         $task = $this->taskService->createTask($validated, $currentUser);
 
@@ -156,17 +151,10 @@ class TaskController extends Controller
     {
         $task = Task::findOrFail($id);
 
-        /** @var \App\Models\User $currentUser */
-        $currentUser = auth()->user();
-
         // Security check: Access scope via Policy
         $this->authorize('delete', $task);
 
-        // Delete task assignments (they will be automatically deleted due to foreign key constraints)
-        TaskAssignment::where('task_id', $task->id)->delete();
-
-        // Delete the task
-        $task->delete();
+        $this->taskService->deleteTask($task);
 
         return $this->deletedResponse('Задача успешно удалена');
     }
@@ -215,40 +203,7 @@ class TaskController extends Controller
         /** @var \App\Models\User $currentUser */
         $currentUser = $request->user();
 
-        $query = Task::with([
-            'creator',
-            'dealership',
-            'assignments.user',
-            'responses' => function ($q) use ($currentUser) {
-                $q->where('user_id', $currentUser->id)->with(['proofs', 'verifier']);
-            },
-        ])
-            ->whereHas('assignments', function ($q) use ($currentUser) {
-                $q->where('user_id', $currentUser->id);
-            })
-            ->whereHas('responses', function ($q) use ($currentUser) {
-                $q->where('user_id', $currentUser->id);
-            });
-
-        // Фильтр по статусу ответа
-        if ($request->filled('response_status')) {
-            $status = $request->input('response_status');
-            $query->whereHas('responses', function ($q) use ($currentUser, $status) {
-                $q->where('user_id', $currentUser->id)->where('status', $status);
-            });
-        }
-
-        // Фильтр по dealership
-        if ($request->filled('dealership_id')) {
-            $query->where('dealership_id', $request->input('dealership_id'));
-        }
-
-        // Сортировка
-        $query->orderByDesc('updated_at');
-
-        // Пагинация
-        $perPage = min((int) $request->input('per_page', 15), 100);
-        $tasks = $query->paginate($perPage);
+        $tasks = $this->taskService->getMyHistory($currentUser, $request);
 
         $tasksData = $tasks->getCollection()->map(fn ($task) => TaskResource::make($task)->resolve());
 

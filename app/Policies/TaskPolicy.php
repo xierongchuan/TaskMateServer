@@ -17,6 +17,22 @@ class TaskPolicy
     ) {}
 
     /**
+     * Создание задачи: только manager/owner + доступ к указанному дилерству.
+     */
+    public function create(User $user, ?int $dealershipId = null): Response
+    {
+        if (! in_array($user->role, [Role::MANAGER, Role::OWNER], true)) {
+            return Response::deny('Только менеджеры и владельцы могут создавать задачи');
+        }
+
+        if ($dealershipId !== null && ! $this->dealershipAccess->hasAccessToDealership($user, $dealershipId)) {
+            return Response::deny('Вы не можете создать задачу в чужом автосалоне');
+        }
+
+        return Response::allow();
+    }
+
+    /**
      * Просмотр задачи: owner, создатель, назначенный, или доступ к дилерству.
      */
     public function view(User $user, Task $task): Response

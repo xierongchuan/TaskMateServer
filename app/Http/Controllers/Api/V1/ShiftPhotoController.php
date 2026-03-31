@@ -25,6 +25,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class ShiftPhotoController extends Controller
 {
     use ApiResponses;
+
     /**
      * Скачать фото смены.
      *
