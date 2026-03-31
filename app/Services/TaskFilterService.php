@@ -53,7 +53,7 @@ class TaskFilterService
         // Исключаем архивные задачи
         $query->whereNull('archived_at');
 
-        $perPage = $request->filled('per_page') ? $request->integer('per_page') : 15;
+        $perPage = min($request->integer('per_page', 15), 100);
 
         $allowedSortFields = ['created_at', 'title', 'priority', 'deadline'];
         $sortField = $request->get('sort_by', 'created_at');

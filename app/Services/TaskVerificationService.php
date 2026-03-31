@@ -79,16 +79,7 @@ class TaskVerificationService
         $result = DB::transaction(function () use ($response, $verifier, $reason) {
             $previousStatus = $response->status;
 
-            // Удаляем файлы доказательств
-            if (! $response->uses_shared_proofs) {
-                $proofCount = $response->relationLoaded('proofs') ? $response->proofs->count() : $response->proofs()->count();
-                $this->taskProofService->deleteAllProofs($response);
-            } else {
-                // Удаляем shared_proofs задачи чтобы сотрудник загрузил новые файлы
-                $task = $response->task;
-                $proofCount = $task->sharedProofs()->count();
-                $this->taskProofService->deleteSharedProofs($task);
-            }
+            $proofCount = $this->deleteProofsForResponse($response);
 
             // Обновляем response - переключаем на индивидуальный режим
             $response->update([
@@ -130,13 +121,8 @@ class TaskVerificationService
     {
         $previousStatus = $response->status;
 
-        // Удаляем только индивидуальные файлы (НЕ shared_proofs!)
-        if (! $response->uses_shared_proofs) {
-            $proofCount = $response->relationLoaded('proofs') ? $response->proofs->count() : $response->proofs()->count();
-            $this->taskProofService->deleteAllProofs($response);
-        } else {
-            $proofCount = 0;
-        }
+        // В bulk-режиме shared proofs удаляются один раз до цикла
+        $proofCount = $this->deleteProofsForResponse($response, false);
 
         $response->update([
             'status' => 'rejected',
@@ -177,14 +163,15 @@ class TaskVerificationService
                 ->where('status', 'pending_review')
                 ->get();
 
+            // Удаляем shared_proofs один раз до цикла (все responses одной задачи)
+            $hasSharedProofs = $task->sharedProofs()->exists();
+            if ($hasSharedProofs) {
+                $this->taskProofService->deleteSharedProofs($task);
+            }
+
             foreach ($pendingResponses as $response) {
                 $this->rejectSingleResponse($response, $verifier, $reason);
                 $rejectedUserIds[] = $response->user_id;
-            }
-
-            // Удаляем shared_proofs если есть
-            if ($task->sharedProofs()->exists()) {
-                $this->taskProofService->deleteSharedProofs($task);
             }
         });
 
@@ -231,6 +218,35 @@ class TaskVerificationService
             'pending_review',
             $proofCount
         );
+    }
+
+    /**
+     * Удаляет файлы доказательств для ответа.
+     *
+     * Для индивидуальных файлов — удаляет proofs ответа.
+     * Для shared файлов — удаляет shared_proofs задачи.
+     *
+     * @param  bool  $deleteShared  Удалять ли shared proofs (false в bulk-режиме)
+     * @return int Количество удалённых файлов
+     */
+    private function deleteProofsForResponse(TaskResponse $response, bool $deleteShared = true): int
+    {
+        if (! $response->uses_shared_proofs) {
+            $proofCount = $response->relationLoaded('proofs') ? $response->proofs->count() : $response->proofs()->count();
+            $this->taskProofService->deleteAllProofs($response);
+
+            return $proofCount;
+        }
+
+        if ($deleteShared) {
+            $task = $response->task;
+            $proofCount = $task->sharedProofs()->count();
+            $this->taskProofService->deleteSharedProofs($task);
+
+            return $proofCount;
+        }
+
+        return 0;
     }
 
     /**
