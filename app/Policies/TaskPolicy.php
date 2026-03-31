@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\Role;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\DealershipAccessService;
@@ -20,6 +21,10 @@ class TaskPolicy
      */
     public function view(User $user, Task $task): Response
     {
+        if ($task->trashed()) {
+            return Response::deny('Задача удалена');
+        }
+
         if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
@@ -44,6 +49,10 @@ class TaskPolicy
      */
     public function update(User $user, Task $task): Response
     {
+        if ($task->trashed()) {
+            return Response::deny('Задача удалена');
+        }
+
         if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
@@ -64,6 +73,10 @@ class TaskPolicy
      */
     public function delete(User $user, Task $task): Response
     {
+        if ($task->trashed()) {
+            return Response::deny('Задача удалена');
+        }
+
         if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
@@ -80,12 +93,36 @@ class TaskPolicy
     }
 
     /**
-     * Обновление статуса задачи: доступ к дилерству задачи.
+     * Обновление статуса задачи: только owner, менеджер, сотрудник.
+     * Наблюдатели (observer) не могут менять статус.
+     * Глобальные задачи (без dealership_id) — только owner или назначенные.
      */
     public function updateStatus(User $user, Task $task): Response
     {
-        if ($task->dealership_id === null || $this->dealershipAccess->isOwner($user)) {
+        if ($task->trashed()) {
+            return Response::deny('Задача удалена');
+        }
+
+        // Наблюдатели не могут менять статус задач
+        if ($user->role === Role::OBSERVER) {
+            return Response::deny('Наблюдатели не могут изменять статус задач');
+        }
+
+        if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
+        }
+
+        // Глобальные задачи (без dealership_id): только назначенные или создатель
+        if ($task->dealership_id === null) {
+            if ($task->creator_id === $user->id) {
+                return Response::allow();
+            }
+
+            if ($task->assignments->contains('user_id', $user->id)) {
+                return Response::allow();
+            }
+
+            return Response::deny('Нет доступа к этой задаче');
         }
 
         if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {

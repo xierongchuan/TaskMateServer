@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\Role;
 use App\Models\Task;
+use App\Models\User;
 use App\Rules\ValidAssignmentsForTaskType;
+use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
 
 /**
@@ -95,6 +98,50 @@ class UpdateTaskRequest extends BaseApiRequest
                     $attribute = str_contains($message, 'Индивидуальная') ? 'task_type' : 'assignments';
                     $validator->errors()->add($attribute, $message);
                 });
+            }
+
+            // Валидация: дата появления должна быть раньше или равна дедлайну
+            $appearDate = $this->input('appear_date');
+            $deadline = $this->input('deadline');
+
+            if ($appearDate && $deadline) {
+                try {
+                    $appearDateTime = Carbon::parse($appearDate);
+                    $deadlineDateTime = Carbon::parse($deadline);
+
+                    if ($appearDateTime->gt($deadlineDateTime)) {
+                        $validator->errors()->add(
+                            'deadline',
+                            'Дедлайн не может быть раньше даты появления задачи'
+                        );
+                    }
+                } catch (\Exception) {
+                    // Некорректный формат даты - будет обработан базовой валидацией
+                }
+            }
+
+            // Валидация: нельзя назначить задачу самому себе
+            $assignments = $this->input('assignments');
+            $user = $this->user();
+            if ($user && is_array($assignments) && count($assignments) > 0 && in_array($user->id, $assignments)) {
+                $validator->errors()->add(
+                    'assignments',
+                    'Вы не можете назначить задачу самому себе'
+                );
+            }
+
+            // Валидация: задачи можно назначать только сотрудникам (employees)
+            if (is_array($assignments) && count($assignments) > 0) {
+                $nonEmployees = User::whereIn('id', $assignments)
+                    ->where('role', '!=', Role::EMPLOYEE)
+                    ->count();
+
+                if ($nonEmployees > 0) {
+                    $validator->errors()->add(
+                        'assignments',
+                        'Задачи можно назначать только сотрудникам'
+                    );
+                }
             }
         });
     }
