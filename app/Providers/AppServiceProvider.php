@@ -34,7 +34,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Регистрация FileValidationConfig как singleton
         $this->app->singleton(FileValidationConfig::class, function ($app) {
-            return new FileValidationConfig($app['config']);
+            return new FileValidationConfig($app["config"]);
         });
 
         // Регистрация MimeTypeResolver
@@ -44,10 +44,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Регистрация FileValidator и привязка к интерфейсу
         $this->app->singleton(FileValidatorInterface::class, function ($app) {
-            return new FileValidator(
-                $app->make(FileValidationConfig::class),
-                $app->make(MimeTypeResolver::class)
-            );
+            return new FileValidator($app->make(FileValidationConfig::class), $app->make(MimeTypeResolver::class));
         });
 
         // Alias для конкретного класса
@@ -57,16 +54,21 @@ class AppServiceProvider extends ServiceProvider
         // Одно физическое соединение на весь жизненный цикл процесса.
         // Конфигурация берётся из config/queue.php → connections.rabbitmq.hosts.0
         $this->app->singleton(AmqpChannelManager::class, function ($app) {
-            $config = $app['config']->get('queue.connections.rabbitmq.hosts.0', []);
+            $config = $app["config"]->get("queue.connections.rabbitmq.hosts.0", []);
 
             return new AmqpChannelManager(
-                host: $config['host'] ?? 'rabbitmq',
-                port: (int) ($config['port'] ?? 5672),
-                user: $config['user'] ?? 'guest',
-                password: $config['password'] ?? 'guest',
-                vhost: $config['vhost'] ?? '/',
+                host: $config["host"] ?? "rabbitmq",
+                port: (int) ($config["port"] ?? 5672),
+                user: $config["user"] ?? "guest",
+                password: $config["password"] ?? "guest",
+                vhost: $config["vhost"] ?? "/",
             );
         });
+
+        if ($this->app->environment("local") && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {
+            $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);
+            $this->app->register(TelescopeServiceProvider::class);
+        }
     }
 
     /**
@@ -97,7 +99,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureRateLimiting(): void
     {
         // Login rate limiting - 5 attempts per minute per IP
-        RateLimiter::for('login', function (Request $request) {
+        RateLimiter::for("login", function (Request $request) {
             if ($this->isTrustedIp($request)) {
                 return Limit::none();
             }
@@ -106,7 +108,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // General API rate limiting - 180 requests per minute per user/IP
-        RateLimiter::for('api', function (Request $request) {
+        RateLimiter::for("api", function (Request $request) {
             if ($this->isTrustedIp($request)) {
                 return Limit::none();
             }
@@ -117,7 +119,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Downloads rate limiting - higher limit for file downloads (signed URLs)
-        RateLimiter::for('downloads', function (Request $request) {
+        RateLimiter::for("downloads", function (Request $request) {
             if ($this->isTrustedIp($request)) {
                 return Limit::none();
             }
@@ -129,10 +131,10 @@ class AppServiceProvider extends ServiceProvider
     private function isTrustedIp(Request $request): bool
     {
         $ip = $request->ip();
-        $trustedIps = config('ratelimit.trusted_ips', []);
+        $trustedIps = config("ratelimit.trusted_ips", []);
 
         foreach ($trustedIps as $trusted) {
-            if (str_contains($trusted, '/')) {
+            if (str_contains($trusted, "/")) {
                 // CIDR-нотация (например, 172.18.0.0/16)
                 if ($this->ipInCidr($ip, $trusted)) {
                     return true;
@@ -147,7 +149,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function ipInCidr(string $ip, string $cidr): bool
     {
-        [$subnet, $bits] = explode('/', $cidr, 2);
+        [$subnet, $bits] = explode("/", $cidr, 2);
         $ipLong = ip2long($ip);
         $subnetLong = ip2long($subnet);
 

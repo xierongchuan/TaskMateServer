@@ -12,6 +12,7 @@
     "php": "^8.4",
     "laravel/framework": "^12.53",
     "laravel/sanctum": "^4.3",
+    "laravel/telescope": "^5.19",
     "laravel/tinker": "^2.11",
     "league/csv": "^9.28",
     "predis/predis": "^3.4",
@@ -87,7 +88,9 @@
   },
   "extra": {
     "laravel": {
-      "dont-discover": []
+      "dont-discover": [
+        "laravel/telescope"
+      ]
     }
   },
   "config": {
