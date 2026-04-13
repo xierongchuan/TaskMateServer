@@ -42,6 +42,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 09:10:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -76,6 +77,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 23:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -95,6 +97,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 02:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -115,6 +118,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 08:50:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -137,6 +141,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 09:25:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -158,6 +163,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 09:10:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -169,6 +175,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 09:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             expect(fn () => $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg')))
                 ->toThrow(\InvalidArgumentException::class, 'Не настроены смены');
@@ -188,6 +195,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 07:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             expect(fn () => $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg')))
                 ->toThrow(\InvalidArgumentException::class);
@@ -212,6 +220,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 09:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             expect(fn () => $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg')))
                 ->toThrow(\InvalidArgumentException::class, 'already has an open shift');
@@ -230,6 +239,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 22:30:00'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -258,6 +268,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 15:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -279,6 +290,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 18:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -298,6 +310,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 00:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -318,6 +331,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 06:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+03:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));
 
@@ -341,6 +355,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 12:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
 
@@ -369,6 +384,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
 
@@ -398,6 +414,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
 
@@ -419,6 +436,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-02-01 03:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
 
@@ -440,6 +458,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 08:55:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
 
@@ -460,6 +479,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 18:10:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
 
@@ -480,6 +500,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 20:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $result = $this->service->getAvailableSchedulesForNow($this->dealership->id);
 
@@ -509,6 +530,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             expect(fn () => $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg')))
                 ->toThrow(ScheduleAmbiguousException::class);
@@ -535,6 +557,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             $shift = $this->service->openShift(
                 $this->user,
@@ -571,6 +594,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             expect(fn () => $this->service->openShift(
                 $this->user,
@@ -603,6 +627,7 @@ describe('ShiftService', function () {
             Carbon::setTestNow(Carbon::parse('2026-01-31 10:00:00', 'UTC'));
             $this->settingsService->shouldReceive('getTimezone')->andReturn('+00:00');
             $this->settingsService->shouldReceive('getLateTolerance')->andReturn(15);
+            $this->settingsService->shouldReceive('getShiftReminderMinutes')->andReturn(15);
 
             try {
                 $this->service->openShift($this->user, UploadedFile::fake()->image('photo.jpg'));

@@ -64,8 +64,9 @@ class ShiftService
         $localNow = $now->copy()->setTimezone($timezone);
         $localTimeStr = $localNow->format('H:i');
 
-        $lateTolerance = $this->settingsService->getLateTolerance($dealershipId);
-        $schedule = $this->resolveShiftSchedule($dealershipId, $localTimeStr, $lateTolerance, $shiftScheduleId);
+        // Напоминание — для разрешения расписания (видимость в списке)
+        $shiftReminderMinutes = $this->settingsService->getShiftReminderMinutes($dealershipId);
+        $schedule = $this->resolveShiftSchedule($dealershipId, $localTimeStr, $shiftReminderMinutes, $shiftScheduleId);
 
         // Вычисляем scheduled_start и scheduled_end в UTC
         $scheduledStart = $this->scheduleTimeToUtc($localNow, $schedule->start_time, $timezone);
@@ -84,6 +85,9 @@ class ShiftService
         if ($now->gt($scheduledStart)) {
             $lateMinutes = (int) abs($now->diffInMinutes($scheduledStart));
         }
+
+        // Опоздание — проверяем по допустимому порогу (отдельный параметр)
+        $lateTolerance = $this->settingsService->getLateTolerance($dealershipId);
         $isLate = $lateMinutes > $lateTolerance;
 
         // Determine shift status
@@ -320,9 +324,10 @@ class ShiftService
         $localNow = Carbon::now()->setTimezone($timezone);
         $localTimeStr = $localNow->format('H:i');
 
-        $lateTolerance = $this->settingsService->getLateTolerance($dealershipId);
+        // Напоминание — определяет видимость смен в списке (за сколько мин до начала видна)
+        $reminderMinutes = $this->settingsService->getShiftReminderMinutes($dealershipId);
 
-        return $this->resolveAvailableSchedules($dealershipId, $localTimeStr, $lateTolerance);
+        return $this->resolveAvailableSchedules($dealershipId, $localTimeStr, $reminderMinutes);
     }
 
     /**
@@ -330,8 +335,8 @@ class ShiftService
      *
      * Логика:
      * 1. Если время попадает в интервал активной смены → эта смена
-     * 2. Если не попадает → ищем ближайшую следующую смену в пределах lateTolerance
-     * 3. Если нет следующей → ищем смену, завершившуюся ≤ lateTolerance минут назад
+     * 2. Если не попадает → ищем ближайшую следующую смену в пределах reminderMinutes
+     * 3. Если нет следующей → ищем смену, завершившуюся ≤ reminderMinutes минут назад
      *
      * При нескольких кандидатах и указанном $shiftScheduleId — проверяем принадлежность.
      * При нескольких кандидатах без $shiftScheduleId — бросаем ScheduleAmbiguousException.
@@ -342,10 +347,10 @@ class ShiftService
     private function resolveShiftSchedule(
         int $dealershipId,
         string $localTime,
-        int $lateTolerance,
+        int $reminderMinutes,
         ?int $shiftScheduleId = null,
     ): ShiftSchedule {
-        $candidates = $this->resolveAvailableSchedules($dealershipId, $localTime, $lateTolerance);
+        $candidates = $this->resolveAvailableSchedules($dealershipId, $localTime, $reminderMinutes);
 
         if ($candidates->isEmpty()) {
             throw new \InvalidArgumentException('Не удалось определить смену для текущего времени');
@@ -379,12 +384,12 @@ class ShiftService
      *
      * Фазы (возвращаются кандидаты только ОДНОЙ фазы):
      * Phase 1: все расписания, содержащие localTime (containsTime)
-     * Phase 2 (если phase 1 пуста): все расписания, до начала которых ≤ lateTolerance минут
-     * Phase 3 (если phase 2 пуста): все расписания, завершившиеся ≤ lateTolerance минут назад
+     * Phase 2 (если phase 1 пуста): все расписания, до начала которых ≤ reminderMinutes минут
+     * Phase 3 (если phase 2 пуста): все расписания, завершившиеся ≤ reminderMinutes минут назад
      *
      * @throws \InvalidArgumentException
      */
-    private function resolveAvailableSchedules(int $dealershipId, string $localTime, int $lateTolerance): Collection
+    private function resolveAvailableSchedules(int $dealershipId, string $localTime, int $reminderMinutes): Collection
     {
         $schedules = ShiftSchedule::where('dealership_id', $dealershipId)
             ->where('is_active', true)
@@ -401,23 +406,23 @@ class ShiftService
             return $phase1;
         }
 
-        // Phase 2: смены, до начала которых ≤ lateTolerance минут (раннее открытие)
+        // Phase 2: смены, до начала которых ≤ reminderMinutes минут (раннее открытие)
         $phase2 = $schedules
-            ->filter(function (ShiftSchedule $s) use ($localTime, $lateTolerance) {
+            ->filter(function (ShiftSchedule $s) use ($localTime, $reminderMinutes) {
                 $minutes = $s->minutesUntilStart($localTime);
 
                 // minutesUntilStart возвращает 0-1439; если 0 — именно сейчас начало (but containsTime уже обработало)
                 // Отбираем только реально "до начала" (minutes > 0)
-                return $minutes > 0 && $minutes <= $lateTolerance;
+                return $minutes > 0 && $minutes <= $reminderMinutes;
             })
             ->values();
         if ($phase2->isNotEmpty()) {
             return $phase2;
         }
 
-        // Phase 3: смены, завершившиеся ≤ lateTolerance минут назад
+        // Phase 3: смены, завершившиеся ≤ reminderMinutes минут назад
         $phase3 = $schedules
-            ->filter(function (ShiftSchedule $s) use ($localTime, $lateTolerance) {
+            ->filter(function (ShiftSchedule $s) use ($localTime, $reminderMinutes) {
                 $endMinutes = $this->timeToMinutes($s->end_time);
                 $currentMinutes = $this->timeToMinutes($localTime);
                 $diff = $currentMinutes - $endMinutes;
@@ -426,7 +431,7 @@ class ShiftService
                     $diff += 1440;
                 }
 
-                return $diff <= $lateTolerance;
+                return $diff <= $reminderMinutes;
             })
             ->values();
 

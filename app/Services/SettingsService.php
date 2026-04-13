@@ -28,9 +28,7 @@ class SettingsService
 
         // Query database with error handling
         try {
-            $setting = Setting::where('key', $key)
-                ->where('dealership_id', $dealershipId)
-                ->first();
+            $setting = Setting::where('key', $key)->where('dealership_id', $dealershipId)->first();
         } catch (\Exception $e) {
             // Логируем ошибку, но не раскрываем детали пользователю
             Log::warning('SettingsService: ошибка при получении настройки', [
@@ -65,7 +63,7 @@ class SettingsService
         mixed $value,
         ?int $dealershipId = null,
         string $type = 'string',
-        ?string $description = null
+        ?string $description = null,
     ): Setting {
         // Validate value based on type
         $this->validateSettingValue($value, $type, $key);
@@ -82,7 +80,7 @@ class SettingsService
                 'type' => $type,
                 'value' => $processedValue,
                 'description' => $description,
-            ]
+            ],
         );
 
         // Set the typed value (this will handle any final conversions)
@@ -197,7 +195,7 @@ class SettingsService
 
         if (! is_bool($value) && ! in_array($value, [0, 1, '0', '1', 'true', 'false'], true)) {
             throw new \InvalidArgumentException(
-                "Boolean value for '{$key}' must be true, false, 0, 1, or equivalent strings"
+                "Boolean value for '{$key}' must be true, false, 0, 1, or equivalent strings",
             );
         }
     }
@@ -238,15 +236,13 @@ class SettingsService
 
         // If dealership is specified, check its timezone first
         if ($dealershipId !== null) {
-            $timezone = Cache::remember(
-                "dealership_timezone:{$dealershipId}",
-                self::CACHE_TTL,
-                function () use ($dealershipId) {
-                    $dealership = \App\Models\AutoDealership::find($dealershipId);
+            $timezone = Cache::remember("dealership_timezone:{$dealershipId}", self::CACHE_TTL, function () use (
+                $dealershipId,
+            ) {
+                $dealership = \App\Models\AutoDealership::find($dealershipId);
 
-                    return ($dealership && ! empty($dealership->timezone)) ? $dealership->timezone : null;
-                }
-            );
+                return $dealership && ! empty($dealership->timezone) ? $dealership->timezone : null;
+            });
 
             if ($timezone !== null) {
                 return $timezone;
@@ -287,10 +283,21 @@ class SettingsService
 
     /**
      * Get late tolerance in minutes.
+     * Используется только для определения опоздания при открытии смены.
      */
     public function getLateTolerance(?int $dealershipId = null): int
     {
         return (int) $this->getSettingWithFallback('late_tolerance_minutes', $dealershipId, 15);
+    }
+
+    /**
+     * Get shift reminder minutes.
+     * Определяет, за сколько минут до начала смены она становится видимой
+     * в списке доступных для открытия (а также окно «только что завершилась»).
+     */
+    public function getShiftReminderMinutes(?int $dealershipId = null): int
+    {
+        return (int) $this->getSettingWithFallback('shift_reminder_minutes', $dealershipId, 15);
     }
 
     /**
@@ -417,9 +424,7 @@ class SettingsService
         // Batch-fetch dealership-specific settings
         $dealershipSettings = [];
         if ($dealershipId) {
-            $settings = Setting::where('dealership_id', $dealershipId)
-                ->whereIn('key', $uncachedKeys)
-                ->get();
+            $settings = Setting::where('dealership_id', $dealershipId)->whereIn('key', $uncachedKeys)->get();
 
             foreach ($settings as $setting) {
                 $value = $setting->getTypedValue();
@@ -434,9 +439,7 @@ class SettingsService
         // Batch-fetch global settings for remaining keys
         $globalSettings = [];
         if (! empty($stillMissing)) {
-            $settings = Setting::whereNull('dealership_id')
-                ->whereIn('key', $stillMissing)
-                ->get();
+            $settings = Setting::whereNull('dealership_id')->whereIn('key', $stillMissing)->get();
 
             foreach ($settings as $setting) {
                 $value = $setting->getTypedValue();
@@ -447,7 +450,7 @@ class SettingsService
 
         // Merge results: dealership settings take priority over global
         foreach ($uncachedKeys as $key) {
-            $result[$key] = $dealershipSettings[$key] ?? $globalSettings[$key] ?? null;
+            $result[$key] = $dealershipSettings[$key] ?? ($globalSettings[$key] ?? null);
         }
 
         return $result;
@@ -460,8 +463,12 @@ class SettingsService
      * @param  array  $types  [key => type]
      * @param  array  $descriptions  [key => description]
      */
-    public function setMultipleSettings(array $settings, ?int $dealershipId = null, array $types = [], array $descriptions = []): array
-    {
+    public function setMultipleSettings(
+        array $settings,
+        ?int $dealershipId = null,
+        array $types = [],
+        array $descriptions = [],
+    ): array {
         $results = [];
 
         foreach ($settings as $key => $value) {

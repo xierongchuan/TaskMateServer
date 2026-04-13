@@ -103,9 +103,9 @@ class TaskFilterService
     protected function getDateBoundaries(string $dateRange): array
     {
         return match ($dateRange) {
-            "today" => [TimeHelper::startOfDayUtc(), TimeHelper::endOfDayUtc()],
-            "week" => [TimeHelper::startOfWeekUtc(), TimeHelper::endOfWeekUtc()],
-            "month" => [TimeHelper::startOfMonthUtc(), TimeHelper::endOfMonthUtc()],
+            'today' => [TimeHelper::startOfDayUtc(), TimeHelper::endOfDayUtc()],
+            'week' => [TimeHelper::startOfWeekUtc(), TimeHelper::endOfWeekUtc()],
+            'month' => [TimeHelper::startOfMonthUtc(), TimeHelper::endOfMonthUtc()],
             default => [null, null],
         };
     }
