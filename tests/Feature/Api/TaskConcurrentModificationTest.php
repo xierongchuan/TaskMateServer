@@ -11,7 +11,6 @@ use App\Models\TaskAssignment;
 use App\Models\TaskResponse;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 

@@ -15,16 +15,16 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__ . "/../routes/web.php",
-        api: __DIR__ . "/../routes/api.php",
-        commands: __DIR__ . "/../routes/console.php",
-        health: "/up",
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: explode(',', env('TRUSTED_PROXIES', '172.16.0.0/12,10.0.0.0/8,192.168.0.0/16')));
 
         $middleware->alias([
-            "role" => \App\Http\Middleware\CheckRole::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
         ]);
 
         // Глобальный middleware для проверки режима обслуживания
@@ -34,9 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (DuplicateTaskException $e) {
             return response()->json(
                 [
-                    "success" => false,
-                    "message" => $e->getMessage(),
-                    "error_type" => "duplicate_task",
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'error_type' => 'duplicate_task',
                 ],
                 422,
             );
@@ -45,9 +45,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (AccessDeniedException $e) {
             return response()->json(
                 [
-                    "success" => false,
-                    "message" => $e->getMessage(),
-                    "error_type" => "access_denied",
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'error_type' => 'access_denied',
                 ],
                 403,
             );
@@ -56,9 +56,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (InvalidStatusTransitionException $e) {
             return response()->json(
                 [
-                    "success" => false,
-                    "message" => $e->getMessage(),
-                    "error_type" => "invalid_status_transition",
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'error_type' => 'invalid_status_transition',
                 ],
                 422,
             );
@@ -66,24 +66,24 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Обработчик ошибок базы данных (SQL-запросы)
         $exceptions->render(function (QueryException $e, Request $request) {
-            if ($request->is("api/*") || $request->expectsJson()) {
-                Log::error("Database QueryException", [
-                    "message" => $e->getMessage(),
-                    "sql" => $e->getSql(),
-                    "bindings" => config("app.debug") ? $e->getBindings() : "[hidden]",
+            if ($request->is('api/*') || $request->expectsJson()) {
+                Log::error('Database QueryException', [
+                    'message' => $e->getMessage(),
+                    'sql' => $e->getSql(),
+                    'bindings' => config('app.debug') ? $e->getBindings() : '[hidden]',
                 ]);
 
                 $response = [
-                    "success" => false,
-                    "message" => "Ошибка базы данных. Возможно, требуется выполнить миграции.",
-                    "error_type" => "database_error",
+                    'success' => false,
+                    'message' => 'Ошибка базы данных. Возможно, требуется выполнить миграции.',
+                    'error_type' => 'database_error',
                 ];
 
                 // В режиме отладки добавляем детали (только для разработки)
-                if (config("app.debug")) {
-                    $response["debug"] = [
-                        "exception" => class_basename($e),
-                        "message" => $e->getMessage(),
+                if (config('app.debug')) {
+                    $response['debug'] = [
+                        'exception' => class_basename($e),
+                        'message' => $e->getMessage(),
                     ];
                 }
 
@@ -93,21 +93,21 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Обработчик ошибок подключения к БД (PDO)
         $exceptions->render(function (\PDOException $e, Request $request) {
-            if ($request->is("api/*") || $request->expectsJson()) {
-                Log::error("Database PDOException", [
-                    "message" => $e->getMessage(),
+            if ($request->is('api/*') || $request->expectsJson()) {
+                Log::error('Database PDOException', [
+                    'message' => $e->getMessage(),
                 ]);
 
                 $response = [
-                    "success" => false,
-                    "message" => "Не удалось подключиться к базе данных.",
-                    "error_type" => "database_connection_error",
+                    'success' => false,
+                    'message' => 'Не удалось подключиться к базе данных.',
+                    'error_type' => 'database_connection_error',
                 ];
 
-                if (config("app.debug")) {
-                    $response["debug"] = [
-                        "exception" => class_basename($e),
-                        "message" => $e->getMessage(),
+                if (config('app.debug')) {
+                    $response['debug'] = [
+                        'exception' => class_basename($e),
+                        'message' => $e->getMessage(),
                     ];
                 }
 
@@ -117,7 +117,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Общий обработчик для всех необработанных исключений API
         $exceptions->render(function (\Throwable $e, Request $request) {
-            if ($request->is("api/*") || $request->expectsJson()) {
+            if ($request->is('api/*') || $request->expectsJson()) {
                 // Пропускаем исключения, которые Laravel должен обработать стандартным способом
                 if (
                     $e instanceof QueryException ||
@@ -134,25 +134,25 @@ return Application::configure(basePath: dirname(__DIR__))
                     return null;
                 }
 
-                Log::error("Unhandled API Exception", [
-                    "exception" => get_class($e),
-                    "message" => $e->getMessage(),
-                    "file" => $e->getFile(),
-                    "line" => $e->getLine(),
+                Log::error('Unhandled API Exception', [
+                    'exception' => get_class($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
                 ]);
 
                 $response = [
-                    "success" => false,
-                    "message" => "Внутренняя ошибка сервера.",
-                    "error_type" => "server_error",
+                    'success' => false,
+                    'message' => 'Внутренняя ошибка сервера.',
+                    'error_type' => 'server_error',
                 ];
 
-                if (config("app.debug")) {
-                    $response["debug"] = [
-                        "exception" => class_basename($e),
-                        "message" => $e->getMessage(),
-                        "file" => $e->getFile(),
-                        "line" => $e->getLine(),
+                if (config('app.debug')) {
+                    $response['debug'] = [
+                        'exception' => class_basename($e),
+                        'message' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
                     ];
                 }
 
@@ -164,13 +164,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // возвращает единый JSON 404 для API-запросов, где ресурс не найден в базе.
         // Регистрируется последним, чтобы проверяться первым (FIFO в renderViaCallbacks).
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-            if ($request->is("api/*") || $request->expectsJson()) {
+            if ($request->is('api/*') || $request->expectsJson()) {
                 // Проверяем, что это именно ModelNotFoundException (а не 404 маршрута)
                 if ($e->getPrevious() instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
                     return response()->json(
                         [
-                            "success" => false,
-                            "message" => "Ресурс не найден",
+                            'success' => false,
+                            'message' => 'Ресурс не найден',
                         ],
                         404,
                     );

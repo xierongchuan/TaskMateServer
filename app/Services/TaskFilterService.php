@@ -86,8 +86,7 @@ class TaskFilterService
         if ($dateStart && $dateEnd) {
             if ($status === 'completed') {
                 $query->whereHas('responses', function ($q) use ($dateStart, $dateEnd) {
-                    $q->where('status', 'completed')
-                        ->whereBetween('responded_at', [$dateStart, $dateEnd]);
+                    $q->where('status', 'completed')->whereBetween('responded_at', [$dateStart, $dateEnd]);
                 });
             } else {
                 $query->whereBetween('deadline', [$dateStart, $dateEnd]);
@@ -104,9 +103,9 @@ class TaskFilterService
     protected function getDateBoundaries(string $dateRange): array
     {
         return match ($dateRange) {
-            'today' => [TimeHelper::startOfDayUtc(), TimeHelper::endOfDayUtc()],
-            'week' => [TimeHelper::startOfWeekUtc(), TimeHelper::endOfWeekUtc()],
-            'month' => [TimeHelper::startOfMonthUtc(), TimeHelper::endOfMonthUtc()],
+            "today" => [TimeHelper::startOfDayUtc(), TimeHelper::endOfDayUtc()],
+            "week" => [TimeHelper::startOfWeekUtc(), TimeHelper::endOfWeekUtc()],
+            "month" => [TimeHelper::startOfMonthUtc(), TimeHelper::endOfMonthUtc()],
             default => [null, null],
         };
     }
@@ -242,7 +241,7 @@ class TaskFilterService
             return;
         }
 
-        $escapedSearch = str_replace(['%', '_'], ['\%', '\_'], $search);
+        $escapedSearch = str_replace(['%', '_'], ["\%", "\_"], $search);
 
         $query->where(function ($q) use ($escapedSearch) {
             $q->where('title', 'ILIKE', "%{$escapedSearch}%")
@@ -266,8 +265,7 @@ class TaskFilterService
 
         switch (strtolower($status)) {
             case 'active':
-                $query->where('is_active', true)
-                    ->whereNull('archived_at');
+                $query->where('is_active', true)->whereNull('archived_at');
                 break;
 
             case 'completed':
@@ -283,8 +281,12 @@ class TaskFilterService
                 break;
 
             case 'pending':
-                $query->where('is_active', true)
-                    ->whereDoesntHave('responses', fn ($q) => $q->whereIn('status', ['completed', 'acknowledged', 'pending_review']));
+                $query
+                    ->where('is_active', true)
+                    ->whereDoesntHave(
+                        'responses',
+                        fn ($q) => $q->whereIn('status', ['completed', 'acknowledged', 'pending_review']),
+                    );
                 break;
 
             case 'acknowledged':
