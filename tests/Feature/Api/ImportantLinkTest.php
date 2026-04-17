@@ -21,6 +21,10 @@ describe('Important Links API Endpoints', function () {
             'role' => Role::EMPLOYEE->value,
             'dealership_id' => $this->dealership->id,
         ]);
+        $this->observer = User::factory()->create([
+            'role' => Role::OBSERVER->value,
+            'dealership_id' => $this->dealership->id,
+        ]);
     });
 
     describe('GET /api/v1/links', function () {
@@ -316,12 +320,15 @@ describe('Important Links API Endpoints', function () {
                 'url' => 'https://example.com',
             ];
 
-            // Act - Try as employee
-            $response = $this->actingAs($this->employee, 'sanctum')
-                ->postJson('/api/v1/links', $linkData);
-
-            // Assert
-            $response->assertStatus(403);
+            // Act & Assert - Try as employee
+            $this->actingAs($this->employee, 'sanctum')
+                ->postJson('/api/v1/links', $linkData)
+                ->assertStatus(403);
+                
+            // Act & Assert - Try as observer
+            $this->actingAs($this->observer, 'sanctum')
+                ->postJson('/api/v1/links', $linkData)
+                ->assertStatus(403);
         });
 
         it('requires authentication', function () {
@@ -408,12 +415,15 @@ describe('Important Links API Endpoints', function () {
                 'dealership_id' => $this->dealership->id,
             ]);
 
-            // Act
-            $response = $this->actingAs($this->employee, 'sanctum')
-                ->putJson('/api/v1/links/'.$link->id, ['title' => 'Updated']);
+            // Act & Assert - Try as employee
+            $this->actingAs($this->employee, 'sanctum')
+                ->putJson('/api/v1/links/'.$link->id, ['title' => 'Updated'])
+                ->assertStatus(403);
 
-            // Assert
-            $response->assertStatus(403);
+            // Act & Assert - Try as observer
+            $this->actingAs($this->observer, 'sanctum')
+                ->putJson('/api/v1/links/'.$link->id, ['title' => 'Updated'])
+                ->assertStatus(403);
         });
     });
 
@@ -456,12 +466,15 @@ describe('Important Links API Endpoints', function () {
                 'dealership_id' => $this->dealership->id,
             ]);
 
-            // Act
-            $response = $this->actingAs($this->employee, 'sanctum')
-                ->deleteJson('/api/v1/links/'.$link->id);
+            // Act & Assert - Try as employee
+            $this->actingAs($this->employee, 'sanctum')
+                ->deleteJson('/api/v1/links/'.$link->id)
+                ->assertStatus(403);
 
-            // Assert
-            $response->assertStatus(403);
+            // Act & Assert - Try as observer
+            $this->actingAs($this->observer, 'sanctum')
+                ->deleteJson('/api/v1/links/'.$link->id)
+                ->assertStatus(403);
         });
     });
 

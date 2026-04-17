@@ -94,6 +94,8 @@ class ImportantLinkController extends Controller
         $validated = $request->validated();
         Log::info('ImportantLink store request', ['title' => $validated['title'] ?? null]);
 
+        $this->authorize('create', ImportantLink::class);
+
         // Проверка доступа к дилерству, если указан
         if (! empty($validated['dealership_id'])) {
             if ($accessError = $this->validateDealershipAccess($currentUser, (int) $validated['dealership_id'])) {
