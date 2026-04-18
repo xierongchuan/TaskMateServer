@@ -72,6 +72,69 @@ describe('Important Links API Endpoints', function () {
             expect($response->json('data'))->toHaveCount(3);
         });
 
+        it('only returns links for dealerships accessible to the user', function () {
+            $otherDealership = AutoDealership::factory()->create();
+            $attachedDealership = AutoDealership::factory()->create();
+            $this->manager->dealerships()->attach($attachedDealership->id);
+
+            $primaryLink = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $this->dealership->id,
+                'title' => 'Primary Dealership Link',
+            ]);
+            $attachedLink = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $attachedDealership->id,
+                'title' => 'Attached Dealership Link',
+            ]);
+            ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $otherDealership->id,
+                'title' => 'Other Dealership Link',
+            ]);
+            ImportantLink::factory()->global()->create([
+                'creator_id' => $this->manager->id,
+                'title' => 'Global Link',
+            ]);
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->getJson('/api/v1/links');
+
+            $response->assertStatus(200);
+
+            $ids = collect($response->json('data'))->pluck('id')->all();
+            expect($ids)->toContain($primaryLink->id)
+                ->and($ids)->toContain($attachedLink->id)
+                ->and($ids)->toHaveCount(2);
+        });
+
+        it('allows owner to see links from every dealership and global links', function () {
+            $owner = User::factory()->create(['role' => Role::OWNER->value]);
+            $otherDealership = AutoDealership::factory()->create();
+
+            $dealershipLink = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $this->dealership->id,
+            ]);
+            $otherDealershipLink = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $otherDealership->id,
+            ]);
+            $globalLink = ImportantLink::factory()->global()->create([
+                'creator_id' => $owner->id,
+            ]);
+
+            $response = $this->actingAs($owner, 'sanctum')
+                ->getJson('/api/v1/links');
+
+            $response->assertStatus(200);
+
+            $ids = collect($response->json('data'))->pluck('id')->all();
+            expect($ids)->toContain($dealershipLink->id)
+                ->and($ids)->toContain($otherDealershipLink->id)
+                ->and($ids)->toContain($globalLink->id);
+        });
+
         it('filters links by is_active status', function () {
             // Arrange
             ImportantLink::factory()->count(3)->create([
@@ -100,6 +163,18 @@ describe('Important Links API Endpoints', function () {
 
             // Assert
             $response->assertStatus(401);
+        });
+
+        it('forbids direct access to a link from another dealership', function () {
+            $otherDealership = AutoDealership::factory()->create();
+            $link = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $otherDealership->id,
+            ]);
+
+            $this->actingAs($this->manager, 'sanctum')
+                ->getJson('/api/v1/links/'.$link->id)
+                ->assertStatus(403);
         });
 
         it('searches links by title, url, and description', function () {
@@ -245,7 +320,7 @@ describe('Important Links API Endpoints', function () {
                 ->and($link->creator_id)->toBe($this->manager->id);
         });
 
-        it('creates global link when dealership_id is null', function () {
+        it('requires managers to attach created links to an accessible dealership', function () {
             // Arrange
             $linkData = [
                 'title' => 'Global Resource',
@@ -258,11 +333,80 @@ describe('Important Links API Endpoints', function () {
                 ->postJson('/api/v1/links', $linkData);
 
             // Assert
-            $response->assertStatus(201)
-                ->assertJson(['success' => true, 'data' => ['title' => 'Global Resource']]);
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
 
-            $link = ImportantLink::where('title', 'Global Resource')->first();
-            expect($link->dealership_id)->toBeNull();
+        it('forbids managers from creating links with explicit null dealership_id', function () {
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson('/api/v1/links', [
+                    'title' => 'Global Resource',
+                    'url' => 'https://global.example.com',
+                    'dealership_id' => null,
+                ]);
+
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
+
+        it('forbids managers from creating links with empty dealership_id', function () {
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson('/api/v1/links', [
+                    'title' => 'Empty Dealership Resource',
+                    'url' => 'https://empty-dealership.example.com',
+                    'dealership_id' => '',
+                ]);
+
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
+
+        it('accepts validated string dealership IDs when creating links', function () {
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson('/api/v1/links', [
+                    'title' => 'String Dealership Link',
+                    'url' => 'https://string-id.example.com',
+                    'dealership_id' => (string) $this->dealership->id,
+                ]);
+
+            $response->assertStatus(201)
+                ->assertJson(['success' => true, 'data' => ['title' => 'String Dealership Link']]);
+
+            $link = ImportantLink::where('title', 'String Dealership Link')->first();
+            expect($link->dealership_id)->toBe($this->dealership->id);
+        });
+
+        it('requires owners to attach created links to a dealership', function () {
+            $owner = User::factory()->create(['role' => Role::OWNER->value]);
+
+            $linkData = [
+                'title' => 'Global Resource',
+                'url' => 'https://global.example.com',
+                'sort_order' => 0,
+            ];
+
+            $response = $this->actingAs($owner, 'sanctum')
+                ->postJson('/api/v1/links', $linkData);
+
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
+
+        it('forbids managers from creating links for inaccessible dealerships', function () {
+            $otherDealership = AutoDealership::factory()->create();
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson('/api/v1/links', [
+                    'title' => 'Other Dealership Link',
+                    'url' => 'https://other.example.com',
+                    'dealership_id' => $otherDealership->id,
+                ]);
+
+            $response->assertStatus(403)
+                ->assertJson([
+                    'success' => false,
+                    'message' => 'Нет доступа к указанному дилерству',
+                ]);
         });
 
         it('validates required fields', function () {
@@ -324,7 +468,7 @@ describe('Important Links API Endpoints', function () {
             $this->actingAs($this->employee, 'sanctum')
                 ->postJson('/api/v1/links', $linkData)
                 ->assertStatus(403);
-                
+
             // Act & Assert - Try as observer
             $this->actingAs($this->observer, 'sanctum')
                 ->postJson('/api/v1/links', $linkData)
@@ -406,6 +550,74 @@ describe('Important Links API Endpoints', function () {
             // Assert
             $response->assertStatus(422)
                 ->assertJsonValidationErrors(['url']);
+        });
+
+        it('forbids managers from moving links to inaccessible dealerships', function () {
+            $otherDealership = AutoDealership::factory()->create();
+            $link = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $this->dealership->id,
+            ]);
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->putJson('/api/v1/links/'.$link->id, [
+                    'dealership_id' => $otherDealership->id,
+                ]);
+
+            $response->assertStatus(403)
+                ->assertJson([
+                    'success' => false,
+                    'message' => 'Нет доступа к указанному дилерству',
+                ]);
+        });
+
+        it('forbids managers from making links global', function () {
+            $link = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $this->dealership->id,
+            ]);
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->putJson('/api/v1/links/'.$link->id, [
+                    'dealership_id' => null,
+                ]);
+
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
+
+        it('forbids managers from clearing dealership_id with an empty string', function () {
+            $link = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $this->dealership->id,
+            ]);
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->putJson('/api/v1/links/'.$link->id, [
+                    'dealership_id' => '',
+                ]);
+
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
+
+        it('accepts validated string dealership IDs when updating links', function () {
+            $attachedDealership = AutoDealership::factory()->create();
+            $this->manager->dealerships()->attach($attachedDealership->id);
+            $link = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $this->dealership->id,
+            ]);
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->putJson('/api/v1/links/'.$link->id, [
+                    'dealership_id' => (string) $attachedDealership->id,
+                ]);
+
+            $response->assertStatus(200);
+
+            $link->refresh();
+            expect($link->dealership_id)->toBe($attachedDealership->id);
         });
 
         it('requires manager or owner role', function () {
