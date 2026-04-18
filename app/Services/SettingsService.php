@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\AutoDealership;
 use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class SettingsService
 {
-    private const int CACHE_TTL = 3600; // 1 hour
+    const CACHE_TTL = 3600; // 1 hour
 
-    private const string SETTING_NOT_FOUND = '___SETTING_NOT_FOUND___';
+    const SETTING_NOT_FOUND = '___SETTING_NOT_FOUND___';
 
     /**
      * Get a setting value with caching.

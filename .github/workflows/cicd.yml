@@ -1,4 +1,4 @@
-name: TaskMateTelegramBot
+name: TaskMate Server CI/CD
 
 on:
   # push:
