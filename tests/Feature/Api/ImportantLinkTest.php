@@ -471,7 +471,7 @@ describe('Important Links API Endpoints', function () {
             $this->actingAs($this->employee, 'sanctum')
                 ->postJson('/api/v1/links', $linkData)
                 ->assertStatus(403);
-                
+
             // Act & Assert - Try as observer
             $this->actingAs($this->observer, 'sanctum')
                 ->postJson('/api/v1/links', $linkData)
