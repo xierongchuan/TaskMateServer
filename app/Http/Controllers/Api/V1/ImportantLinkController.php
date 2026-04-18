@@ -95,10 +95,9 @@ class ImportantLinkController extends Controller
 
         $this->authorize('create', ImportantLink::class);
 
-        if (
-            (! array_key_exists('dealership_id', $validated) || $validated['dealership_id'] === null)
-            && ! $this->isOwner($currentUser)
-        ) {
+        $dealershipId = $this->normalizeDealershipId($validated['dealership_id'] ?? null);
+
+        if ($dealershipId === null && ! $this->isOwner($currentUser)) {
             return response()->json([
                 'message' => 'The dealership id field is required.',
                 'errors' => [
@@ -106,8 +105,6 @@ class ImportantLinkController extends Controller
                 ],
             ], 422);
         }
-
-        $dealershipId = $this->normalizeDealershipId($validated['dealership_id'] ?? null);
 
         if ($accessError = $this->validateDealershipAccess($currentUser, $dealershipId)) {
             return $accessError;
@@ -138,21 +135,17 @@ class ImportantLinkController extends Controller
         $validated = $request->validated();
 
         // Проверка доступа к новому дилерству, если меняется
-        if (
-            array_key_exists('dealership_id', $validated)
-            && ! $this->isOwner($currentUser)
-            && $validated['dealership_id'] === null
-        ) {
-            return response()->json([
-                'message' => 'The dealership id field is required.',
-                'errors' => [
-                    'dealership_id' => ['The dealership id field is required.'],
-                ],
-            ], 422);
-        }
-
         if (array_key_exists('dealership_id', $validated)) {
             $validated['dealership_id'] = $this->normalizeDealershipId($validated['dealership_id']);
+
+            if ($validated['dealership_id'] === null && ! $this->isOwner($currentUser)) {
+                return response()->json([
+                    'message' => 'The dealership id field is required.',
+                    'errors' => [
+                        'dealership_id' => ['The dealership id field is required.'],
+                    ],
+                ], 422);
+            }
         }
 
         if (array_key_exists('dealership_id', $validated) && $validated['dealership_id'] !== $link->dealership_id) {

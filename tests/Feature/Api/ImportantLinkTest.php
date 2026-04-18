@@ -349,6 +349,18 @@ describe('Important Links API Endpoints', function () {
                 ->assertJsonValidationErrors(['dealership_id']);
         });
 
+        it('forbids managers from creating links with empty dealership_id', function () {
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson('/api/v1/links', [
+                    'title' => 'Empty Dealership Resource',
+                    'url' => 'https://empty-dealership.example.com',
+                    'dealership_id' => '',
+                ]);
+
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
+
         it('accepts validated string dealership IDs when creating links', function () {
             $response = $this->actingAs($this->manager, 'sanctum')
                 ->postJson('/api/v1/links', [
@@ -571,6 +583,21 @@ describe('Important Links API Endpoints', function () {
             $response = $this->actingAs($this->manager, 'sanctum')
                 ->putJson('/api/v1/links/'.$link->id, [
                     'dealership_id' => null,
+                ]);
+
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
+
+        it('forbids managers from clearing dealership_id with an empty string', function () {
+            $link = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $this->dealership->id,
+            ]);
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->putJson('/api/v1/links/'.$link->id, [
+                    'dealership_id' => '',
                 ]);
 
             $response->assertStatus(422)
