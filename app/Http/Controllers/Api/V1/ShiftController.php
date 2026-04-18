@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\ShiftService;
 use App\Traits\HasDealershipAccess;
 use Carbon\Carbon;
+use App\Helpers\TimeHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -357,10 +358,10 @@ class ShiftController extends Controller
         $dealershipId = $this->parseDealershipId($request);
         $startDate = $request->query('start_date')
             ? Carbon::parse($request->query('start_date'))
-            : Carbon::now()->subDays(7);
+            : TimeHelper::nowUtc()->subDays(7);
         $endDate = $request->query('end_date')
             ? Carbon::parse($request->query('end_date'))
-            : Carbon::now();
+            : TimeHelper::nowUtc();
 
         $statistics = $this->shiftService->getShiftStatistics($dealershipId, $startDate, $endDate);
 

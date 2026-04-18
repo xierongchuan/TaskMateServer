@@ -8,6 +8,7 @@ use App\Enums\Role;
 use App\Enums\ShiftStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Helpers\TimeHelper;
 
 /**
  * Resource для смены с Bearer-авторизованными URL для фото.
@@ -31,16 +32,16 @@ class ShiftResource extends JsonResource
             'user_id' => $this->user_id,
             'dealership_id' => $this->dealership_id,
             'shift_schedule_id' => $this->shift_schedule_id,
-            'shift_start' => $this->shift_start?->toIso8601String(),
-            'shift_end' => $this->shift_end?->toIso8601String(),
-            'scheduled_start' => $this->scheduled_start?->toIso8601String(),
-            'scheduled_end' => $this->scheduled_end?->toIso8601String(),
+            'shift_start' => TimeHelper::toIsoZulu($this->shift_start),
+            'shift_end' => TimeHelper::toIsoZulu($this->shift_end),
+            'scheduled_start' => TimeHelper::toIsoZulu($this->scheduled_start),
+            'scheduled_end' => TimeHelper::toIsoZulu($this->scheduled_end),
             'status' => $this->status,
             'late_minutes' => $this->late_minutes,
             'is_late' => ($this->status === ShiftStatus::LATE->value || $this->late_minutes > 0),
             'archived_tasks_processed' => $this->archived_tasks_processed,
-            'created_at' => $this->created_at?->toIso8601String(),
-            'updated_at' => $this->updated_at?->toIso8601String(),
+            'created_at' => TimeHelper::toIsoZulu($this->created_at),
+            'updated_at' => TimeHelper::toIsoZulu($this->updated_at),
         ];
 
         // Include photo URLs only if user has access

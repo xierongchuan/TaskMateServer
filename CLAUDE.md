@@ -33,7 +33,7 @@ tests/Feature/                 # 968 Pest тестов
 public function store(StoreTaskRequest $request): JsonResponse
 {
     $task = $this->taskService->createTask($request->validated(), $request->user());
-    return response()->json(['data' => $task->toApiArray()], 201);
+    return $this->createdResponse(TaskResource::make($task)->resolve(), 'Задача создана');
 }
 
 // НЕПРАВИЛЬНО: логика в контроллере

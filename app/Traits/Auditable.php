@@ -6,6 +6,7 @@ namespace App\Traits;
 
 use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\Model;
+use App\Helpers\TimeHelper;
 
 /**
  * Trait for automatic audit logging of model changes.
@@ -185,7 +186,7 @@ trait Auditable
                 'dealership_id' => self::extractDealershipId($model),
                 'action' => $action,
                 'payload' => self::formatPayloadDates($payload),
-                'created_at' => now(),
+                'created_at' => TimeHelper::nowUtc(),
             ]);
         } catch (\Throwable $e) {
             // Silent fail - don't break the main operation

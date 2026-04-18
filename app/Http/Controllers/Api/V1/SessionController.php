@@ -12,6 +12,7 @@ use App\Traits\ApiResponses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use App\Helpers\TimeHelper;
 
 class SessionController extends Controller
 {
@@ -40,8 +41,8 @@ class SessionController extends Controller
         }
 
         // Check if account is locked
-        if ($user && $user->locked_until && $user->locked_until > now()) {
-            $minutesLeft = (int) now()->diffInMinutes($user->locked_until, false);
+        if ($user && $user->locked_until && $user->locked_until > TimeHelper::nowUtc()) {
+            $minutesLeft = (int) TimeHelper::nowUtc()->diffInMinutes($user->locked_until, false);
             Log::warning('Login blocked: Account locked', [
                 'login' => $req->login,
                 'locked_until' => $user->locked_until,
@@ -54,11 +55,11 @@ class SessionController extends Controller
             // Track failed login attempts
             if ($user) {
                 $user->increment('failed_login_attempts');
-                $user->last_failed_login_at = now();
+                $user->last_failed_login_at = TimeHelper::nowUtc();
 
                 // Lock account after exceeding max attempts
                 if ($user->failed_login_attempts >= self::MAX_FAILED_ATTEMPTS) {
-                    $user->locked_until = now()->addMinutes(self::LOCKOUT_MINUTES);
+                    $user->locked_until = TimeHelper::nowUtc()->addMinutes(self::LOCKOUT_MINUTES);
                     Log::warning('Account locked due to failed attempts', [
                         'user_id' => $user->id,
                         'attempts' => $user->failed_login_attempts,

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Helpers\TimeHelper;
 
 /**
  * Model for tracking sent task notifications to prevent duplicates
@@ -99,7 +100,7 @@ class TaskNotification extends Model
             'task_id' => $taskId,
             'user_id' => $userId,
             'notification_type' => $notificationType,
-            'sent_at' => now(),
+            'sent_at' => TimeHelper::nowUtc(),
         ]);
     }
 }

@@ -21,7 +21,7 @@ php vendor/bin/pint --test                   # Style check
 - **Controller → Service → Model** — Business logic in Services, thin Controllers
 - **Form Requests** — Validation ONLY in `app/Http/Requests/Api/V1/`, NEVER in controllers
 - **Eager loading** — Mandatory: `Task::with(['creator', 'assignments.user'])->get()`
-- **toApiArray()** — Use for responses (NOT API Resources, except User/Shift). Guarantees UTC dates with Z suffix
+- **API Resources** — Use TaskResource, UserResource, ShiftResource, etc. for responses. Guarantees UTC dates with Z suffix
 - **TimeHelper** — `TimeHelper::nowUtc()`, `TimeHelper::toIsoZulu($carbon)`, `TimeHelper::dayBoundariesForTimezone()`
 
 ## Structure

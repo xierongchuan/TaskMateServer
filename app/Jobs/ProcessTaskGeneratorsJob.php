@@ -229,7 +229,7 @@ class ProcessTaskGeneratorsJob implements ShouldQueue
         // Copy assignments from generator (bulk insert)
         $assignments = $generator->assignments;
         if ($assignments->isNotEmpty()) {
-            $now = Carbon::now();
+            $now = TimeHelper::nowUtc();
             $bulkData = $assignments->map(fn ($assignment) => [
                 'task_id' => $task->id,
                 'user_id' => $assignment->user_id,

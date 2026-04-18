@@ -17,18 +17,19 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Helpers\TimeHelper;
 
 class ShiftService
 {
     /**
      * Пресет валидации для фото смен.
      */
-    private const VALIDATION_PRESET = 'shift_photo';
+    private const VALIDATION_PRESET = "shift_photo";
 
     /**
      * Диск хранения фото смен.
      */
-    private const STORAGE_DISK = 'shift_photos';
+    private const STORAGE_DISK = "shift_photos";
 
     public function __construct(
         private readonly SettingsService $settingsService,
@@ -53,16 +54,16 @@ class ShiftService
         $dealershipId = $dealershipId ?? $user->dealership_id;
 
         // Validate user belongs to a dealership
-        if (! $dealershipId) {
-            throw new \InvalidArgumentException('User must belong to a dealership to open a shift');
+        if (!$dealershipId) {
+            throw new \InvalidArgumentException("User must belong to a dealership to open a shift");
         }
 
-        $now = Carbon::now();
+        $now = TimeHelper::nowUtc();
 
         // Определяем расписание смены по текущему времени
         $timezone = $this->settingsService->getTimezone($dealershipId);
         $localNow = $now->copy()->setTimezone($timezone);
-        $localTimeStr = $localNow->format('H:i');
+        $localTimeStr = $localNow->format("H:i");
 
         // Напоминание — для разрешения расписания (видимость в списке)
         $shiftReminderMinutes = $this->settingsService->getShiftReminderMinutes($dealershipId);
@@ -94,15 +95,15 @@ class ShiftService
         $status = $isLate ? ShiftStatus::LATE->value : ShiftStatus::OPEN->value;
 
         // Store photo
-        $photoPath = $this->storeShiftPhoto($photo, 'opening', $user->id, $dealershipId);
+        $photoPath = $this->storeShiftPhoto($photo, "opening", $user->id, $dealershipId);
 
         try {
             DB::beginTransaction();
 
             // Проверка существующей открытой смены с блокировкой для предотвращения race condition
-            $existingShift = Shift::where('user_id', $user->id)
-                ->where('dealership_id', $dealershipId)
-                ->whereIn('status', ShiftStatus::activeStatusValues())
+            $existingShift = Shift::where("user_id", $user->id)
+                ->where("dealership_id", $dealershipId)
+                ->whereIn("status", ShiftStatus::activeStatusValues())
                 ->lockForUpdate()
                 ->first();
 
@@ -112,30 +113,30 @@ class ShiftService
                 if ($photoPath && Storage::disk(self::STORAGE_DISK)->exists($photoPath)) {
                     Storage::disk(self::STORAGE_DISK)->delete($photoPath);
                 }
-                throw new \InvalidArgumentException('User already has an open shift in this dealership');
+                throw new \InvalidArgumentException("User already has an open shift in this dealership");
             }
 
             // Create shift record
             $shift = Shift::create([
-                'user_id' => $user->id,
-                'dealership_id' => $dealershipId,
-                'shift_schedule_id' => $schedule->id,
-                'shift_start' => $now,
-                'scheduled_start' => $scheduledStart,
-                'scheduled_end' => $scheduledEnd,
-                'opening_photo_path' => $photoPath,
-                'status' => $status,
-                'late_minutes' => $lateMinutes,
+                "user_id" => $user->id,
+                "dealership_id" => $dealershipId,
+                "shift_schedule_id" => $schedule->id,
+                "shift_start" => $now,
+                "scheduled_start" => $scheduledStart,
+                "scheduled_end" => $scheduledEnd,
+                "opening_photo_path" => $photoPath,
+                "status" => $status,
+                "late_minutes" => $lateMinutes,
             ]);
 
             DB::commit();
 
             Log::info("Shift opened for user {$user->id} in dealership {$dealershipId}", [
-                'shift_id' => $shift->id,
-                'schedule' => $schedule->name,
-                'status' => $status,
-                'late_minutes' => $lateMinutes,
-                'is_replacement' => false,
+                "shift_id" => $shift->id,
+                "schedule" => $schedule->name,
+                "status" => $status,
+                "late_minutes" => $lateMinutes,
+                "is_replacement" => false,
             ]);
 
             return $shift;
@@ -148,11 +149,11 @@ class ShiftService
             }
 
             Log::error("Failed to open shift for user {$user->id}", [
-                'error' => $e->getMessage(),
-                'dealership_id' => $dealershipId,
+                "error" => $e->getMessage(),
+                "dealership_id" => $dealershipId,
             ]);
 
-            throw new \InvalidArgumentException('Failed to open shift: '.$e->getMessage());
+            throw new \InvalidArgumentException("Failed to open shift: " . $e->getMessage());
         }
     }
 
@@ -164,22 +165,22 @@ class ShiftService
     public function closeShift(Shift $shift, UploadedFile $photo): Shift
     {
         if ($shift->status === ShiftStatus::CLOSED->value) {
-            throw new \InvalidArgumentException('Shift is already closed');
+            throw new \InvalidArgumentException("Shift is already closed");
         }
 
-        $now = Carbon::now();
+        $now = TimeHelper::nowUtc();
 
         // Store photo
-        $photoPath = $this->storeShiftPhoto($photo, 'closing', $shift->user_id, $shift->dealership_id);
+        $photoPath = $this->storeShiftPhoto($photo, "closing", $shift->user_id, $shift->dealership_id);
 
         try {
             DB::beginTransaction();
 
             // Update shift record
             $shift->update([
-                'shift_end' => $now,
-                'closing_photo_path' => $photoPath,
-                'status' => ShiftStatus::CLOSED->value,
+                "shift_end" => $now,
+                "closing_photo_path" => $photoPath,
+                "status" => ShiftStatus::CLOSED->value,
             ]);
 
             // Log incomplete tasks
@@ -188,8 +189,8 @@ class ShiftService
             DB::commit();
 
             Log::info("Shift closed for user {$shift->user_id}", [
-                'shift_id' => $shift->id,
-                'duration' => $shift->shift_start->diffInMinutes($now),
+                "shift_id" => $shift->id,
+                "duration" => $shift->shift_start->diffInMinutes($now),
             ]);
 
             return $shift;
@@ -202,11 +203,11 @@ class ShiftService
             }
 
             Log::error("Failed to close shift for user {$shift->user_id}", [
-                'error' => $e->getMessage(),
-                'shift_id' => $shift->id,
+                "error" => $e->getMessage(),
+                "shift_id" => $shift->id,
             ]);
 
-            throw new \InvalidArgumentException('Failed to close shift: '.$e->getMessage());
+            throw new \InvalidArgumentException("Failed to close shift: " . $e->getMessage());
         }
     }
 
@@ -215,10 +216,10 @@ class ShiftService
      */
     public function getUserOpenShift(User $user, ?int $dealershipId = null): ?Shift
     {
-        $query = Shift::where('user_id', $user->id)->whereIn('status', ShiftStatus::activeStatusValues());
+        $query = Shift::where("user_id", $user->id)->whereIn("status", ShiftStatus::activeStatusValues());
 
         if ($dealershipId) {
-            $query->where('dealership_id', $dealershipId);
+            $query->where("dealership_id", $dealershipId);
         }
 
         return $query->first();
@@ -231,12 +232,12 @@ class ShiftService
      */
     public function getCurrentShifts(?int $dealershipId = null)
     {
-        $query = Shift::with(['user', 'dealership', 'schedule'])
-            ->whereIn('status', ShiftStatus::activeStatusValues())
-            ->orderBy('shift_start', 'desc');
+        $query = Shift::with(["user", "dealership", "schedule"])
+            ->whereIn("status", ShiftStatus::activeStatusValues())
+            ->orderBy("shift_start", "desc");
 
         if ($dealershipId) {
-            $query->where('dealership_id', $dealershipId);
+            $query->where("dealership_id", $dealershipId);
         }
 
         return $query->get();
@@ -253,28 +254,28 @@ class ShiftService
         $query = Shift::query();
 
         if ($dealershipId) {
-            $query->where('dealership_id', $dealershipId);
+            $query->where("dealership_id", $dealershipId);
         }
 
         if ($startDate) {
-            $query->where('shift_start', '>=', $startDate);
+            $query->where("shift_start", ">=", $startDate);
         }
 
         if ($endDate) {
-            $query->where('shift_start', '<=', $endDate);
+            $query->where("shift_start", "<=", $endDate);
         }
 
         $totalShifts = $query->count();
-        $lateShifts = (clone $query)->where('status', ShiftStatus::LATE->value)->count();
-        $avgLateMinutes = (clone $query)->whereNotNull('late_minutes')->avg('late_minutes') ?? 0;
+        $lateShifts = (clone $query)->where("status", ShiftStatus::LATE->value)->count();
+        $avgLateMinutes = (clone $query)->whereNotNull("late_minutes")->avg("late_minutes") ?? 0;
 
         return [
-            'total_shifts' => $totalShifts,
-            'late_shifts' => $lateShifts,
-            'avg_late_minutes' => round($avgLateMinutes, 2),
-            'period' => [
-                'start' => $startDate?->format('Y-m-d'),
-                'end' => $endDate?->format('Y-m-d'),
+            "total_shifts" => $totalShifts,
+            "late_shifts" => $lateShifts,
+            "avg_late_minutes" => round($avgLateMinutes, 2),
+            "period" => [
+                "start" => $startDate?->format("Y-m-d"),
+                "end" => $endDate?->format("Y-m-d"),
             ],
         ];
     }
@@ -285,12 +286,12 @@ class ShiftService
     public function closeShiftWithoutPhoto(Shift $shift, string $status): Shift
     {
         $shift->update([
-            'shift_end' => Carbon::now(),
-            'status' => $status,
+            "shift_end" => TimeHelper::nowUtc(),
+            "status" => $status,
         ]);
 
         // Логируем незавершённые задачи (как в closeShift)
-        $shift->load('user');
+        $shift->load("user");
         $this->logIncompleteTasks($shift, $shift->user);
 
         return $shift;
@@ -307,8 +308,8 @@ class ShiftService
         $this->fileValidator->validate($photo, self::VALIDATION_PRESET);
 
         $extension = strtolower($photo->getClientOriginalExtension());
-        $filename = $type.'_'.time().'_'.$userId.'.'.$extension;
-        $path = "dealerships/{$dealershipId}/shifts/{$userId}/".date('Y/m/d');
+        $filename = $type . "_" . time() . "_" . $userId . "." . $extension;
+        $path = "dealerships/{$dealershipId}/shifts/{$userId}/" . date("Y/m/d");
 
         return $photo->storeAs($path, $filename, self::STORAGE_DISK);
     }
@@ -321,8 +322,8 @@ class ShiftService
     public function getAvailableSchedulesForNow(int $dealershipId): Collection
     {
         $timezone = $this->settingsService->getTimezone($dealershipId);
-        $localNow = Carbon::now()->setTimezone($timezone);
-        $localTimeStr = $localNow->format('H:i');
+        $localNow = TimeHelper::nowUtc()->setTimezone($timezone);
+        $localTimeStr = $localNow->format("H:i");
 
         // Напоминание — определяет видимость смен в списке (за сколько мин до начала видна)
         $reminderMinutes = $this->settingsService->getShiftReminderMinutes($dealershipId);
@@ -353,15 +354,15 @@ class ShiftService
         $candidates = $this->resolveAvailableSchedules($dealershipId, $localTime, $reminderMinutes);
 
         if ($candidates->isEmpty()) {
-            throw new \InvalidArgumentException('Не удалось определить смену для текущего времени');
+            throw new \InvalidArgumentException("Не удалось определить смену для текущего времени");
         }
 
         // Если указан конкретный ID расписания — проверяем его наличие среди кандидатов
         if ($shiftScheduleId !== null) {
-            $selected = $candidates->firstWhere('id', $shiftScheduleId);
-            if (! $selected) {
+            $selected = $candidates->firstWhere("id", $shiftScheduleId);
+            if (!$selected) {
                 throw new \InvalidArgumentException(
-                    'Указанное расписание смены недоступно для открытия в текущее время',
+                    "Указанное расписание смены недоступно для открытия в текущее время",
                 );
             }
 
@@ -374,7 +375,7 @@ class ShiftService
 
         // Несколько кандидатов без явного указания расписания
         throw new ScheduleAmbiguousException(
-            'Невозможно автоматически определить смену: несколько расписаний активны одновременно. Укажите shift_schedule_id.',
+            "Невозможно автоматически определить смену: несколько расписаний активны одновременно. Укажите shift_schedule_id.",
             $candidates,
         );
     }
@@ -391,17 +392,17 @@ class ShiftService
      */
     private function resolveAvailableSchedules(int $dealershipId, string $localTime, int $reminderMinutes): Collection
     {
-        $schedules = ShiftSchedule::where('dealership_id', $dealershipId)
-            ->where('is_active', true)
-            ->orderBy('sort_order')
+        $schedules = ShiftSchedule::where("dealership_id", $dealershipId)
+            ->where("is_active", true)
+            ->orderBy("sort_order")
             ->get();
 
         if ($schedules->isEmpty()) {
-            throw new \InvalidArgumentException('Не настроены смены для автосалона');
+            throw new \InvalidArgumentException("Не настроены смены для автосалона");
         }
 
         // Phase 1: смены, в интервал которых попадает текущее время
-        $phase1 = $schedules->filter(fn (ShiftSchedule $s) => $s->containsTime($localTime))->values();
+        $phase1 = $schedules->filter(fn(ShiftSchedule $s) => $s->containsTime($localTime))->values();
         if ($phase1->isNotEmpty()) {
             return $phase1;
         }
@@ -444,15 +445,15 @@ class ShiftService
     private function scheduleTimeToUtc(Carbon $localNow, string $time, string $timezone): Carbon
     {
         // Normalize to HH:MM:SS — DB may return HH:MM:SS, input may be HH:MM
-        $parts = explode(':', $time);
-        $normalized = sprintf('%s:%s:%s', $parts[0], $parts[1] ?? '00', $parts[2] ?? '00');
+        $parts = explode(":", $time);
+        $normalized = sprintf("%s:%s:%s", $parts[0], $parts[1] ?? "00", $parts[2] ?? "00");
 
-        return $localNow->copy()->setTimeFromTimeString($normalized)->setTimezone('UTC');
+        return $localNow->copy()->setTimeFromTimeString($normalized)->setTimezone("UTC");
     }
 
     private function timeToMinutes(string $time): int
     {
-        $parts = explode(':', $time);
+        $parts = explode(":", $time);
 
         return (int) $parts[0] * 60 + (int) ($parts[1] ?? 0);
     }
@@ -465,29 +466,29 @@ class ShiftService
         // Get tasks assigned to user that are due during the shift period
         $tasks = Task::where(function ($query) use ($user) {
             $query
-                ->whereHas('assignments', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
+                ->whereHas("assignments", function ($q) use ($user) {
+                    $q->where("user_id", $user->id);
                 })
-                ->orWhere('task_type', 'group');
+                ->orWhere("task_type", "group");
         })
-            ->where('dealership_id', $shift->dealership_id)
-            ->where('is_active', true)
+            ->where("dealership_id", $shift->dealership_id)
+            ->where("is_active", true)
             ->where(function ($query) use ($shift) {
                 $query
-                    ->whereBetween('deadline', [$shift->shift_start, $shift->shift_end ?? Carbon::now()])
-                    ->orWhereNull('deadline');
+                    ->whereBetween("deadline", [$shift->shift_start, $shift->shift_end ?? TimeHelper::nowUtc()])
+                    ->orWhereNull("deadline");
             })
-            ->whereDoesntHave('responses', function ($q) use ($user) {
-                $q->where('user_id', $user->id)->whereIn('status', ['completed', 'acknowledged']);
+            ->whereDoesntHave("responses", function ($q) use ($user) {
+                $q->where("user_id", $user->id)->whereIn("status", ["completed", "acknowledged"]);
             })
             ->get();
 
         foreach ($tasks as $task) {
-            Log::info('Incomplete task at shift end', [
-                'shift_id' => $shift->id,
-                'task_id' => $task->id,
-                'user_id' => $user->id,
-                'dealership_id' => $shift->dealership_id,
+            Log::info("Incomplete task at shift end", [
+                "shift_id" => $shift->id,
+                "task_id" => $task->id,
+                "user_id" => $user->id,
+                "dealership_id" => $shift->dealership_id,
             ]);
         }
     }
@@ -497,7 +498,7 @@ class ShiftService
      */
     public function validateUserDealership(User $user, ?int $dealershipId = null): bool
     {
-        if (! $dealershipId) {
+        if (!$dealershipId) {
             return (bool) $user->dealership_id;
         }
 
@@ -512,7 +513,7 @@ class ShiftService
         }
 
         // Check attached dealerships (many-to-many)
-        return $user->dealerships()->where('auto_dealerships.id', $dealershipId)->exists();
+        return $user->dealerships()->where("auto_dealerships.id", $dealershipId)->exists();
     }
 
     /**
@@ -525,24 +526,24 @@ class ShiftService
      */
     public function getUserShifts(User $user, array $filters = [], ?int $perPage = null)
     {
-        $query = Shift::where('user_id', $user->id)
-            ->where('dealership_id', $user->dealership_id)
-            ->with(['dealership']);
+        $query = Shift::where("user_id", $user->id)
+            ->where("dealership_id", $user->dealership_id)
+            ->with(["dealership"]);
 
         // Apply filters
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
+        if (isset($filters["status"])) {
+            $query->where("status", $filters["status"]);
         }
 
-        if (isset($filters['date_from'])) {
-            $query->where('shift_start', '>=', $filters['date_from']);
+        if (isset($filters["date_from"])) {
+            $query->where("shift_start", ">=", $filters["date_from"]);
         }
 
-        if (isset($filters['date_to'])) {
-            $query->where('shift_start', '<=', $filters['date_to']);
+        if (isset($filters["date_to"])) {
+            $query->where("shift_start", "<=", $filters["date_to"]);
         }
 
-        $query->orderBy('shift_start', 'desc');
+        $query->orderBy("shift_start", "desc");
 
         if ($perPage !== null) {
             return $query->paginate($perPage);

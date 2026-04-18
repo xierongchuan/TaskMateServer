@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\URL;
+use App\Helpers\TimeHelper;
 
 /**
  * Модель доказательства выполнения задачи.
@@ -69,7 +70,7 @@ class TaskProof extends Model
     {
         return URL::temporarySignedRoute(
             'task-proofs.download',
-            now()->addMinutes(self::SIGNED_URL_EXPIRATION_MINUTES),
+            TimeHelper::nowUtc()->addMinutes(self::SIGNED_URL_EXPIRATION_MINUTES),
             ['id' => $this->id]
         );
     }

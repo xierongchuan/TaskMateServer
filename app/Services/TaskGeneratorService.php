@@ -8,6 +8,7 @@ use App\Models\TaskGenerator;
 use App\Models\TaskGeneratorAssignment;
 use App\Models\User;
 use Carbon\Carbon;
+use App\Helpers\TimeHelper;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -97,7 +98,7 @@ class TaskGeneratorService
         $periods = [7, 30, 365];
         $cutoffs = [];
         foreach ($periods as $days) {
-            $cutoffs[$days] = Carbon::now()->subDays($days)->startOfDay();
+            $cutoffs[$days] = TimeHelper::nowUtc()->subDays($days)->startOfDay();
         }
 
         return [

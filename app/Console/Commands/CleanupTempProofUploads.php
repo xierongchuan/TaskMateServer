@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
+use App\Helpers\TimeHelper;
 
 /**
  * Команда для очистки временных файлов загрузки доказательств.
@@ -30,7 +31,7 @@ class CleanupTempProofUploads extends Command
         }
 
         $files = Storage::files($tempPath);
-        $cutoff = now()->subHours(24);
+        $cutoff = TimeHelper::nowUtc()->subHours(24);
         $deleted = 0;
 
         foreach ($files as $file) {

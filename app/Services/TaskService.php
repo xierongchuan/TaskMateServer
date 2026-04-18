@@ -9,6 +9,7 @@ use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\User;
 use Carbon\Carbon;
+use App\Helpers\TimeHelper;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -181,7 +182,7 @@ class TaskService
         // Создание новых назначений для пользователей, которых ранее не было (bulk insert)
         $toCreate = array_diff($toAdd, $restoredIds);
         if (! empty($toCreate)) {
-            $now = now();
+            $now = TimeHelper::nowUtc();
             $bulkData = array_map(fn (int $userId) => [
                 'task_id' => $task->id,
                 'user_id' => $userId,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Carbon\Carbon;
+use App\Helpers\TimeHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -84,7 +85,7 @@ class CalendarDay extends Model
             ->get();
 
         $count = 0;
-        $now = Carbon::now();
+        $now = TimeHelper::nowUtc();
         $records = [];
 
         foreach ($globalRecords as $record) {
@@ -192,7 +193,7 @@ class CalendarDay extends Model
         $count = 0;
 
         $records = [];
-        $now = Carbon::now();
+        $now = TimeHelper::nowUtc();
 
         for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
             if (in_array($date->dayOfWeekIso, $weekdays)) {
