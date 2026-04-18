@@ -376,7 +376,7 @@ describe('Important Links API Endpoints', function () {
             expect($link->dealership_id)->toBe($this->dealership->id);
         });
 
-        it('allows owner to create global link when dealership_id is null', function () {
+        it('requires owners to attach created links to a dealership', function () {
             $owner = User::factory()->create(['role' => Role::OWNER->value]);
 
             $linkData = [
@@ -388,11 +388,8 @@ describe('Important Links API Endpoints', function () {
             $response = $this->actingAs($owner, 'sanctum')
                 ->postJson('/api/v1/links', $linkData);
 
-            $response->assertStatus(201)
-                ->assertJson(['success' => true, 'data' => ['title' => 'Global Resource']]);
-
-            $link = ImportantLink::where('title', 'Global Resource')->first();
-            expect($link->dealership_id)->toBeNull();
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
         });
 
         it('forbids managers from creating links for inaccessible dealerships', function () {

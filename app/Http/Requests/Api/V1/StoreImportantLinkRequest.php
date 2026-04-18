@@ -26,7 +26,7 @@ class StoreImportantLinkRequest extends FormRequest
             'url' => 'required|string|max:1000|url',
             'description' => 'nullable|string',
             'category' => 'nullable|string|max:50',
-            'dealership_id' => 'nullable|integer|exists:auto_dealerships,id',
+            'dealership_id' => 'required|integer|exists:auto_dealerships,id',
             'sort_order' => 'integer',
             'is_active' => 'boolean',
         ];

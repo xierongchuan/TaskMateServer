@@ -95,16 +95,7 @@ class ImportantLinkController extends Controller
 
         $this->authorize('create', ImportantLink::class);
 
-        $dealershipId = $this->normalizeDealershipId($validated['dealership_id'] ?? null);
-
-        if ($dealershipId === null && ! $this->isOwner($currentUser)) {
-            return response()->json([
-                'message' => 'The dealership id field is required.',
-                'errors' => [
-                    'dealership_id' => ['The dealership id field is required.'],
-                ],
-            ], 422);
-        }
+        $dealershipId = $this->normalizeDealershipId($validated['dealership_id']);
 
         if ($accessError = $this->validateDealershipAccess($currentUser, $dealershipId)) {
             return $accessError;
