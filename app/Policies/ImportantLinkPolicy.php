@@ -21,11 +21,11 @@ class ImportantLinkPolicy
      */
     public function view(User $user, ImportantLink $link): Response
     {
-        if ($link->dealership_id === null || $this->dealershipAccess->isOwner($user)) {
+        if ($this->dealershipAccess->isOwner($user)) {
             return Response::allow();
         }
 
-        if ($this->dealershipAccess->hasAccessToDealership($user, $link->dealership_id)) {
+        if ($link->dealership_id !== null && $this->dealershipAccess->hasAccessToDealership($user, $link->dealership_id)) {
             return Response::allow();
         }
 

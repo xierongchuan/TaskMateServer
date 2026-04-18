@@ -29,14 +29,13 @@ class ImportantLinkController extends Controller
 
         $query = ImportantLink::with(['creator', 'dealership']);
 
-        // Проверка доступа к конкретному дилерству, если указан
         if ($dealershipId !== null) {
             if ($accessError = $this->validateDealershipAccess($currentUser, $dealershipId)) {
                 return $accessError;
             }
+
             $query->where('dealership_id', $dealershipId);
         } else {
-            // Ограничиваем выборку доступными дилерствами
             $this->scopeByAccessibleDealerships($query, $currentUser);
         }
 
@@ -96,11 +95,17 @@ class ImportantLinkController extends Controller
 
         $this->authorize('create', ImportantLink::class);
 
-        // Проверка доступа к дилерству, если указан
-        if (! empty($validated['dealership_id'])) {
-            if ($accessError = $this->validateDealershipAccess($currentUser, (int) $validated['dealership_id'])) {
-                return $accessError;
-            }
+        if (! array_key_exists('dealership_id', $validated) && ! $this->isOwner($currentUser)) {
+            return response()->json([
+                'message' => 'The dealership id field is required.',
+                'errors' => [
+                    'dealership_id' => ['The dealership id field is required.'],
+                ],
+            ], 422);
+        }
+
+        if ($accessError = $this->validateDealershipAccess($currentUser, $validated['dealership_id'] ?? null)) {
+            return $accessError;
         }
 
         // Устанавливаем creator_id из текущего пользователя
@@ -126,8 +131,21 @@ class ImportantLinkController extends Controller
         $validated = $request->validated();
 
         // Проверка доступа к новому дилерству, если меняется
-        if (isset($validated['dealership_id']) && $validated['dealership_id'] !== $link->dealership_id) {
-            if ($accessError = $this->validateDealershipAccess($currentUser, (int) $validated['dealership_id'])) {
+        if (
+            array_key_exists('dealership_id', $validated)
+            && ! $this->isOwner($currentUser)
+            && $validated['dealership_id'] === null
+        ) {
+            return response()->json([
+                'message' => 'The dealership id field is required.',
+                'errors' => [
+                    'dealership_id' => ['The dealership id field is required.'],
+                ],
+            ], 422);
+        }
+
+        if (array_key_exists('dealership_id', $validated) && $validated['dealership_id'] !== $link->dealership_id) {
+            if ($accessError = $this->validateDealershipAccess($currentUser, $validated['dealership_id'])) {
                 return $accessError;
             }
         }
