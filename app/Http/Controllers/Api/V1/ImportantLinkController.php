@@ -95,7 +95,10 @@ class ImportantLinkController extends Controller
 
         $this->authorize('create', ImportantLink::class);
 
-        if (! array_key_exists('dealership_id', $validated) && ! $this->isOwner($currentUser)) {
+        if (
+            (! array_key_exists('dealership_id', $validated) || $validated['dealership_id'] === null)
+            && ! $this->isOwner($currentUser)
+        ) {
             return response()->json([
                 'message' => 'The dealership id field is required.',
                 'errors' => [
@@ -104,9 +107,13 @@ class ImportantLinkController extends Controller
             ], 422);
         }
 
-        if ($accessError = $this->validateDealershipAccess($currentUser, $validated['dealership_id'] ?? null)) {
+        $dealershipId = $this->normalizeDealershipId($validated['dealership_id'] ?? null);
+
+        if ($accessError = $this->validateDealershipAccess($currentUser, $dealershipId)) {
             return $accessError;
         }
+
+        $validated['dealership_id'] = $dealershipId;
 
         // Устанавливаем creator_id из текущего пользователя
         $validated['creator_id'] = $currentUser->id;
@@ -144,6 +151,10 @@ class ImportantLinkController extends Controller
             ], 422);
         }
 
+        if (array_key_exists('dealership_id', $validated)) {
+            $validated['dealership_id'] = $this->normalizeDealershipId($validated['dealership_id']);
+        }
+
         if (array_key_exists('dealership_id', $validated) && $validated['dealership_id'] !== $link->dealership_id) {
             if ($accessError = $this->validateDealershipAccess($currentUser, $validated['dealership_id'])) {
                 return $accessError;
@@ -177,5 +188,10 @@ class ImportantLinkController extends Controller
 
             return $this->serverErrorResponse('Ошибка при удалении ссылки', $e);
         }
+    }
+
+    private function normalizeDealershipId(mixed $dealershipId): ?int
+    {
+        return $dealershipId === null ? null : (int) $dealershipId;
     }
 }

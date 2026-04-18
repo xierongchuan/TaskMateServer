@@ -337,6 +337,33 @@ describe('Important Links API Endpoints', function () {
                 ->assertJsonValidationErrors(['dealership_id']);
         });
 
+        it('forbids managers from creating links with explicit null dealership_id', function () {
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson('/api/v1/links', [
+                    'title' => 'Global Resource',
+                    'url' => 'https://global.example.com',
+                    'dealership_id' => null,
+                ]);
+
+            $response->assertStatus(422)
+                ->assertJsonValidationErrors(['dealership_id']);
+        });
+
+        it('accepts validated string dealership IDs when creating links', function () {
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson('/api/v1/links', [
+                    'title' => 'String Dealership Link',
+                    'url' => 'https://string-id.example.com',
+                    'dealership_id' => (string) $this->dealership->id,
+                ]);
+
+            $response->assertStatus(201)
+                ->assertJson(['success' => true, 'data' => ['title' => 'String Dealership Link']]);
+
+            $link = ImportantLink::where('title', 'String Dealership Link')->first();
+            expect($link->dealership_id)->toBe($this->dealership->id);
+        });
+
         it('allows owner to create global link when dealership_id is null', function () {
             $owner = User::factory()->create(['role' => Role::OWNER->value]);
 
@@ -548,6 +575,25 @@ describe('Important Links API Endpoints', function () {
 
             $response->assertStatus(422)
                 ->assertJsonValidationErrors(['dealership_id']);
+        });
+
+        it('accepts validated string dealership IDs when updating links', function () {
+            $attachedDealership = AutoDealership::factory()->create();
+            $this->manager->dealerships()->attach($attachedDealership->id);
+            $link = ImportantLink::factory()->create([
+                'creator_id' => $this->manager->id,
+                'dealership_id' => $this->dealership->id,
+            ]);
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->putJson('/api/v1/links/'.$link->id, [
+                    'dealership_id' => (string) $attachedDealership->id,
+                ]);
+
+            $response->assertStatus(200);
+
+            $link->refresh();
+            expect($link->dealership_id)->toBe($attachedDealership->id);
         });
 
         it('requires manager or owner role', function () {
