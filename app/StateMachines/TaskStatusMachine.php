@@ -53,7 +53,7 @@ class TaskStatusMachine
      */
     private const MANAGER_EXTRA_TRANSITIONS = [
         'acknowledged' => ['pending'],
-        'pending_review' => ['pending', 'completed'],
+        'pending_review' => ['pending', 'completed', 'pending_review'],
     ];
 
     /**

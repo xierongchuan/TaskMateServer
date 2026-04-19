@@ -307,7 +307,7 @@ class TaskStatusService
             }
         }
 
-        return ['task_response' => null, 'files_data' => null, 'is_resubmission' => false];
+        return ['task_response' => null, 'files_data' => null, 'is_resubmission' => false, 'is_update' => false];
     }
 
     /**
@@ -328,7 +328,7 @@ class TaskStatusService
             ]
         );
 
-        return ['task_response' => null, 'files_data' => null, 'is_resubmission' => false];
+        return ['task_response' => null, 'files_data' => null, 'is_resubmission' => false, 'is_update' => false];
     }
 
     /**
@@ -376,7 +376,7 @@ class TaskStatusService
             }
         }
 
-        return ['task_response' => null, 'files_data' => $filesData, 'is_resubmission' => false];
+        return ['task_response' => null, 'files_data' => $filesData, 'is_resubmission' => false, 'is_update' => false];
     }
 
     /**
@@ -400,6 +400,10 @@ class TaskStatusService
         // (используем $existingResponse, полученный до транзакции)
         $isResubmission = $existingResponse && $existingResponse->status === 'rejected';
 
+        // Для менеджеров/владельцев: обновление доказательств в pending_review
+        $isPrivilegedUpdate = $existingResponse && $existingResponse->status === 'pending_review'
+            && in_array($user->role, [Role::MANAGER, Role::OWNER]);
+
         $taskResponse = $task->responses()->updateOrCreate(
             ['user_id' => $user->id],
             [
@@ -410,12 +414,12 @@ class TaskStatusService
                 'verified_at' => null,
                 'verified_by' => null,
                 'rejection_reason' => null,
-                'submission_source' => $isResubmission ? 'resubmitted' : 'individual',
+                'submission_source' => $isResubmission ? 'resubmitted' : ($isPrivilegedUpdate ? 'updated' : 'individual'),
                 'uses_shared_proofs' => false,
             ]
         );
 
-        return ['task_response' => $taskResponse, 'files_data' => null, 'is_resubmission' => $isResubmission];
+        return ['task_response' => $taskResponse, 'files_data' => null, 'is_resubmission' => $isResubmission, 'is_update' => $isPrivilegedUpdate];
     }
 
     /**
@@ -443,6 +447,7 @@ class TaskStatusService
         $taskResponse = $transitionResult['task_response'];
         $filesData = $transitionResult['files_data'];
         $isResubmission = $transitionResult['is_resubmission'];
+        $isUpdate = $transitionResult['is_update'] ?? false;
 
         // Авто-отмена pending делегаций при активном действии пользователя
         if (in_array($status, ['pending_review', 'completed', 'acknowledged'])) {
@@ -483,6 +488,11 @@ class TaskStatusService
 
         // Загрузка individual proofs
         if ($taskResponse !== null && $request->hasFile('proof_files')) {
+            // Для повторной отправки или обновления — удаляем старые доказательства
+            if ($isResubmission || $isUpdate) {
+                $this->taskProofService->deleteAllProofs($taskResponse);
+            }
+
             $this->taskProofService->storeProofsAsync(
                 $taskResponse,
                 $request->file('proof_files'),
@@ -492,6 +502,9 @@ class TaskStatusService
             // Записываем в историю верификации
             if ($isResubmission) {
                 $this->taskVerificationService->recordResubmission($taskResponse, $user);
+            } elseif ($isUpdate) {
+                // Для обновления можно записать как submission
+                $this->taskVerificationService->recordSubmission($taskResponse, $user);
             } else {
                 $this->taskVerificationService->recordSubmission($taskResponse, $user);
             }
