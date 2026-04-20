@@ -190,6 +190,8 @@ describe('TaskFilterService Security', function () {
             expect($result->total())->toBe(0);
         });
 
+        // Note: previous behavior returned empty result for inaccessible dealership_id.
+
         it('safely handles invalid status value', function () {
             // Arrange
             Task::factory()->create([
