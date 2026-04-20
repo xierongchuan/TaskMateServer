@@ -36,6 +36,11 @@ class StoreTaskProofsJob implements ShouldQueue
     private const STORAGE_DISK = 'task_proofs';
 
     /**
+     * @var array<string> Список путей сохранённых файлов для отката при ошибке
+     */
+    private array $storedFiles = [];
+
+    /**
      * @param  int  $taskResponseId  ID ответа на задачу
      * @param  array<array{path: string, original_name: string, mime: string, size: int, user_id: int}>  $filesData
      * @param  int  $dealershipId  ID автосалона
@@ -90,12 +95,17 @@ class StoreTaskProofsJob implements ShouldQueue
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+            // Откат сохранённых файлов
+            $this->rollbackStoredFiles();
             Log::error('StoreTaskProofsJob failed with exception', [
                 'task_response_id' => $this->taskResponseId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
+        } finally {
+            // Очистка temp-файлов независимо от результата
+            $this->cleanupTempFiles();
         }
     }
 
@@ -107,6 +117,11 @@ class StoreTaskProofsJob implements ShouldQueue
      */
     private function storeFile(TaskResponse $taskResponse, array $fileData): void
     {
+        // Проверка существования temp файла
+        if (! Storage::exists($fileData['path'])) {
+            throw new \RuntimeException("Temp file not found: {$fileData['path']}");
+        }
+
         $extension = pathinfo($fileData['original_name'], PATHINFO_EXTENSION);
         $filename = sprintf(
             'proof_%d_%d_%s.%s',
@@ -129,14 +144,10 @@ class StoreTaskProofsJob implements ShouldQueue
             'temp_path' => $fileData['path'],
         ]);
 
-        // Перемещаем из temp в постоянное хранилище
+        // Читаем содержимое temp файла
         $content = Storage::get($fileData['path']);
         if ($content === null) {
-            Log::error('StoreTaskProofsJob: Temp file not found', [
-                'temp_path' => $fileData['path'],
-                'exists' => Storage::exists($fileData['path']),
-            ]);
-            throw new \RuntimeException("Temp file not found: {$fileData['path']}");
+            throw new \RuntimeException("Failed to read temp file: {$fileData['path']}");
         }
 
         Log::info('StoreTaskProofsJob: Temp file read successfully', [
@@ -144,13 +155,13 @@ class StoreTaskProofsJob implements ShouldQueue
             'content_size' => strlen($content),
         ]);
 
+        // Сохраняем в постоянное хранилище
         if (! Storage::disk(self::STORAGE_DISK)->put($destinationPath, $content)) {
-            Log::error('StoreTaskProofsJob: Failed to store file to disk', [
-                'destination_path' => $destinationPath,
-                'disk' => self::STORAGE_DISK,
-            ]);
             throw new \RuntimeException("Failed to store file: {$fileData['original_name']}");
         }
+
+        // Добавляем в список для отката
+        $this->storedFiles[] = $destinationPath;
 
         Log::info('StoreTaskProofsJob: File stored to disk successfully', [
             'destination_path' => $destinationPath,
@@ -177,6 +188,22 @@ class StoreTaskProofsJob implements ShouldQueue
     }
 
     /**
+     * Откатить сохранённые файлы при ошибке.
+     */
+    private function rollbackStoredFiles(): void
+    {
+        foreach ($this->storedFiles as $filePath) {
+            if (Storage::disk(self::STORAGE_DISK)->exists($filePath)) {
+                Storage::disk(self::STORAGE_DISK)->delete($filePath);
+                Log::info('StoreTaskProofsJob: Rolled back stored file', [
+                    'file_path' => $filePath,
+                ]);
+            }
+        }
+        $this->storedFiles = [];
+    }
+
+    /**
      * Очистить temp-файлы при неуспешной обработке.
      */
     private function cleanupTempFiles(): void
@@ -184,6 +211,9 @@ class StoreTaskProofsJob implements ShouldQueue
         foreach ($this->filesData as $fileData) {
             if (Storage::exists($fileData['path'])) {
                 Storage::delete($fileData['path']);
+                Log::info('StoreTaskProofsJob: Cleaned up temp file', [
+                    'temp_path' => $fileData['path'],
+                ]);
             }
         }
     }

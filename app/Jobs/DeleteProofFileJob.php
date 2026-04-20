@@ -38,11 +38,34 @@ class DeleteProofFileJob implements ShouldQueue
 
     public function handle(): void
     {
-        if (Storage::disk($this->disk)->exists($this->filePath)) {
-            Storage::disk($this->disk)->delete($this->filePath);
-            Log::info("DeleteProofFileJob: удалён файл {$this->filePath} с диска {$this->disk}");
-        } else {
-            Log::warning("DeleteProofFileJob: файл {$this->filePath} не найден на диске {$this->disk}");
+        try {
+            if (Storage::disk($this->disk)->exists($this->filePath)) {
+                if (Storage::disk($this->disk)->delete($this->filePath)) {
+                    Log::info('DeleteProofFileJob: File deleted successfully', [
+                        'file_path' => $this->filePath,
+                        'disk' => $this->disk,
+                    ]);
+                } else {
+                    Log::error('DeleteProofFileJob: Failed to delete file', [
+                        'file_path' => $this->filePath,
+                        'disk' => $this->disk,
+                    ]);
+                    throw new \RuntimeException("Failed to delete file: {$this->filePath}");
+                }
+            } else {
+                Log::warning('DeleteProofFileJob: File not found', [
+                    'file_path' => $this->filePath,
+                    'disk' => $this->disk,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('DeleteProofFileJob: Unexpected error during deletion', [
+                'file_path' => $this->filePath,
+                'disk' => $this->disk,
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+            throw $e;
         }
     }
 }

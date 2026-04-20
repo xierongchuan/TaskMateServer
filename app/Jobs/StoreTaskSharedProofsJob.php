@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -35,6 +36,11 @@ class StoreTaskSharedProofsJob implements ShouldQueue
      * Пресет валидации для доказательств задач.
      */
     private const VALIDATION_PRESET = 'task_proof';
+
+    /**
+     * @var array<string> Список путей сохранённых файлов для отката при ошибке
+     */
+    private array $storedFiles = [];
 
     /**
      * @param  int  $taskId  ID задачи
@@ -79,35 +85,44 @@ class StoreTaskSharedProofsJob implements ShouldQueue
             return;
         }
 
-        $storedCount = 0;
+        DB::beginTransaction();
+        try {
+            $storedCount = 0;
 
-        foreach ($this->filesData as $fileData) {
-            try {
+            foreach ($this->filesData as $fileData) {
                 $this->storeFile($task, $fileData, $fileValidator);
                 $storedCount++;
-            } catch (\Throwable $e) {
-                Log::error('Failed to store shared proof', [
-                    'task_id' => $this->taskId,
-                    'file' => $fileData['original_name'],
-                    'error' => $e->getMessage(),
-                ]);
             }
-        }
 
-        // Если ни один файл не сохранён, очищаем temp
-        if ($storedCount === 0) {
+            DB::commit();
+            Log::info('StoreTaskSharedProofsJob completed', [
+                'task_id' => $this->taskId,
+                'stored' => $storedCount,
+                'total' => count($this->filesData),
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            // Откат сохранённых файлов
+            $this->rollbackStoredFiles();
+            Log::error('StoreTaskSharedProofsJob failed with exception', [
+                'task_id' => $this->taskId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
+        } finally {
+            // Очистка temp-файлов независимо от результата
             $this->cleanupTempFiles();
         }
-
-        Log::info('StoreTaskSharedProofsJob completed', [
-            'task_id' => $this->taskId,
-            'stored' => $storedCount,
-            'total' => count($this->filesData),
-        ]);
     }
 
     private function storeFile(Task $task, array $fileData, FileValidatorInterface $fileValidator): void
     {
+        // Проверка существования temp файла
+        if (! Storage::exists($fileData['path'])) {
+            throw new \RuntimeException("Temp file not found: {$fileData['path']}");
+        }
+
         // Валидация MIME типа через FileValidator
         $fileValidator->validateMimeType($fileData['mime'], self::VALIDATION_PRESET);
 
@@ -128,11 +143,19 @@ class StoreTaskSharedProofsJob implements ShouldQueue
             $filename
         );
 
-        // Получаем содержимое из temp и сохраняем на диск task_proofs
+        // Получаем содержимое из temp
         $content = Storage::get($fileData['path']);
+        if ($content === null) {
+            throw new \RuntimeException("Failed to read temp file: {$fileData['path']}");
+        }
+
+        // Сохраняем на диск task_proofs
         if (! Storage::disk(self::STORAGE_DISK)->put($destinationPath, $content)) {
             throw new \RuntimeException("Failed to store file: {$destinationPath}");
         }
+
+        // Добавляем в список для отката
+        $this->storedFiles[] = $destinationPath;
 
         // Удаляем temp файл
         Storage::delete($fileData['path']);
@@ -171,6 +194,22 @@ class StoreTaskSharedProofsJob implements ShouldQueue
     }
 
     /**
+     * Откатить сохранённые файлы при ошибке.
+     */
+    private function rollbackStoredFiles(): void
+    {
+        foreach ($this->storedFiles as $filePath) {
+            if (Storage::disk(self::STORAGE_DISK)->exists($filePath)) {
+                Storage::disk(self::STORAGE_DISK)->delete($filePath);
+                Log::info('StoreTaskSharedProofsJob: Rolled back stored file', [
+                    'file_path' => $filePath,
+                ]);
+            }
+        }
+        $this->storedFiles = [];
+    }
+
+    /**
      * Очистить temp-файлы при неуспешной обработке.
      */
     private function cleanupTempFiles(): void
@@ -178,6 +217,9 @@ class StoreTaskSharedProofsJob implements ShouldQueue
         foreach ($this->filesData as $fileData) {
             if (Storage::exists($fileData['path'])) {
                 Storage::delete($fileData['path']);
+                Log::info('StoreTaskSharedProofsJob: Cleaned up temp file', [
+                    'temp_path' => $fileData['path'],
+                ]);
             }
         }
     }
