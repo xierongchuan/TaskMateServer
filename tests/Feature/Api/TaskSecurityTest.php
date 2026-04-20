@@ -357,6 +357,21 @@ describe('Task Security', function () {
             expect(Task::find($task->id))->not->toBeNull();
         });
 
+        it('prevents employee from viewing tasks of other users in same dealership', function () {
+            // Arrange: задача, созданная менеджером в том же дилерстве
+            $task = Task::factory()->create([
+                'dealership_id' => $this->dealershipA->id,
+                'creator_id' => $this->managerA->id,
+            ]);
+
+            // Act: employee пытается посмотреть задачу
+            $response = $this->actingAs($this->employeeA, 'sanctum')
+                ->getJson("/api/v1/tasks/{$task->id}");
+
+            // Assert
+            $response->assertStatus(403);
+        });
+
         it('prevents employee from approving task responses', function () {
             // Arrange
             $task = Task::factory()->completion()->create([

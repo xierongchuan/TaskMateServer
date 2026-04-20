@@ -178,6 +178,31 @@ describe('Shift API', function () {
         $response->assertStatus(403);
     });
 
+    it('prevents employee from viewing another user\'s shift details', function () {
+        $employee1 = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
+        $employee2 = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
+        $shift = Shift::factory()->create([
+            'user_id' => $employee2->id,
+            'dealership_id' => $this->dealership->id,
+        ]);
+
+        $response = $this->actingAs($employee1, 'sanctum')
+            ->getJson("/api/v1/shifts/{$shift->id}");
+
+        $response->assertStatus(403);
+    });
+
+    it('prevents employee from listing shifts of another user via user_id filter', function () {
+        $employee1 = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
+        $employee2 = User::factory()->create(['role' => Role::EMPLOYEE->value, 'dealership_id' => $this->dealership->id]);
+        Shift::factory()->create(['user_id' => $employee2->id, 'dealership_id' => $this->dealership->id]);
+
+        $response = $this->actingAs($employee1, 'sanctum')
+            ->getJson("/api/v1/shifts?user_id={$employee2->id}");
+
+        $response->assertStatus(403);
+    });
+
     // ─── GET /shifts/available-schedules ───────────────────
 
     describe('available-schedules', function () {

@@ -180,8 +180,20 @@ class DealershipAccessService
      */
     public function scopeTasksByAccessibleDealerships(Builder $query, User $user): Builder
     {
+        // Owner sees everything
         if ($this->isOwner($user)) {
             return $query;
+        }
+
+        // Employees must NOT see all tasks in a dealership.
+        // They are only allowed to see tasks they created or tasks assigned to them.
+        // Managers/Observers keep previous behaviour (see all tasks in accessible dealerships).
+        if ($user->role === \App\Enums\Role::EMPLOYEE) {
+            return $query->where(function ($q) use ($user) {
+                $q->whereHas('assignments', function ($subQ) use ($user) {
+                    $subQ->where('user_id', $user->id);
+                })->orWhere('creator_id', $user->id);
+            });
         }
 
         $accessibleIds = $this->getUserDealershipIds($user);

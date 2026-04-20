@@ -117,20 +117,19 @@ class TaskFilterService
     {
         $dealershipId = $request->filled('dealership_id') ? $request->integer('dealership_id') : null;
 
-        if (! $this->dealershipAccess->isOwner($currentUser)) {
-            if ($dealershipId) {
-                if (! $this->dealershipAccess->hasAccessToDealership($currentUser, $dealershipId)) {
-                    // Если фильтрация по недоступному автосалону - возвращаем пустой результат
-                    $query->where('dealership_id', -1);
-                } else {
-                    $query->where('dealership_id', $dealershipId);
-                }
+        // Применяем базовую фильтрацию по доступным дилерствам/задачам.
+        // Для роли employee scopeTasksByAccessibleDealerships уже ограничит задачи только теми,
+        // где пользователь назначен или является создателем.
+        $this->dealershipAccess->scopeTasksByAccessibleDealerships($query, $currentUser);
+
+        // Если явно запрошен dealership_id — убедимся, что у пользователя есть к нему доступ,
+        // иначе возвращаем пустой результат (where -1).
+        if ($dealershipId !== null) {
+            if (! $this->dealershipAccess->hasAccessToDealership($currentUser, $dealershipId) && ! $this->dealershipAccess->isOwner($currentUser)) {
+                $query->where('dealership_id', -1);
             } else {
-                // Показываем задачи из всех доступных автосалонов
-                $this->dealershipAccess->scopeTasksByAccessibleDealerships($query, $currentUser);
+                $query->where('dealership_id', $dealershipId);
             }
-        } elseif ($dealershipId) {
-            $query->where('dealership_id', $dealershipId);
         }
     }
 

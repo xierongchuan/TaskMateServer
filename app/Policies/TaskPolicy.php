@@ -57,7 +57,8 @@ class TaskPolicy
             return Response::allow();
         }
 
-        if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
+        // Доступ к задаче по дилерству разрешаем только не-employee ролям
+        if ($user->role !== Role::EMPLOYEE && $this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
             return Response::allow();
         }
 
@@ -81,7 +82,8 @@ class TaskPolicy
             return Response::allow();
         }
 
-        if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
+        // Разрешаем редактирование по дилерству только ролям выше employee
+        if ($user->role !== Role::EMPLOYEE && $this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
             return Response::allow();
         }
 
@@ -101,11 +103,12 @@ class TaskPolicy
             return Response::allow();
         }
 
-        if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
+        if ($task->creator_id === $user->id) {
             return Response::allow();
         }
 
-        if ($task->creator_id === $user->id) {
+        // Разрешаем удаление по дилерству только ролям выше employee
+        if ($user->role !== Role::EMPLOYEE && $this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
             return Response::allow();
         }
 
@@ -146,7 +149,21 @@ class TaskPolicy
         }
 
         if ($this->dealershipAccess->hasAccessToDealership($user, $task->dealership_id)) {
-            return Response::allow();
+            // Managers/owners/observers may operate on tasks in their dealerships.
+            if ($user->role !== Role::EMPLOYEE) {
+                return Response::allow();
+            }
+
+            // Employees may change status only for tasks they created or where they are assigned.
+            if ($task->creator_id === $user->id) {
+                return Response::allow();
+            }
+
+            if ($task->assignments->contains('user_id', $user->id)) {
+                return Response::allow();
+            }
+
+            return Response::deny('Нет доступа к указанному дилерству');
         }
 
         return Response::deny('Нет доступа к указанному дилерству');

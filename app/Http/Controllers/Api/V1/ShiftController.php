@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\ShiftStatus;
+use App\Enums\Role;
 use App\Exceptions\ScheduleAmbiguousException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreShiftRequest;
@@ -65,8 +66,21 @@ class ShiftController extends Controller
             $query->where('dealership_id', $dealershipId);
         }
 
-        if ($userId) {
-            $query->where('user_id', $userId);
+        // Employees are NOT allowed to query other users' shifts.
+        if ($currentUser->role === Role::EMPLOYEE) {
+            if ($userId !== null && $userId !== $currentUser->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Нет доступа к сменам другого пользователя',
+                ], 403);
+            }
+
+            // По умолчанию показываем только собственные смены
+            $query->where('user_id', $currentUser->id);
+        } else {
+            if ($userId) {
+                $query->where('user_id', $userId);
+            }
         }
 
         if ($status) {
@@ -194,6 +208,11 @@ class ShiftController extends Controller
         $accessError = $this->validateDealershipAccess($currentUser, $shift->dealership_id);
         if ($accessError) {
             return $accessError;
+        }
+
+        // Employees are not allowed to view other users' shifts
+        if ($currentUser->role === Role::EMPLOYEE && $shift->user_id !== $currentUser->id) {
+            return response()->json(['success' => false, 'message' => 'Нет доступа к этой смене'], 403);
         }
 
         return response()->json([

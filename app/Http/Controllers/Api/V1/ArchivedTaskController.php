@@ -29,7 +29,9 @@ class ArchivedTaskController extends Controller
             }
             $query->where('dealership_id', $dealershipId);
         } else {
-            $this->scopeByAccessibleDealerships($query, $user);
+            // Для архивных задач используем аналогичный scope задач, чтобы
+            // роль employee видела только свои задачи (назначенные или созданные).
+            $this->scopeTasksByAccessibleDealerships($query, $user);
         }
 
         if ($request->has('archive_reason')) {
