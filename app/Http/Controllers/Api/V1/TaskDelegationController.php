@@ -90,7 +90,14 @@ class TaskDelegationController extends Controller
 
         // Фильтры
         if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
+            $statuses = array_filter(
+                array_map('trim', explode(',', $request->input('status')))
+            );
+            if (count($statuses) > 1) {
+                $query->whereIn('status', $statuses);
+            } else {
+                $query->where('status', $statuses[0]);
+            }
         }
 
         if ($request->filled('direction')) {
