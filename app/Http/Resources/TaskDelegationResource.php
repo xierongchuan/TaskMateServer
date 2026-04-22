@@ -44,11 +44,21 @@ class TaskDelegationResource extends JsonResource
         }
 
         if ($this->relationLoaded('task') && $this->task) {
+            $task = $this->task;
             $data['task'] = [
-                'id' => $this->task->id,
-                'title' => $this->task->title,
-                'deadline' => TimeHelper::toIsoZulu($this->task->deadline),
-                'priority' => $this->task->priority,
+                'id' => $task->id,
+                'title' => $task->title,
+                'description' => $task->description,
+                'comment' => $task->comment,
+                'deadline' => TimeHelper::toIsoZulu($task->deadline),
+                'priority' => $task->priority,
+                'task_type' => $task->task_type,
+                'response_type' => $task->response_type,
+                'status' => $task->status,
+                'dealership' => $task->dealership ? [
+                    'id' => $task->dealership->id,
+                    'name' => $task->dealership->name,
+                ] : null,
             ];
         }
 

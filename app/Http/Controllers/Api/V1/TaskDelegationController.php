@@ -72,7 +72,7 @@ class TaskDelegationController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = $request->user();
-        $query = TaskDelegation::with(['fromUser', 'toUser', 'task']);
+        $query = TaskDelegation::with(['fromUser', 'toUser', 'task.dealership']);
 
         // Сотрудники видят только свои делегации
         if ($user->role === Role::EMPLOYEE) {
