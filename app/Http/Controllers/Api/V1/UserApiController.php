@@ -181,8 +181,9 @@ class UserApiController extends Controller
             return $this->errorResponse('Пользователь не найден', 404);
         }
 
-        // Eager load dealerships для предотвращения lazy load в hasAccessToUser
-        $user->loadMissing('dealerships');
+        // Eager load dealership relations для предотвращения lazy load
+        // и корректного отображения primary dealership в UserResource.
+        $user->loadMissing(['dealership', 'dealerships']);
 
         // Проверка доступа к пользователю через общие дилерства
         if (! $this->hasAccessToUser($currentUser, $user)) {

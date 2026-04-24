@@ -115,8 +115,10 @@ class ReportService
         $this->scopeByDealership($lateShiftsQuery, $dealershipId);
         $lateShifts = $lateShiftsQuery->count();
 
-        // Считаем статусы по каждой задаче индивидуально
-        // Используем взаимоисключающую логику как в Task::getStatusAttribute()
+        // Считаем статусы по каждой задаче индивидуально.
+        // Для статистики просрочки включают и архивированные задачи,
+        // если дедлайн прошёл и нет completed response. Soft-deleted задачи
+        // уже исключены глобальным scope модели Task.
         $statusCounts = [
             'completed' => 0,
             'completed_late' => 0,
@@ -128,9 +130,9 @@ class ReportService
 
         $tasksQuery = Task::with(['responses', 'assignments'])->whereBetween('created_at', [$from, $to]);
         $this->scopeByDealership($tasksQuery, $dealershipId);
-        $tasksQuery->chunk(500, function ($tasks) use (&$statusCounts): void {
+        $tasksQuery->chunk(500, function ($tasks) use (&$statusCounts, $nowUtc): void {
             foreach ($tasks as $task) {
-                $status = $task->status;
+                $status = $this->resolveTaskStatusForStatistics($task, $nowUtc);
                 if (isset($statusCounts[$status])) {
                     $statusCounts[$status]++;
                 }
@@ -359,5 +361,72 @@ class ReportService
         if ($dealershipId) {
             $query->where('dealership_id', $dealershipId);
         }
+    }
+
+    private function resolveTaskStatusForStatistics(Task $task, Carbon $nowUtc): string
+    {
+        $responses = $task->responses;
+        $assignments = $task->assignments;
+        $hasDeadline = $task->deadline !== null;
+        $deadlinePassed = $hasDeadline && $task->deadline->lt($nowUtc);
+
+        $isCompleted = false;
+        $completedLate = false;
+
+        if ($task->task_type === 'group') {
+            $assignedUserIds = $assignments->pluck('user_id')->unique()->values()->toArray();
+            $completedResponses = $responses->where('status', 'completed');
+            $completedUserIds = $completedResponses->pluck('user_id')->unique()->values()->toArray();
+
+            if (count($assignedUserIds) > 0 && count(array_diff($assignedUserIds, $completedUserIds)) === 0) {
+                $isCompleted = true;
+
+                if ($hasDeadline) {
+                    foreach ($completedResponses as $response) {
+                        if ($response->responded_at && $response->responded_at->gt($task->deadline)) {
+                            $completedLate = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            $completedResponse = $responses->firstWhere('status', 'completed');
+            if ($completedResponse) {
+                $isCompleted = true;
+
+                if ($hasDeadline && $completedResponse->responded_at && $completedResponse->responded_at->gt($task->deadline)) {
+                    $completedLate = true;
+                }
+            }
+        }
+
+        if ($isCompleted) {
+            return $completedLate ? 'completed_late' : 'completed';
+        }
+
+        if ($task->task_type === 'group') {
+            if ($responses->where('status', 'pending_review')->pluck('user_id')->unique()->isNotEmpty()) {
+                return 'pending_review';
+            }
+
+            if ($responses->where('status', 'acknowledged')->pluck('user_id')->unique()->isNotEmpty()) {
+                return 'acknowledged';
+            }
+        } else {
+            if ($responses->contains('status', 'pending_review')) {
+                return 'pending_review';
+            }
+
+            if ($responses->contains('status', 'acknowledged')) {
+                return 'acknowledged';
+            }
+        }
+
+        if ($deadlinePassed) {
+            return 'overdue';
+        }
+
+        return 'pending';
     }
 }

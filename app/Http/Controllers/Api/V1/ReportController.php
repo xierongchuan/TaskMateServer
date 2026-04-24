@@ -81,7 +81,6 @@ class ReportController extends Controller
             case 'overdue_tasks':
                 $query = Task::with(['creator', 'dealership'])
                     ->whereBetween('created_at', [$from, $to])
-                    ->where('is_active', true)
                     ->whereNotNull('deadline')
                     ->where('deadline', '<', $nowUtc)
                     ->whereDoesntHave('responses', fn ($q) => $q->where('status', 'completed'));
@@ -148,8 +147,15 @@ class ReportController extends Controller
                     $employeesQuery->where('dealership_id', $dealershipId);
                 }
 
-                $items = $employeesQuery->get()->map(function ($employee) use ($from, $to): array {
-                    $stats = $this->employeeStatsService->getStats($employee, $from, $to);
+                $employees = $employeesQuery->get();
+                $statsByEmployee = $this->employeeStatsService
+                    ->getBatchStats($employees, $from, $to)
+                    ->keyBy('employee_id');
+
+                $items = $employees->map(function ($employee) use ($statsByEmployee): array {
+                    $stats = $statsByEmployee->get($employee->id, [
+                        'performance_score' => 100,
+                    ]);
 
                     return [
                         'id' => $employee->id,

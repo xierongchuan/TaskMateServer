@@ -140,9 +140,11 @@ class EmployeeStatsService
 
             $userCompleted = $completedOnTime + $completedLate;
 
-            // Просроченные — дедлайн прошёл, нет completed response
+            // Просроченные — дедлайн прошёл, нет completed response.
+            // Архивированные задачи тоже учитываем, soft-deleted уже исключены
+            // глобальным scope модели Task.
             $userOverdue = $employeeTasks->filter(function ($task) use ($employee, $nowUtc): bool {
-                if (! $task->is_active || ! $task->deadline || ! $task->deadline->lt($nowUtc)) {
+                if (! $task->deadline || ! $task->deadline->lt($nowUtc)) {
                     return false;
                 }
                 $response = $task->responses->firstWhere('user_id', $employee->id);
@@ -265,9 +267,11 @@ class EmployeeStatsService
 
         $userCompleted = $completedOnTime + $completedLate;
 
-        // Просроченные — дедлайн прошёл, нет completed response
+        // Просроченные — дедлайн прошёл, нет completed response.
+        // Архивированные задачи тоже учитываем, soft-deleted уже исключены
+        // глобальным scope модели Task.
         $userOverdue = $tasks->filter(function ($task) use ($nowUtc): bool {
-            if (! $task->is_active || ! $task->deadline || ! $task->deadline->lt($nowUtc)) {
+            if (! $task->deadline || ! $task->deadline->lt($nowUtc)) {
                 return false;
             }
             $response = $task->responses->first();

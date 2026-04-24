@@ -150,4 +150,53 @@ describe('Report API', function () {
         $response->assertStatus(200);
         expect($response->json('data.summary'))->not->toHaveKey('total_replacements');
     });
+
+    it('includes archived overdue tasks in summary', function () {
+        $dateFrom = Carbon::now()->subDays(7)->format('Y-m-d');
+        $dateTo = Carbon::now()->format('Y-m-d');
+
+        Task::factory()->create([
+            'dealership_id' => $this->dealership->id,
+            'deadline' => Carbon::now()->subDay(),
+            'is_active' => false,
+            'archived_at' => Carbon::now()->subHour(),
+            'created_at' => Carbon::now()->subDays(2),
+        ]);
+
+        $response = $this->actingAs($this->manager, 'sanctum')
+            ->getJson("/api/v1/reports?dealership_id={$this->dealership->id}&date_from={$dateFrom}&date_to={$dateTo}");
+
+        $response->assertStatus(200);
+        expect($response->json('data.summary.overdue_tasks'))->toBe(1);
+    });
+
+    it('returns low performers in issue details', function () {
+        $dateFrom = Carbon::now()->subDays(7)->format('Y-m-d');
+        $dateTo = Carbon::now()->format('Y-m-d');
+
+        $employee = User::factory()->create([
+            'role' => Role::EMPLOYEE->value,
+            'dealership_id' => $this->dealership->id,
+            'full_name' => 'Low Performer',
+        ]);
+
+        for ($i = 0; $i < 7; $i++) {
+            $task = Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'deadline' => Carbon::now()->subDay(),
+                'created_at' => Carbon::now()->subDays(2),
+            ]);
+            $task->assignedUsers()->attach($employee->id);
+        }
+
+        $response = $this->actingAs($this->manager, 'sanctum')
+            ->getJson("/api/v1/reports/issues/low_performers?date_from={$dateFrom}&date_to={$dateTo}");
+
+        $response->assertStatus(200);
+        $items = collect($response->json('data.items'));
+        $item = $items->firstWhere('id', $employee->id);
+
+        expect($item)->not->toBeNull();
+        expect($item['score'])->toBe(65);
+    });
 });

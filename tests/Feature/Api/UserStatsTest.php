@@ -118,6 +118,25 @@ describe('User Stats API - GET /api/v1/users/{id}/stats', function () {
         expect($data['tasks_by_type']['notification'])->toBe(1);
     });
 
+    it('counts archived overdue tasks in stats', function () {
+        $task = Task::factory()->create([
+            'dealership_id' => $this->dealership->id,
+            'deadline' => Carbon::now()->subDay(),
+            'is_active' => false,
+            'archived_at' => Carbon::now()->subHour(),
+        ]);
+        $task->assignedUsers()->attach($this->employee->id);
+
+        $response = $this->actingAs($this->manager, 'sanctum')
+            ->getJson("/api/v1/users/{$this->employee->id}/stats");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+
+        expect($data['overdue_tasks'])->toBe(1);
+        expect($data['performance_score'])->toBe(95);
+    });
+
     it('supports custom date range', function () {
         $dateFrom = Carbon::now()->subDays(7)->format('Y-m-d');
         $dateTo = Carbon::now()->format('Y-m-d');

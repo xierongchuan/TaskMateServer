@@ -191,19 +191,43 @@ describe('EmployeeStatsService', function () {
             expect($stats['overdue_tasks'])->toBe(1);
         });
 
-        it('не считает неактивные задачи просроченными', function () {
+        it('считает архивированные задачи просроченными', function () {
             // Arrange
             $task = Task::factory()->create([
                 'dealership_id' => $this->dealership->id,
                 'creator_id' => $this->manager->id,
                 'deadline' => Carbon::now('UTC')->subDay(),
                 'is_active' => false,
+                'archived_at' => Carbon::now('UTC')->subHour(),
                 'created_at' => Carbon::now('UTC')->subWeek(),
             ]);
             TaskAssignment::create([
                 'task_id' => $task->id,
                 'user_id' => $this->employee->id,
             ]);
+
+            // Act
+            $stats = $this->service->getStats($this->employee, $this->from, $this->to);
+
+            // Assert
+            expect($stats['overdue_tasks'])->toBe(1);
+        });
+
+        it('не считает soft deleted задачи просроченными', function () {
+            // Arrange
+            $task = Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'creator_id' => $this->manager->id,
+                'deadline' => Carbon::now('UTC')->subDay(),
+                'is_active' => false,
+                'archived_at' => Carbon::now('UTC')->subHour(),
+                'created_at' => Carbon::now('UTC')->subWeek(),
+            ]);
+            TaskAssignment::create([
+                'task_id' => $task->id,
+                'user_id' => $this->employee->id,
+            ]);
+            $task->delete();
 
             // Act
             $stats = $this->service->getStats($this->employee, $this->from, $this->to);

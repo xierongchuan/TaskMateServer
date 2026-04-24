@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\Role;
+use App\Models\AutoDealership;
 use App\Models\User;
 
 describe('Users API', function () {
@@ -57,6 +58,29 @@ describe('Users API', function () {
             // Assert
             $response->assertStatus(200);
             expect($response->json())->toBeArray();
+        });
+
+        it('returns primary dealership when user has dealership_id', function () {
+            // Arrange
+            $dealership = AutoDealership::factory()->create([
+                'name' => 'Автосалон Центр',
+            ]);
+            $user = User::factory()->create([
+                'dealership_id' => $dealership->id,
+            ]);
+            $manager = User::factory()->create([
+                'role' => Role::MANAGER->value,
+                'dealership_id' => $dealership->id,
+            ]);
+
+            // Act
+            $response = $this->actingAs($manager, 'sanctum')
+                ->getJson("/api/v1/users/{$user->id}");
+
+            // Assert
+            $response->assertStatus(200)
+                ->assertJsonPath('data.dealership.id', $dealership->id)
+                ->assertJsonPath('data.dealership.name', 'Автосалон Центр');
         });
 
         it('returns 404 for non-existent user', function () {
