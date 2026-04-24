@@ -176,18 +176,29 @@ class SettingsController extends Controller
     public function getNotificationConfig(Request $request): JsonResponse
     {
         $dealershipId = $this->parseDealershipId($request);
+        $settings = $this->settingsService->getMultipleSettingsWithFallback(
+            ['notification_enabled', 'auto_close_shifts', 'shift_reminder_minutes', 'rows_per_page', 'notification_types'],
+            $dealershipId,
+            [
+                'notification_enabled' => true,
+                'auto_close_shifts' => false,
+                'shift_reminder_minutes' => 15,
+                'rows_per_page' => 10,
+                'notification_types' => [
+                    'task_overdue' => true,
+                    'shift_late' => true,
+                    'task_completed' => true,
+                    'system_errors' => true,
+                ],
+            ]
+        );
 
         $notificationConfig = [
-            'notification_enabled' => (bool) $this->settingsService->getSettingWithFallback('notification_enabled', $dealershipId, true),
-            'auto_close_shifts' => (bool) $this->settingsService->getSettingWithFallback('auto_close_shifts', $dealershipId, false),
-            'shift_reminder_minutes' => (int) $this->settingsService->getSettingWithFallback('shift_reminder_minutes', $dealershipId, 15),
-            'rows_per_page' => (int) $this->settingsService->getSettingWithFallback('rows_per_page', $dealershipId, 10),
-            'notification_types' => $this->settingsService->getSettingWithFallback('notification_types', $dealershipId, [
-                'task_overdue' => true,
-                'shift_late' => true,
-                'task_completed' => true,
-                'system_errors' => true,
-            ]),
+            'notification_enabled' => (bool) $settings['notification_enabled'],
+            'auto_close_shifts' => (bool) $settings['auto_close_shifts'],
+            'shift_reminder_minutes' => (int) $settings['shift_reminder_minutes'],
+            'rows_per_page' => (int) $settings['rows_per_page'],
+            'notification_types' => $settings['notification_types'],
         ];
 
         return response()->json([
@@ -214,11 +225,20 @@ class SettingsController extends Controller
     public function getArchiveConfig(Request $request): JsonResponse
     {
         $dealershipId = $this->parseDealershipId($request);
+        $settings = $this->settingsService->getMultipleSettingsWithFallback(
+            ['archive_completed_time', 'archive_overdue_day_of_week', 'archive_overdue_time'],
+            $dealershipId,
+            [
+                'archive_completed_time' => '03:00',
+                'archive_overdue_day_of_week' => 0,
+                'archive_overdue_time' => '03:00',
+            ]
+        );
 
         $archiveConfig = [
-            'archive_completed_time' => $this->settingsService->getSettingWithFallback('archive_completed_time', $dealershipId, '03:00'),
-            'archive_overdue_day_of_week' => (int) $this->settingsService->getSettingWithFallback('archive_overdue_day_of_week', $dealershipId, 0),
-            'archive_overdue_time' => $this->settingsService->getSettingWithFallback('archive_overdue_time', $dealershipId, '03:00'),
+            'archive_completed_time' => $settings['archive_completed_time'],
+            'archive_overdue_day_of_week' => (int) $settings['archive_overdue_day_of_week'],
+            'archive_overdue_time' => $settings['archive_overdue_time'],
         ];
 
         return response()->json([
@@ -245,20 +265,20 @@ class SettingsController extends Controller
     public function getTaskConfig(Request $request): JsonResponse
     {
         $dealershipId = $this->parseDealershipId($request);
+        $settings = $this->settingsService->getMultipleSettingsWithFallback(
+            ['task_requires_open_shift', 'archive_overdue_hours_after_shift'],
+            $dealershipId,
+            [
+                'task_requires_open_shift' => false,
+                'archive_overdue_hours_after_shift' => 2,
+            ]
+        );
 
         $taskConfig = [
             // Hybrid mode: require open shift to complete tasks
-            'task_requires_open_shift' => (bool) $this->settingsService->getSettingWithFallback(
-                'task_requires_open_shift',
-                $dealershipId,
-                false
-            ),
+            'task_requires_open_shift' => (bool) $settings['task_requires_open_shift'],
             // Hours after shift close to archive overdue tasks
-            'archive_overdue_hours_after_shift' => (int) $this->settingsService->getSettingWithFallback(
-                'archive_overdue_hours_after_shift',
-                $dealershipId,
-                2
-            ),
+            'archive_overdue_hours_after_shift' => (int) $settings['archive_overdue_hours_after_shift'],
         ];
 
         return response()->json([

@@ -53,4 +53,58 @@ describe('Settings API', function () {
         $response->assertStatus(200)
             ->assertJsonPath('data.value', 'specific_value');
     });
+
+    it('returns notification config with dealership fallback', function () {
+        Setting::factory()->create([
+            'key' => 'rows_per_page',
+            'value' => '25',
+            'type' => 'integer',
+            'dealership_id' => null,
+        ]);
+        Setting::factory()->create([
+            'key' => 'notification_enabled',
+            'value' => '0',
+            'type' => 'boolean',
+            'dealership_id' => $this->dealership->id,
+        ]);
+
+        $response = $this->actingAs($this->manager, 'sanctum')
+            ->getJson("/api/v1/settings/notification-config?dealership_id={$this->dealership->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.notification_enabled', false)
+            ->assertJsonPath('data.rows_per_page', 25);
+    });
+
+    it('returns archive config defaults when settings are missing', function () {
+        $response = $this->actingAs($this->manager, 'sanctum')
+            ->getJson("/api/v1/settings/archive-config?dealership_id={$this->dealership->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.archive_completed_time', '03:00')
+            ->assertJsonPath('data.archive_overdue_day_of_week', 0)
+            ->assertJsonPath('data.archive_overdue_time', '03:00');
+    });
+
+    it('returns task config with dealership and default fallback', function () {
+        Setting::factory()->create([
+            'key' => 'archive_overdue_hours_after_shift',
+            'value' => '6',
+            'type' => 'integer',
+            'dealership_id' => null,
+        ]);
+        Setting::factory()->create([
+            'key' => 'task_requires_open_shift',
+            'value' => '1',
+            'type' => 'boolean',
+            'dealership_id' => $this->dealership->id,
+        ]);
+
+        $response = $this->actingAs($this->manager, 'sanctum')
+            ->getJson("/api/v1/settings/task-config?dealership_id={$this->dealership->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.task_requires_open_shift', true)
+            ->assertJsonPath('data.archive_overdue_hours_after_shift', 6);
+    });
 });

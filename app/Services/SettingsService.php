@@ -371,21 +371,35 @@ class SettingsService
      */
     public function getSettingWithFallback(string $key, ?int $dealershipId = null, mixed $default = null): mixed
     {
-        // First try to get dealership-specific setting
-        if ($dealershipId) {
-            $dealershipValue = $this->get($key, $dealershipId, self::SETTING_NOT_FOUND);
-            if ($dealershipValue !== self::SETTING_NOT_FOUND) {
-                return $dealershipValue;
-            }
-        }
+        $settings = $this->getMultipleSettingsWithFallback([$key], $dealershipId, [
+            $key => $default,
+        ]);
 
-        // Fallback to global setting
-        $globalValue = $this->get($key, null, self::SETTING_NOT_FOUND);
-        if ($globalValue !== self::SETTING_NOT_FOUND) {
-            return $globalValue;
+        if (array_key_exists($key, $settings)) {
+            return $settings[$key];
         }
 
         return $default;
+    }
+
+    /**
+     * Get multiple settings with smart fallback (dealership -> global) and defaults.
+     *
+     * @param  array<int, string>  $keys
+     * @param  array<string, mixed>  $defaults
+     * @return array<string, mixed>
+     */
+    public function getMultipleSettingsWithFallback(array $keys, ?int $dealershipId = null, array $defaults = []): array
+    {
+        $settings = $this->getMultipleSettings($keys, $dealershipId);
+
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $settings) || $settings[$key] === null || $settings[$key] === self::SETTING_NOT_FOUND) {
+                $settings[$key] = $defaults[$key] ?? null;
+            }
+        }
+
+        return $settings;
     }
 
     /**
@@ -396,63 +410,67 @@ class SettingsService
     public function getMultipleSettings(array $keys, ?int $dealershipId = null): array
     {
         $result = [];
-        $uncachedKeys = [];
+        $dealershipMisses = [];
+        $globalKeysToFetch = [];
 
-        // Check cache first for each key
         foreach ($keys as $key) {
             if ($dealershipId) {
                 $cacheKey = $this->getCacheKey($key, $dealershipId);
                 if (Cache::has($cacheKey)) {
-                    $result[$key] = Cache::get($cacheKey);
+                    $cached = Cache::get($cacheKey);
+                    if ($cached !== self::SETTING_NOT_FOUND) {
+                        $result[$key] = $cached;
+                    }
 
                     continue;
                 }
+
+                $dealershipMisses[] = $key;
+                continue;
             }
 
             $globalCacheKey = $this->getCacheKey($key, null);
             if (Cache::has($globalCacheKey)) {
-                $result[$key] = Cache::get($globalCacheKey);
+                $cached = Cache::get($globalCacheKey);
+                if ($cached !== self::SETTING_NOT_FOUND) {
+                    $result[$key] = $cached;
+                }
 
                 continue;
             }
 
-            $uncachedKeys[] = $key;
+            $globalKeysToFetch[] = $key;
         }
 
-        if (empty($uncachedKeys)) {
-            return $result;
-        }
-
-        // Batch-fetch dealership-specific settings
-        $dealershipSettings = [];
-        if ($dealershipId) {
-            $settings = Setting::where('dealership_id', $dealershipId)->whereIn('key', $uncachedKeys)->get();
+        if ($dealershipId && ! empty($dealershipMisses)) {
+            $settings = Setting::where('dealership_id', $dealershipId)->whereIn('key', $dealershipMisses)->get();
 
             foreach ($settings as $setting) {
                 $value = $setting->getTypedValue();
                 Cache::put($this->getCacheKey($setting->key, $dealershipId), $value, self::CACHE_TTL);
-                $dealershipSettings[$setting->key] = $value;
+                $result[$setting->key] = $value;
+            }
+
+            $foundKeys = $settings->pluck('key')->all();
+            foreach (array_diff($dealershipMisses, $foundKeys) as $missingKey) {
+                Cache::put($this->getCacheKey($missingKey, $dealershipId), self::SETTING_NOT_FOUND, self::CACHE_TTL);
+                $globalKeysToFetch[] = $missingKey;
             }
         }
 
-        // Find keys still missing after dealership lookup
-        $stillMissing = array_diff($uncachedKeys, array_keys($dealershipSettings));
-
-        // Batch-fetch global settings for remaining keys
-        $globalSettings = [];
-        if (! empty($stillMissing)) {
-            $settings = Setting::whereNull('dealership_id')->whereIn('key', $stillMissing)->get();
+        if (! empty($globalKeysToFetch)) {
+            $settings = Setting::whereNull('dealership_id')->whereIn('key', $globalKeysToFetch)->get();
 
             foreach ($settings as $setting) {
                 $value = $setting->getTypedValue();
                 Cache::put($this->getCacheKey($setting->key, null), $value, self::CACHE_TTL);
-                $globalSettings[$setting->key] = $value;
+                $result[$setting->key] = $value;
             }
-        }
 
-        // Merge results: dealership settings take priority over global
-        foreach ($uncachedKeys as $key) {
-            $result[$key] = $dealershipSettings[$key] ?? ($globalSettings[$key] ?? null);
+            $foundKeys = $settings->pluck('key')->all();
+            foreach (array_diff($globalKeysToFetch, $foundKeys) as $missingKey) {
+                Cache::put($this->getCacheKey($missingKey, null), self::SETTING_NOT_FOUND, self::CACHE_TTL);
+            }
         }
 
         return $result;

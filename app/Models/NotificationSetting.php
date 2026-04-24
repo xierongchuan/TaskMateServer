@@ -81,9 +81,7 @@ class NotificationSetting extends Model
      */
     public static function isChannelEnabled(int $dealershipId, string $channelType): bool
     {
-        $setting = static::where('dealership_id', $dealershipId)
-            ->where('channel_type', $channelType)
-            ->first();
+        $setting = static::getChannelSettings($dealershipId, [$channelType])->get($channelType);
 
         // Default to disabled (opt-in) - users must explicitly enable notifications
         return $setting ? $setting->is_enabled : false;
@@ -94,9 +92,7 @@ class NotificationSetting extends Model
      */
     public static function getNotificationTime(int $dealershipId, string $channelType): ?string
     {
-        $setting = static::where('dealership_id', $dealershipId)
-            ->where('channel_type', $channelType)
-            ->first();
+        $setting = static::getChannelSettings($dealershipId, [$channelType])->get($channelType);
 
         return $setting?->notification_time;
     }
@@ -106,9 +102,7 @@ class NotificationSetting extends Model
      */
     public static function getNotificationOffset(int $dealershipId, string $channelType): ?int
     {
-        $setting = static::where('dealership_id', $dealershipId)
-            ->where('channel_type', $channelType)
-            ->first();
+        $setting = static::getChannelSettings($dealershipId, [$channelType])->get($channelType);
 
         return $setting?->notification_offset;
     }
@@ -118,11 +112,23 @@ class NotificationSetting extends Model
      */
     public static function getRecipientRoles(int $dealershipId, string $channelType): ?array
     {
-        $setting = static::where('dealership_id', $dealershipId)
-            ->where('channel_type', $channelType)
-            ->first();
+        $setting = static::getChannelSettings($dealershipId, [$channelType])->get($channelType);
 
         return $setting?->recipient_roles;
+    }
+
+    /**
+     * Batch-load settings keyed by channel_type.
+     *
+     * @param  array<int, string>  $channelTypes
+     * @return \Illuminate\Support\Collection<string, self>
+     */
+    public static function getChannelSettings(int $dealershipId, array $channelTypes)
+    {
+        return static::where('dealership_id', $dealershipId)
+            ->whereIn('channel_type', $channelTypes)
+            ->get()
+            ->keyBy('channel_type');
     }
 
     /**
