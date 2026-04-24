@@ -125,6 +125,8 @@ Route::prefix('v1')->group(function () {
                 ->middleware('role:manager,owner');
             Route::delete('/shift-schedules/{id}', [ShiftScheduleController::class, 'destroy'])
                 ->middleware('role:manager,owner');
+            Route::post('/shift-schedules/{id}/restore', [ShiftScheduleController::class, 'restore'])
+                ->middleware('role:manager,owner');
 
             // Shift Photos - доступ с Bearer token авторизацией (stable URLs)
             Route::get('/shift-photos/{id}/{type}', [ShiftPhotoController::class, 'show'])

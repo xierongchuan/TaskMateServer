@@ -23,13 +23,28 @@ class ShiftScheduleController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = ShiftSchedule::query()->orderBy('sort_order');
-
-        if ($request->filled('dealership_id')) {
-            $query->where('dealership_id', (int) $request->query('dealership_id'));
+        $currentUser = $request->user();
+        if (! $currentUser) {
+            return response()->json(['message' => 'Не авторизован'], 401);
         }
 
-        if ($request->query('active_only') === 'true') {
+        $query = ShiftSchedule::query()->orderBy('sort_order');
+        $dealershipId = $this->parseDealershipId($request);
+
+        if ($dealershipId !== null) {
+            $accessError = $this->validateDealershipAccess($currentUser, $dealershipId);
+            if ($accessError) {
+                return $accessError;
+            }
+
+            $query->where('dealership_id', $dealershipId);
+        }
+
+        $deletedOnly = $request->boolean('deleted_only');
+
+        if ($deletedOnly) {
+            $query->onlyTrashed()->orderByDesc('deleted_at');
+        } elseif ($request->query('active_only') === 'true') {
             $query->where('is_active', true);
         }
 
@@ -70,18 +85,36 @@ class ShiftScheduleController extends Controller
      */
     public function store(StoreShiftScheduleRequest $request): JsonResponse
     {
+        $currentUser = $request->user();
+        if (! $currentUser) {
+            return response()->json(['message' => 'Не авторизован'], 401);
+        }
+
         $data = $request->validated();
+        $accessError = $this->validateDealershipAccess($currentUser, (int) $data['dealership_id']);
+        if ($accessError) {
+            return $accessError;
+        }
 
-        // Проверка уникальности имени в рамках автосалона
-        $exists = ShiftSchedule::where('dealership_id', $data['dealership_id'])
+        $existingSchedule = ShiftSchedule::withTrashed()
+            ->where('dealership_id', $data['dealership_id'])
             ->where('name', $data['name'])
-            ->exists();
+            ->first();
 
-        if ($exists) {
+        if ($existingSchedule && ! $existingSchedule->trashed()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Смена с таким названием уже существует в этом автосалоне',
             ], 422);
+        }
+
+        if ($existingSchedule && $existingSchedule->trashed()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Расписание смены с таким названием уже есть в архиве',
+                'error_code' => 'archived_duplicate',
+                'archived_schedule' => new ShiftScheduleResource($existingSchedule),
+            ], 409);
         }
 
         $schedule = ShiftSchedule::create($data);
@@ -197,6 +230,53 @@ class ShiftScheduleController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Смена удалена',
+        ]);
+    }
+
+    /**
+     * POST /api/v1/shift-schedules/{id}/restore
+     */
+    public function restore(Request $request, int $id): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! $currentUser) {
+            return response()->json(['message' => 'Не авторизован'], 401);
+        }
+
+        $schedule = ShiftSchedule::withTrashed()->findOrFail($id);
+
+        if (! $schedule->trashed()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Расписание смены уже активно',
+            ], 422);
+        }
+
+        $accessError = $this->validateDealershipAccess($currentUser, $schedule->dealership_id);
+        if ($accessError) {
+            return $accessError;
+        }
+
+        $activeDuplicateExists = ShiftSchedule::query()
+            ->where('dealership_id', $schedule->dealership_id)
+            ->where('name', $schedule->name)
+            ->where('id', '!=', $schedule->id)
+            ->exists();
+
+        if ($activeDuplicateExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Нельзя восстановить расписание: активная смена с таким названием уже существует',
+                'error_code' => 'active_duplicate',
+            ], 409);
+        }
+
+        $schedule->restore();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Расписание смены восстановлено',
+            'data' => new ShiftScheduleResource($schedule->fresh()),
         ]);
     }
 }

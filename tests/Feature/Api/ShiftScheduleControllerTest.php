@@ -91,6 +91,18 @@ describe('ShiftSchedule API', function () {
             expect($response->json('data'))->toHaveCount(0);
         });
 
+        it('returns soft-deleted schedules when deleted_only is true', function () {
+            $this->schedule->delete();
+
+            $response = $this->actingAs($this->employee, 'sanctum')
+                ->getJson("/api/v1/shift-schedules?dealership_id={$this->dealership->id}&deleted_only=true");
+
+            $response->assertStatus(200);
+            expect($response->json('data'))->toHaveCount(1);
+            expect($response->json('data.0.name'))->toBe('Смена 1');
+            expect($response->json('data.0.deleted_at'))->not->toBeNull();
+        });
+
         it('orders by sort_order', function () {
             ShiftSchedule::create([
                 'dealership_id' => $this->dealership->id,
@@ -208,6 +220,22 @@ describe('ShiftSchedule API', function () {
                     'start_time' => '19:00',
                     'end_time' => '23:00',
                 ])->assertStatus(422);
+        });
+
+        it('returns archived duplicate error for soft-deleted schedule with same name', function () {
+            $this->schedule->delete();
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson('/api/v1/shift-schedules', [
+                    'dealership_id' => $this->dealership->id,
+                    'name' => 'Смена 1',
+                    'start_time' => '19:00',
+                    'end_time' => '23:00',
+                ]);
+
+            $response->assertStatus(409);
+            expect($response->json('error_code'))->toBe('archived_duplicate');
+            expect($response->json('archived_schedule.id'))->toBe($this->schedule->id);
         });
 
         it('allows same name in different dealership', function () {
@@ -449,6 +477,49 @@ describe('ShiftSchedule API', function () {
             $this->actingAs($this->manager, 'sanctum')
                 ->deleteJson('/api/v1/shift-schedules/99999')
                 ->assertStatus(404);
+        });
+    });
+
+    // ─── RESTORE ───────────────────────────────────────────
+
+    describe('restore', function () {
+        beforeEach(function () {
+            $this->schedule2 = ShiftSchedule::create([
+                'dealership_id' => $this->dealership->id,
+                'name' => 'Смена 2',
+                'sort_order' => 1,
+                'start_time' => '19:00',
+                'end_time' => '23:00',
+                'is_active' => true,
+            ]);
+        });
+
+        it('restores soft-deleted schedule', function () {
+            $this->schedule->delete();
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson("/api/v1/shift-schedules/{$this->schedule->id}/restore");
+
+            $response->assertStatus(200);
+            expect($response->json('data.id'))->toBe($this->schedule->id);
+            expect(ShiftSchedule::find($this->schedule->id))->not->toBeNull();
+        });
+
+        it('prevents restoring when active duplicate exists', function () {
+            $this->schedule->delete();
+            $this->schedule2->update(['name' => 'Смена 1']);
+
+            $response = $this->actingAs($this->manager, 'sanctum')
+                ->postJson("/api/v1/shift-schedules/{$this->schedule->id}/restore");
+
+            $response->assertStatus(409);
+            expect($response->json('error_code'))->toBe('active_duplicate');
+        });
+
+        it('returns validation error for already active schedule', function () {
+            $this->actingAs($this->manager, 'sanctum')
+                ->postJson("/api/v1/shift-schedules/{$this->schedule->id}/restore")
+                ->assertStatus(422);
         });
     });
 });
