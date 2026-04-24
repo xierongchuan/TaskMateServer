@@ -229,7 +229,7 @@ class ShiftScheduleController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Смена удалена',
+            'message' => 'Смена архивирована',
         ]);
     }
 
