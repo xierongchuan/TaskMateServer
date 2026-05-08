@@ -185,4 +185,33 @@ describe('ProcessTaskGeneratorsJob', function () {
 
         Carbon::setTestNow();
     });
+
+    it('does not create task before recurrence time and creates it exactly at recurrence time in UTC', function () {
+        $generator = TaskGenerator::factory()->create([
+            'dealership_id' => $this->dealership->id,
+            'creator_id' => $this->manager->id,
+            'is_active' => true,
+            'recurrence' => 'daily',
+            'start_date' => Carbon::parse('2026-05-08 00:00:00', 'UTC'),
+            'recurrence_time' => '09:00:00',
+            'deadline_time' => '18:00:00',
+            'last_generated_at' => Carbon::parse('2026-05-06 12:00:00', 'UTC'),
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-05-08 08:59:59', 'UTC'));
+        $job = new ProcessTaskGeneratorsJob;
+        $job->handle();
+
+        expect(Task::where('generator_id', $generator->id)->count())->toBe(0);
+
+        Carbon::setTestNow(Carbon::parse('2026-05-08 09:00:00', 'UTC'));
+        $job->handle();
+
+        $task = Task::where('generator_id', $generator->id)->first();
+        expect($task)->not->toBeNull();
+        expect($task->appear_date->copy()->setTimezone('UTC')->toIso8601ZuluString())->toBe('2026-05-08T09:00:00Z');
+        expect($task->deadline->copy()->setTimezone('UTC')->toIso8601ZuluString())->toBe('2026-05-08T18:00:00Z');
+
+        Carbon::setTestNow();
+    });
 });
