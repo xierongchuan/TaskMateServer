@@ -209,16 +209,60 @@ describe('DashboardService', function () {
             expect($data['late_shifts_today'])->toBe(1);
         });
 
-        it('returns today tasks list', function () {
-            // Arrange - tasks are created but without completed responses,
-            // so they won't appear in today_tasks_list unless overdue
-            Task::factory(10)->create(['dealership_id' => $this->dealership->id]);
+        it('returns tasks with deadline today in today tasks list', function () {
+            // Arrange
+            $todayTask = Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'title' => 'Задача на сегодня',
+                'deadline' => Carbon::now('UTC')->addHour(),
+            ]);
+            Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'deadline' => Carbon::now('UTC')->addDay(),
+            ]);
 
             // Act
             $data = $this->dashboardService->getDashboardData($this->dealership->id);
 
             // Assert
-            expect($data)->toHaveKey('today_tasks_list');
+            expect($data['today_tasks_list'])->toHaveCount(1);
+            expect($data['today_tasks_list'][0]['id'])->toBe($todayTask->id);
+            expect($data['today_tasks_list'][0]['title'])->toBe('Задача на сегодня');
+        });
+
+        it('excludes tasks with deadline outside today from today tasks list', function () {
+            // Arrange
+            Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'deadline' => Carbon::now('UTC')->addDay(),
+            ]);
+
+            // Act
+            $data = $this->dashboardService->getDashboardData($this->dealership->id);
+
+            // Assert
+            expect($data['today_tasks_list'])->toBeEmpty();
+        });
+
+        it('does not replace today tasks list with tasks completed today without today deadline', function () {
+            // Arrange
+            $completedTask = Task::factory()->create([
+                'dealership_id' => $this->dealership->id,
+                'task_type' => 'individual',
+                'deadline' => Carbon::now('UTC')->subDay(),
+            ]);
+            TaskResponse::create([
+                'task_id' => $completedTask->id,
+                'user_id' => $this->employee->id,
+                'status' => 'completed',
+                'responded_at' => Carbon::now('UTC'),
+            ]);
+
+            // Act
+            $data = $this->dashboardService->getDashboardData($this->dealership->id);
+
+            // Assert
+            expect($data['today_tasks_list'])->toBeEmpty();
         });
 
         it('counts generator statistics', function () {

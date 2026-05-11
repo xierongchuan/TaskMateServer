@@ -163,4 +163,38 @@ describe('Dashboard API', function () {
         // Ensure non-overdue and completed are not in the list
         expect($list->pluck('id'))->not->toContain($completedOverdueTask->id);
     });
+
+    it('returns today tasks list for tasks with deadline today', function () {
+        // Arrange
+        $todayTask = Task::factory()->create([
+            'title' => 'Today Dashboard Task',
+            'is_active' => true,
+            'dealership_id' => $this->dealership->id,
+            'deadline' => Carbon::now('UTC')->addHour(),
+        ]);
+
+        Task::factory()->create([
+            'title' => 'Tomorrow Dashboard Task',
+            'is_active' => true,
+            'dealership_id' => $this->dealership->id,
+            'deadline' => Carbon::now('UTC')->addDay(),
+        ]);
+
+        // Act
+        $response = $this->actingAs($this->manager, 'sanctum')
+            ->getJson('/api/v1/dashboard');
+
+        // Assert
+        $response->assertStatus(200);
+        $data = $response->json('data');
+
+        expect($data)->toHaveKey('today_tasks_list');
+        expect($data['today_tasks_list'])->toBeArray();
+
+        $list = collect($data['today_tasks_list']);
+        $found = $list->firstWhere('id', $todayTask->id);
+
+        expect($found)->not->toBeNull();
+        expect($found['title'])->toBe('Today Dashboard Task');
+    });
 });

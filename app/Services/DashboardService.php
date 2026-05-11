@@ -311,7 +311,7 @@ class DashboardService
     }
 
     /**
-     * Получает список задач за сегодня: просроченные первыми, затем выполненные.
+     * Получает список задач с дедлайном на сегодня.
      *
      * "Сегодня" определяется по timezone автосалона (todayBoundaries).
      */
@@ -319,31 +319,15 @@ class DashboardService
     {
         $todayStart = $this->todayBoundaries['start'];
         $todayEnd = $this->todayBoundaries['end'];
-        $nowUtc = TimeHelper::nowUtc();
 
-        // Просроченные задачи (overdue)
-        $overdueTasks = Task::with(['creator:id,full_name', 'dealership:id,name', 'assignments.user:id,full_name', 'responses.user:id,full_name'])
-            ->overdue($nowUtc)
+        return Task::with(['creator:id,full_name', 'dealership:id,name', 'assignments.user:id,full_name', 'responses.user:id,full_name'])
+            ->whereNull('archived_at')
+            ->whereNotNull('deadline')
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
+            ->whereBetween('deadline', [$todayStart, $todayEnd])
             ->orderBy('deadline')
             ->limit(15)
-            ->get();
-
-        // Выполненные сегодня задачи
-        $remainingLimit = max(0, 15 - $overdueTasks->count());
-        $completedTasks = collect();
-
-        if ($remainingLimit > 0) {
-            $completedTasks = Task::with(['creator:id,full_name', 'dealership:id,name', 'assignments.user:id,full_name', 'responses.user:id,full_name'])
-                ->whereNull('archived_at')
-                ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
-                ->completed($todayStart, $todayEnd)
-                ->orderByDesc('updated_at')
-                ->limit($remainingLimit)
-                ->get();
-        }
-
-        return $overdueTasks->concat($completedTasks)
+            ->get()
             ->map(fn ($task) => TaskResource::make($task)->resolve());
     }
 
