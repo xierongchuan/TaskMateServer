@@ -640,4 +640,33 @@ describe('ShiftService', function () {
             }
         });
     });
+
+    describe('getShiftStatistics', function () {
+        it('returns rounded average late minutes as a number', function () {
+            Shift::factory()->closed()->create([
+                'user_id' => $this->user->id,
+                'dealership_id' => $this->dealership->id,
+                'status' => 'late',
+                'late_minutes' => 10,
+                'shift_start' => Carbon::parse('2026-06-01 09:00:00', 'UTC'),
+            ]);
+            Shift::factory()->closed()->create([
+                'user_id' => $this->user->id,
+                'dealership_id' => $this->dealership->id,
+                'status' => 'late',
+                'late_minutes' => 21,
+                'shift_start' => Carbon::parse('2026-06-02 09:00:00', 'UTC'),
+            ]);
+
+            $statistics = $this->service->getShiftStatistics(
+                $this->dealership->id,
+                Carbon::parse('2026-06-01 00:00:00', 'UTC'),
+                Carbon::parse('2026-06-03 00:00:00', 'UTC'),
+            );
+
+            expect($statistics['total_shifts'])->toBe(2)
+                ->and($statistics['late_shifts'])->toBe(2)
+                ->and($statistics['avg_late_minutes'])->toBe(15.5);
+        });
+    });
 });

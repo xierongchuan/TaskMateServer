@@ -267,7 +267,7 @@ class ShiftService
 
         $totalShifts = $query->count();
         $lateShifts = (clone $query)->where("status", ShiftStatus::LATE->value)->count();
-        $avgLateMinutes = (clone $query)->whereNotNull("late_minutes")->avg("late_minutes") ?? 0;
+        $avgLateMinutes = (float) ((clone $query)->whereNotNull("late_minutes")->avg("late_minutes") ?? 0);
 
         return [
             "total_shifts" => $totalShifts,
