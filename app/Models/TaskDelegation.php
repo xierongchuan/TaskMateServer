@@ -53,17 +53,17 @@ class TaskDelegation extends Model
 
     public function fromUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'from_user_id');
+        return $this->belongsTo(User::class, 'from_user_id')->withTrashed();
     }
 
     public function toUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'to_user_id');
+        return $this->belongsTo(User::class, 'to_user_id')->withTrashed();
     }
 
     public function canceller(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'cancelled_by');
+        return $this->belongsTo(User::class, 'cancelled_by')->withTrashed();
     }
 
     public function isPending(): bool

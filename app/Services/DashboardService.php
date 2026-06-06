@@ -134,7 +134,7 @@ class DashboardService
      */
     protected function getActiveShifts(?int $dealershipId): Collection
     {
-        return Shift::with(['user:id,full_name', 'dealership:id,name'])
+        return Shift::with(['user:id,full_name,deleted_at', 'dealership:id,name'])
             ->whereIn('status', ShiftStatus::activeStatusValues())
             ->whereNull('shift_end')
             ->when($dealershipId, fn ($q) => $q->where('dealership_id', $dealershipId))
@@ -142,10 +142,10 @@ class DashboardService
             ->get()
             ->map(fn ($shift) => [
                 'id' => $shift->id,
-                'user' => [
+                'user' => $shift->user ? [
                     'id' => $shift->user->id,
                     'full_name' => $shift->user->full_name,
-                ],
+                ] : null,
                 'dealership' => $shift->dealership ? [
                     'id' => $shift->dealership->id,
                     'name' => $shift->dealership->name,

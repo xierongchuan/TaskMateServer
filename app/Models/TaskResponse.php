@@ -77,7 +77,7 @@ class TaskResponse extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id')->withTrashed();
     }
 
     public function shift(): BelongsTo
@@ -90,7 +90,7 @@ class TaskResponse extends Model
      */
     public function verifier(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'verified_by');
+        return $this->belongsTo(User::class, 'verified_by')->withTrashed();
     }
 
     /**

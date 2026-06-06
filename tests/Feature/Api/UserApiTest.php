@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Enums\Role;
 use App\Models\AutoDealership;
+use App\Models\Shift;
+use App\Models\TaskGenerator;
+use App\Models\TaskGeneratorAssignment;
 use App\Models\User;
 
 describe('Users API', function () {
@@ -291,6 +294,122 @@ describe('Users API', function () {
 
             // Assert
             expect($response->status())->toBe(200);
+        });
+
+        it('soft deletes user with shift history and preserves closed shifts', function () {
+            $dealership = AutoDealership::factory()->create();
+            $user = User::factory()->create([
+                'role' => Role::EMPLOYEE->value,
+                'dealership_id' => $dealership->id,
+            ]);
+            $manager = User::factory()->create([
+                'role' => Role::MANAGER->value,
+                'dealership_id' => $dealership->id,
+            ]);
+
+            $shift = Shift::factory()->closed()->create([
+                'user_id' => $user->id,
+                'dealership_id' => $dealership->id,
+            ]);
+
+            $response = $this->actingAs($manager, 'sanctum')
+                ->deleteJson("/api/v1/users/{$user->id}");
+
+            $response->assertStatus(200);
+            $this->assertSoftDeleted('users', ['id' => $user->id]);
+            $this->assertDatabaseHas('shifts', [
+                'id' => $shift->id,
+                'user_id' => $user->id,
+                'status' => 'closed',
+            ]);
+
+            $shiftWithUser = Shift::with('user')->findOrFail($shift->id);
+            expect($shiftWithUser->user)->not->toBeNull()
+                ->and($shiftWithUser->user->id)->toBe($user->id);
+        });
+
+        it('closes active shifts when soft deleting user', function () {
+            $dealership = AutoDealership::factory()->create();
+            $user = User::factory()->create([
+                'role' => Role::EMPLOYEE->value,
+                'dealership_id' => $dealership->id,
+            ]);
+            $manager = User::factory()->create([
+                'role' => Role::MANAGER->value,
+                'dealership_id' => $dealership->id,
+            ]);
+
+            $shift = Shift::factory()->late()->create([
+                'user_id' => $user->id,
+                'dealership_id' => $dealership->id,
+                'shift_end' => null,
+            ]);
+
+            $response = $this->actingAs($manager, 'sanctum')
+                ->deleteJson("/api/v1/users/{$user->id}");
+
+            $response->assertStatus(200);
+            $this->assertSoftDeleted('users', ['id' => $user->id]);
+
+            $shift->refresh();
+            expect($shift->status)->toBe('closed')
+                ->and($shift->shift_end)->not->toBeNull();
+        });
+
+        it('removes user from task generators when soft deleting user', function () {
+            $dealership = AutoDealership::factory()->create();
+            $user = User::factory()->create([
+                'role' => Role::EMPLOYEE->value,
+                'dealership_id' => $dealership->id,
+            ]);
+            $manager = User::factory()->create([
+                'role' => Role::MANAGER->value,
+                'dealership_id' => $dealership->id,
+            ]);
+            $generator = TaskGenerator::factory()->create(['dealership_id' => $dealership->id]);
+            $generator->assignments()->delete();
+            TaskGeneratorAssignment::create([
+                'generator_id' => $generator->id,
+                'user_id' => $user->id,
+            ]);
+
+            $response = $this->actingAs($manager, 'sanctum')
+                ->deleteJson("/api/v1/users/{$user->id}");
+
+            $response->assertStatus(200);
+            $this->assertSoftDeleted('users', ['id' => $user->id]);
+            $this->assertDatabaseMissing('task_generator_assignments', [
+                'generator_id' => $generator->id,
+                'user_id' => $user->id,
+            ]);
+        });
+
+        it('allows reusing login after soft deleting user', function () {
+            $user = User::factory()->create([
+                'login' => 'employee.login',
+                'role' => Role::EMPLOYEE->value,
+            ]);
+            $manager = User::factory()->create(['role' => Role::MANAGER->value]);
+
+            $deleteResponse = $this->actingAs($manager, 'sanctum')
+                ->deleteJson("/api/v1/users/{$user->id}");
+            $deleteResponse->assertStatus(200);
+
+            $createResponse = $this->actingAs($manager, 'sanctum')
+                ->postJson('/api/v1/users', [
+                    'login' => 'employee.login',
+                    'password' => 'SecurePassword123!',
+                    'password_confirmation' => 'SecurePassword123!',
+                    'full_name' => 'Replacement Employee',
+                    'role' => Role::EMPLOYEE->value,
+                    'phone' => '+998901234567',
+                ]);
+
+            $createResponse->assertStatus(201);
+            $this->assertDatabaseHas('users', [
+                'login' => 'employee.login',
+                'deleted_at' => null,
+            ]);
         });
 
         it('requires manager or owner role for deletion', function () {

@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\Role;
+use App\Enums\ShiftStatus;
 use App\Exceptions\AccessDeniedException;
 use App\Exceptions\SelfEditRestrictedException;
+use App\Helpers\TimeHelper;
+use App\Models\Shift;
+use App\Models\TaskGeneratorAssignment;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -124,8 +129,8 @@ class UserService
     /**
      * Удаляет пользователя.
      *
-     * Предварительно проверяет наличие связанных данных.
-     * Возвращает массив с информацией о связях, если удаление невозможно.
+     * Soft-delete используется как offboarding: исторические записи остаются,
+     * а операционные хвосты закрываются/отвязываются.
      *
      * @param  User  $targetUser  Пользователь, которого удаляем
      * @param  User  $deleter  Пользователь, выполняющий удаление
@@ -134,28 +139,37 @@ class UserService
      */
     public function deleteUser(User $targetUser, User $deleter): array
     {
-        // Загружаем счётчики связанных данных одним запросом
-        $targetUser->loadCount(['shifts', 'taskAssignments', 'taskResponses', 'createdTasks', 'createdLinks']);
+        DB::transaction(function () use ($targetUser) {
+            $now = TimeHelper::nowUtc();
 
-        $countMap = [
-            'shifts' => $targetUser->shifts_count,
-            'task_assignments' => $targetUser->task_assignments_count,
-            'task_responses' => $targetUser->task_responses_count,
-            'created_tasks' => $targetUser->created_tasks_count,
-            'created_links' => $targetUser->created_links_count,
-        ];
+            Shift::where('user_id', $targetUser->id)
+                ->whereIn('status', ShiftStatus::activeStatusValues())
+                ->whereNull('shift_end')
+                ->lockForUpdate()
+                ->get()
+                ->each(function (Shift $shift) use ($now): void {
+                    $shift->update([
+                        'shift_end' => $now,
+                        'status' => ShiftStatus::CLOSED->value,
+                    ]);
+                });
 
-        $relatedData = array_filter($countMap, fn (int $count) => $count > 0);
+            TaskGeneratorAssignment::where('user_id', $targetUser->id)->delete();
 
-        if (! empty($relatedData)) {
-            return $relatedData;
-        }
+            $targetUser->login = $this->deletedLogin($targetUser);
 
-        // Удаляем токены перед удалением пользователя
-        $targetUser->tokens()->delete();
-        $targetUser->delete();
+            // Удаляем токены перед soft-delete пользователя.
+            $targetUser->tokens()->delete();
+            $targetUser->save();
+            $targetUser->delete();
+        });
 
         return [];
+    }
+
+    private function deletedLogin(User $user): string
+    {
+        return substr("__deleted_{$user->id}_{$user->login}", 0, 100);
     }
 
     /**
