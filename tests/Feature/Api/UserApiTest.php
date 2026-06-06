@@ -387,6 +387,7 @@ describe('Users API', function () {
         it('allows reusing login after soft deleting user', function () {
             $user = User::factory()->create([
                 'login' => 'employee.login',
+                'phone' => '+998901111111',
                 'role' => Role::EMPLOYEE->value,
             ]);
             $manager = User::factory()->create(['role' => Role::MANAGER->value]);
@@ -394,6 +395,11 @@ describe('Users API', function () {
             $deleteResponse = $this->actingAs($manager, 'sanctum')
                 ->deleteJson("/api/v1/users/{$user->id}");
             $deleteResponse->assertStatus(200);
+
+            $deletedUser = User::withTrashed()->findOrFail($user->id);
+            expect($deletedUser->login)->not->toBe('employee.login')
+                ->and($deletedUser->login)->toStartWith("deleted_{$user->id}_")
+                ->and($deletedUser->phone)->toBeNull();
 
             $createResponse = $this->actingAs($manager, 'sanctum')
                 ->postJson('/api/v1/users', [
@@ -410,6 +416,26 @@ describe('Users API', function () {
                 'login' => 'employee.login',
                 'deleted_at' => null,
             ]);
+        });
+
+        it('prevents login with soft deleted user credentials', function () {
+            $user = User::factory()->create([
+                'login' => 'deleted.login',
+                'password' => bcrypt('OldPassword123!'),
+                'role' => Role::EMPLOYEE->value,
+            ]);
+            $manager = User::factory()->create(['role' => Role::MANAGER->value]);
+
+            $deleteResponse = $this->actingAs($manager, 'sanctum')
+                ->deleteJson("/api/v1/users/{$user->id}");
+            $deleteResponse->assertStatus(200);
+
+            $loginResponse = $this->postJson('/api/v1/session', [
+                'login' => 'deleted.login',
+                'password' => 'OldPassword123!',
+            ]);
+
+            $loginResponse->assertStatus(401);
         });
 
         it('requires manager or owner role for deletion', function () {

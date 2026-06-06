@@ -14,6 +14,7 @@ use App\Models\TaskGeneratorAssignment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * Сервис для управления пользователями.
@@ -157,6 +158,8 @@ class UserService
             TaskGeneratorAssignment::where('user_id', $targetUser->id)->delete();
 
             $targetUser->login = $this->deletedLogin($targetUser);
+            $targetUser->phone = null;
+            $targetUser->password = Hash::make(Str::random(64));
 
             // Удаляем токены перед soft-delete пользователя.
             $targetUser->tokens()->delete();
@@ -169,7 +172,7 @@ class UserService
 
     private function deletedLogin(User $user): string
     {
-        return substr("__deleted_{$user->id}_{$user->login}", 0, 100);
+        return substr("deleted_{$user->id}_".Str::random(24), 0, 100);
     }
 
     /**
